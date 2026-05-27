@@ -108,8 +108,16 @@ _auth.onAuthStateChanged(async (user) => {
     }
 
     _hideOverlay();
-    if (window.App && window.App.renderAll) {
-      try { window.App.renderAll(); } catch(e) {}
+    // DOM 업데이트 후 렌더링 (타이밍 버그 방지)
+    const doRender = () => {
+      if (window.App && window.App.renderAll) {
+        try { window.App.renderAll(); } catch(e) { console.error(e); }
+      }
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', doRender);
+    } else {
+      setTimeout(doRender, 80);
     }
   } else {
     _currentUser = null;
