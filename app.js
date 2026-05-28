@@ -325,6 +325,16 @@ function applyMonthTheme(m) {
 // ===== HELPERS =====
 function fmt(n){if(n===undefined||n===null||isNaN(n))return'0원';return Math.round(n).toLocaleString('ko-KR')+'원';}
 function fmtSigned(n){return n>0?'+'+fmt(n):fmt(n);}
+
+// ===== NUMBER INPUT FORMATTING =====
+function numInputFmt(el){
+  const raw=el.value.replace(/[^0-9]/g,'');
+  if(!raw){el.value='';return;}
+  el.value=Number(raw).toLocaleString('ko-KR');
+}
+function numInputParse(val){
+  return parseFloat(String(val||'').replace(/[^0-9.]/g,''))||0;
+}
 function genId(){return Date.now()+Math.floor(Math.random()*9999);}
 function mkey(y,m){return y+'-'+m;}
 
@@ -428,7 +438,7 @@ function getEffectiveVariable(y,m){
     id:'credit_cat_'+cat,
     name:cat,
     category:cat,
-    amount:amt,
+    amount:amt+(ledgerSums[cat]||0),
     autoFromCredit:true
   }));
 
@@ -458,7 +468,6 @@ function getCardRate(cardId,months){
 
 function getTotalIncome(y,m){return getMonthData(y,m).income.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);}
 function getTotalFixed(y,m){return getMonthData(y,m).fixed.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);}
-function getTotalFixedExpense(y,m){return getMonthData(y,m).fixed.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);}
 function getTotalSavings(y,m){return getLedgerSavings(y,m);}
 function getLedgerSavings(y,m){
   const key=mkey(y,m);
@@ -608,7 +617,7 @@ function openBudgetModal(id){
 function saveBudgetCategory(){
   const id=document.getElementById('modal-budget-id').value;
   const name=document.getElementById('mb-name').value.trim();
-  const budget=parseFloat(document.getElementById('mb-budget').value)||0;
+  const budget=numInputParse(document.getElementById('mb-budget').value);
   const syncedEl=document.getElementById('mb-synced');
   const synced=syncedEl?syncedEl.checked:true;
   if(!name)return alert('카테고리 이름을 입력해주세요');
@@ -663,7 +672,7 @@ function toggleBudgetSync(checked){
 // ===== REMAINING BUDGET =====
 function saveRemainingBudget(val){
   if(!S.remainingBudgetSettings)S.remainingBudgetSettings={label:'현재 남은 예산',amount:0};
-  S.remainingBudgetSettings.amount=parseFloat(val)||0;
+  S.remainingBudgetSettings.amount=numInputParse(val);
   saveState();
 }
 
@@ -749,8 +758,8 @@ function renderFundCalc(){
             onchange="App.updateFundItem(${item.id},'name',this.value)"
             onkeydown="if(event.key==='Enter')this.blur()"/>
           <div class="fc-item-amount-wrap">
-            <input class="fc-item-amount" type="number" value="${item.amount||''}" placeholder="0"
-              oninput="App.previewFundItem()"
+            <input class="fc-item-amount" type="text" inputmode="numeric" value="${item.amount?(item.amount).toLocaleString('ko-KR'):''}" placeholder="0"
+              oninput="App.numInputFmt(this);App.previewFundItem()"
               onchange="App.updateFundItem(${item.id},'amount',this.value)"
               onkeydown="if(event.key==='Enter')App.updateFundItem(${item.id},'amount',this.value)"/>
             <span class="fc-item-unit">원</span>
@@ -780,7 +789,7 @@ function _fcSummary(){
 function previewFundItem(){
   const fc=S.fundCalc||{amount:0,items:[]};
   let total=0;
-  document.querySelectorAll('.fc-item-amount').forEach(el=>{total+=parseFloat(el.value)||0;});
+  document.querySelectorAll('.fc-item-amount').forEach(el=>{total+=numInputParse(el.value);});
   const remaining=(parseFloat(fc.amount)||0)-total;
   const over=remaining<0;
   const tuEl=document.getElementById('fc-total-used');
@@ -793,11 +802,11 @@ function previewFundItem(){
 
 // oninput on main amount: 보유금액 표시 + 합계 미리보기 (state 저장 없음)
 function previewFundAmount(val){
-  const amount=parseFloat(val)||0;
+  const amount=numInputParse(val);
   const dispEl=document.getElementById('fc-amount-display');
   if(dispEl)dispEl.textContent=amount>0?'보유: '+fmt(amount):'';
   let total=0;
-  document.querySelectorAll('.fc-item-amount').forEach(el=>{total+=parseFloat(el.value)||0;});
+  document.querySelectorAll('.fc-item-amount').forEach(el=>{total+=numInputParse(el.value);});
   const remaining=amount-total;
   const over=remaining<0;
   const tuEl=document.getElementById('fc-total-used');
@@ -810,7 +819,7 @@ function previewFundAmount(val){
 
 function setFundAmount(val){
   if(!S.fundCalc)S.fundCalc={amount:0,items:[]};
-  S.fundCalc.amount=parseFloat(val)||0;
+  S.fundCalc.amount=numInputParse(val);
   saveState();renderFundCalc();
 }
 
@@ -830,7 +839,7 @@ function updateFundItem(id,field,value){
   if(!S.fundCalc)return;
   const item=(S.fundCalc.items||[]).find(i=>i.id==id);
   if(!item)return;
-  item[field]=field==='amount'?(parseFloat(value)||0):value;
+  item[field]=field==='amount'?numInputParse(value):value;
   saveState();
   // amount 저장 시 합계만 갱신 (list 재렌더 금지 — focus 유지)
   _fcSummary();
@@ -872,56 +881,6 @@ function applyAssetSelection(){
   saveState();renderFundCalc();
 }
 
-
-// ===== STOCK→ASSET AUTO SYNC =====
-function getFoodBudgetAmount(y,m){
-  const key=mkey(y,m);
-  const foodCat=(S.budgetCategories||[]).find(c=>c.name==='식비');
-  if(!foodCat)return 0;
-  // per-month override first
-  if(S.monthBudgets&&S.monthBudgets[key]&&S.monthBudgets[key][foodCat.id]!==undefined){
-    return S.monthBudgets[key][foodCat.id];
-  }
-  // synced: use global if syncFrom is before or equal this month
-  if(foodCat.synced!==false){
-    if(!foodCat.syncFrom)return foodCat.budget;
-    const [sy,sm]=foodCat.syncFrom.split('-').map(Number);
-    if(y>sy||(y===sy&&m>=sm))return foodCat.budget;
-  }
-  return foodCat.budget;
-}
-
-function syncStockAsset(){
-  const totalBuy=(S.stocks||[]).reduce((s,st)=>{
-    if(st.stockType==='foreign'||st.stockType==='gold')return s+(parseFloat(st.buyAmount)||0);
-    return s+(parseFloat(st.buyPrice)||0)*(parseFloat(st.quantity)||0);
-  },0);
-  if(!S.assets)S.assets=[];
-  let autoAsset=S.assets.find(a=>a.id===S.stockAssetAutoId||(a._isStockAuto&&a.category==='주식'));
-  if(!autoAsset){
-    autoAsset={id:genId(),name:'주식 매입금액(자동)',amount:totalBuy,category:'주식',_isStockAuto:true};
-    S.assets.push(autoAsset);
-    S.stockAssetAutoId=autoAsset.id;
-  } else {
-    autoAsset.amount=totalBuy;
-    S.stockAssetAutoId=autoAsset.id;
-  }
-}
-
-function toggleStockAssetDirect(checked){
-  S.stockAssetDirect=!!checked;
-  if(!checked){
-    syncStockAsset();
-  }
-  saveState();renderAssets();
-}
-
-function toggleCalFoodSync(y,m){
-  const key=y+'-'+m;
-  if(!S.calFoodSync)S.calFoodSync={};
-  S.calFoodSync[key]=!S.calFoodSync[key];
-  saveState();renderCalendar();
-}
 
 // ===== DASHBOARD =====
 function renderDashboard(){
@@ -1406,7 +1365,8 @@ function renderAssetStocks(){
       </div>
       <div class="stk-card-row">
         <span class="stk-card-label">현재가</span>
-        <input class="stk-price-input" type="number" value="${st.currentPrice}"
+        <input class="stk-price-input" type="text" inputmode="numeric" value="${st.currentPrice?(st.currentPrice).toLocaleString('ko-KR'):''}"
+          oninput="App.numInputFmt(this)"
           onchange="App.updateStockPrice(${st.id},this.value)"/>
       </div>
       <div class="stk-card-row">
@@ -1436,12 +1396,14 @@ function renderAssetStocks(){
       ${st.ticker&&st.ticker!=='금현물'?`<div class="stk-card-ticker">${st.ticker}${st.sector?' · '+st.sector:''}</div>`:st.sector?`<div class="stk-card-ticker">${st.sector}</div>`:''}
       <div class="stk-card-row">
         <span class="stk-card-label">매입금액</span>
-        <input class="stk-price-input" type="number" value="${cost||''}" placeholder="0"
+        <input class="stk-price-input" type="text" inputmode="numeric" value="${cost?(cost).toLocaleString('ko-KR'):''}" placeholder="0"
+          oninput="App.numInputFmt(this)"
           onchange="App.updateStockBuyAmount(${st.id},this.value)"/>
       </div>
       <div class="stk-card-row">
         <span class="stk-card-label">평가금액</span>
-        <input class="stk-price-input" type="number" value="${val||''}" placeholder="0"
+        <input class="stk-price-input" type="text" inputmode="numeric" value="${val?(val).toLocaleString('ko-KR'):''}" placeholder="0"
+          oninput="App.numInputFmt(this)"
           onchange="App.updateStockCurrentAmount(${st.id},this.value)" style="background:#e8f5e9;"/>
       </div>
       <div class="stk-card-row">
@@ -1699,7 +1661,8 @@ function renderSavingsGoals(){
         <div class="savings-goal-meta">
           <div class="savings-goal-meta-left">
             <span class="savings-saved-label">저축</span>
-            <input class="savings-saved-input" type="number" value="${saved}"
+            <input class="savings-saved-input" type="text" inputmode="numeric" value="${saved?(saved).toLocaleString('ko-KR'):''}"
+              oninput="App.numInputFmt(this)"
               onchange="App.updateSavedAmount(${g.id},this.value)"
               onkeydown="if(event.key==='Enter'){App.updateSavedAmount(${g.id},this.value);this.blur();}"
               style="border-color:${color}"/>
@@ -1817,7 +1780,8 @@ function renderFoodPanel(d){
       <div class="food-panel-field">
         <label>💰 식비 금액 (원)</label>
         <div class="food-panel-input-row">
-          <input type="number" id="fp-amount" class="form-input" value="${dd.amount||''}" placeholder="15000"
+          <input type="text" inputmode="numeric" id="fp-amount" class="form-input" value="${dd.amount?(dd.amount).toLocaleString('ko-KR'):''}" placeholder="15,000"
+            oninput="App.numInputFmt(this)"
             onkeydown="if(event.key==='Enter')App.saveFoodField(${d},'amount')"/>
           <button class="food-save-field-btn" onclick="App.saveFoodField(${d},'amount')">저장</button>
         </div>
@@ -1844,7 +1808,7 @@ function saveFoodField(d,field){
   if(!S.foodCalendar[key][d])S.foodCalendar[key][d]={};
   let value;
   if(field==='amount'){
-    value=parseFloat(document.getElementById('fp-amount').value)||0;
+    value=numInputParse(document.getElementById('fp-amount').value);
   } else {
     value=(document.getElementById('fp-'+field).value||'').trim();
   }
@@ -2013,7 +1977,7 @@ function saveIncome(){
   const id=document.getElementById('modal-income-id').value;
   const name=document.getElementById('mi-name').value.trim();
   const category=document.getElementById('mi-cat').value.trim()||'기타';
-  const amount=parseFloat(document.getElementById('mi-amount').value)||0;
+  const amount=numInputParse(document.getElementById('mi-amount').value);
   if(!name)return alert('항목명을 입력해주세요');
   if(id){const i=data.income.find(i=>i.id==id);if(i){i.name=name;i.category=category;i.amount=amount;}}
   else data.income.push({id:genId(),name,category,amount});
@@ -2026,7 +1990,7 @@ function saveFixed(){
   const id=document.getElementById('modal-fixed-id').value;
   const name=document.getElementById('mf-name').value.trim();
   const category=document.getElementById('mf-cat').value.trim()||'기타';
-  const amount=parseFloat(document.getElementById('mf-amount').value)||0;
+  const amount=numInputParse(document.getElementById('mf-amount').value);
   if(!name)return alert('항목명을 입력해주세요');
   if(id){const i=data.fixed.find(i=>i.id==id);if(i){i.name=name;i.category=category;i.amount=amount;}}
   else data.fixed.push({id:genId(),name,category,amount});
@@ -2047,7 +2011,7 @@ function saveVariable(){
   const id=document.getElementById('modal-variable-id').value;
   const name=document.getElementById('mv-name').value.trim();
   const category=document.getElementById('mv-cat').value.trim()||'기타';
-  const amount=parseFloat(document.getElementById('mv-amount').value)||0;
+  const amount=numInputParse(document.getElementById('mv-amount').value);
   if(!name)return alert('항목명을 입력해주세요');
   if(id){const i=data.variable.find(i=>i.id==id);if(i){i.name=name;i.category=category;i.amount=amount;}}
   else data.variable.push({id:genId(),name,category,amount});
@@ -2086,7 +2050,7 @@ function saveCredit(){
   const editId=parseInt(document.getElementById('mc-edit-id').value)||0;
   const cardSelId=document.getElementById('mc-card').value;
   const item=document.getElementById('mc-item').value.trim();
-  const amount=parseFloat(document.getElementById('mc-amount').value)||0;
+  const amount=numInputParse(document.getElementById('mc-amount').value);
   const months=parseInt(document.getElementById('mc-months').value)||1;
   const startYear=parseInt(document.getElementById('mc-start-year').value)||2026;
   const startMonth=parseInt(document.getElementById('mc-start-month').value)||1;
@@ -2136,7 +2100,7 @@ function editCredit(id){
   document.getElementById('mc-edit-label').textContent='수정';
   const cardSetting=S.cardSettings.find(c=>c.name===card.card);
   document.getElementById('mc-item').value=card.item;
-  document.getElementById('mc-amount').value=card.amount;
+  document.getElementById('mc-amount').value=(card.amount||0).toLocaleString('ko-KR');
   document.getElementById('mc-months').value=card.months;
   document.getElementById('mc-start-year').value=card.startYear;
   document.getElementById('mc-start-month').value=card.startMonth;
@@ -2172,7 +2136,7 @@ function promptAddAssetCategory(){
 function saveAsset(){
   const id=document.getElementById('modal-asset-id').value;
   const name=document.getElementById('ma-name').value.trim();
-  const amount=parseFloat(document.getElementById('ma-amount').value)||0;
+  const amount=numInputParse(document.getElementById('ma-amount').value);
   const catEl=document.getElementById('ma-category');
   const category=catEl?catEl.value:'계좌';
   if(!name)return alert('자산명을 입력해주세요');
@@ -2201,13 +2165,13 @@ function saveStock(){
   if(!name)return alert('종목명을 입력해주세요');
   let stObj;
   if(stockType==='domestic'){
-    const buyPrice=parseFloat(document.getElementById('ms-buy').value)||0;
-    const currentPrice=parseFloat(document.getElementById('ms-current').value)||buyPrice;
+    const buyPrice=numInputParse(document.getElementById('ms-buy').value);
+    const currentPrice=numInputParse(document.getElementById('ms-current').value)||buyPrice;
     const quantity=parseFloat(document.getElementById('ms-qty').value)||1;
     stObj={name,ticker,sector,stockType,buyPrice,currentPrice,quantity};
   } else {
-    const buyAmount=parseFloat(document.getElementById('ms-buy-amount').value)||0;
-    const currentAmount=parseFloat(document.getElementById('ms-current-amount').value)||buyAmount;
+    const buyAmount=numInputParse(document.getElementById('ms-buy-amount').value);
+    const currentAmount=numInputParse(document.getElementById('ms-current-amount').value)||buyAmount;
     stObj={name,ticker:stockType==='gold'?'금현물':ticker,sector,stockType,buyAmount,currentAmount,buyPrice:0,currentPrice:0,quantity:1};
   }
   if(id){const st=S.stocks.find(s=>s.id==id);if(st)Object.assign(st,stObj);}
@@ -2222,7 +2186,7 @@ function editItem(type,id){
     document.getElementById('modal-income-id').value=id;
     document.getElementById('mi-name').value=i.name;
     document.getElementById('mi-cat').value=i.category;
-    document.getElementById('mi-amount').value=i.amount;
+    document.getElementById('mi-amount').value=(i.amount||0).toLocaleString('ko-KR');
     document.getElementById('modal-income-edit-label').textContent='수정';
     openModal('income');
   } else if(type==='fixed'){
@@ -2230,7 +2194,7 @@ function editItem(type,id){
     document.getElementById('modal-fixed-id').value=id;
     document.getElementById('mf-name').value=i.name;
     document.getElementById('mf-cat').value=i.category;
-    document.getElementById('mf-amount').value=i.amount;
+    document.getElementById('mf-amount').value=(i.amount||0).toLocaleString('ko-KR');
     document.getElementById('modal-fixed-edit-label').textContent='수정';
     openModal('fixed');
   } else if(type==='variable'){
@@ -2240,14 +2204,14 @@ function editItem(type,id){
     document.getElementById('modal-variable-id').value=id;
     document.getElementById('mv-name').value=item.name;
     document.getElementById('mv-cat').value=item.category;
-    document.getElementById('mv-amount').value=item.amount;
+    document.getElementById('mv-amount').value=(item.amount||0).toLocaleString('ko-KR');
     document.getElementById('modal-variable-edit-label').textContent='수정';
     openModal('variable');
   } else if(type==='asset'){
     const a=S.assets.find(a=>a.id==id);if(!a)return;
     document.getElementById('modal-asset-id').value=id;
     document.getElementById('ma-name').value=a.name;
-    document.getElementById('ma-amount').value=a.amount;
+    document.getElementById('ma-amount').value=(a.amount||0).toLocaleString('ko-KR');
     document.getElementById('modal-asset-edit-label').textContent='수정';
     populateAssetCategorySelect(a.category||'계좌');
     openModal('asset');
@@ -2263,12 +2227,12 @@ function editItem(type,id){
     radios.forEach(r=>{r.checked=(r.value===t);});
     onStockTypeChange(t);
     if(t==='domestic'){
-      document.getElementById('ms-buy').value=st.buyPrice||'';
-      document.getElementById('ms-current').value=st.currentPrice||'';
+      document.getElementById('ms-buy').value=st.buyPrice?(st.buyPrice).toLocaleString('ko-KR'):'';
+      document.getElementById('ms-current').value=st.currentPrice?(st.currentPrice).toLocaleString('ko-KR'):'';
       document.getElementById('ms-qty').value=st.quantity||1;
     } else {
-      document.getElementById('ms-buy-amount').value=st.buyAmount||'';
-      document.getElementById('ms-current-amount').value=st.currentAmount||'';
+      document.getElementById('ms-buy-amount').value=st.buyAmount?(st.buyAmount).toLocaleString('ko-KR'):'';
+      document.getElementById('ms-current-amount').value=st.currentAmount?(st.currentAmount).toLocaleString('ko-KR'):'';
       const tmEl=document.getElementById('ms-ticker-manual');
       const smEl=document.getElementById('ms-sector-manual');
       const tickerVal=st.ticker==='금현물'?'':st.ticker;
@@ -2290,10 +2254,10 @@ function deleteItem(type,id){
   saveState();renderAll();
 }
 
-function updateAssetAmount(id,val){const a=S.assets.find(a=>a.id==id);if(a)a.amount=parseFloat(val)||0;saveState();renderAssets();renderDashboard();}
-function updateStockPrice(id,val){const st=S.stocks.find(s=>s.id==id);if(st)st.currentPrice=parseFloat(val)||0;syncStockAsset();saveState();renderStocks();renderAssetStocks();renderDashboard();}
-function updateStockBuyAmount(id,val){const st=S.stocks.find(s=>s.id==id);if(st)st.buyAmount=parseFloat(val)||0;syncStockAsset();saveState();renderAssetStocks();renderDashboard();}
-function updateStockCurrentAmount(id,val){const st=S.stocks.find(s=>s.id==id);if(st)st.currentAmount=parseFloat(val)||0;syncStockAsset();saveState();renderStocks();renderAssetStocks();renderDashboard();}
+function updateAssetAmount(id,val){const a=S.assets.find(a=>a.id==id);if(a)a.amount=numInputParse(val);saveState();renderAssets();renderDashboard();}
+function updateStockPrice(id,val){const st=S.stocks.find(s=>s.id==id);if(st)st.currentPrice=numInputParse(val);syncStockAsset();saveState();renderStocks();renderAssetStocks();renderDashboard();}
+function updateStockBuyAmount(id,val){const st=S.stocks.find(s=>s.id==id);if(st)st.buyAmount=numInputParse(val);syncStockAsset();saveState();renderAssetStocks();renderDashboard();}
+function updateStockCurrentAmount(id,val){const st=S.stocks.find(s=>s.id==id);if(st)st.currentAmount=numInputParse(val);syncStockAsset();saveState();renderStocks();renderAssetStocks();renderDashboard();}
 
 function deleteCredit(id){
   if(!confirm('삭제하시겠어요?'))return;
@@ -2363,7 +2327,7 @@ function saveCalEvent(){
   const monthVal=document.getElementById('modal-cal-month').value;
   const[y,m]=monthVal.split('-').map(Number);
   const name=document.getElementById('mc-event-name').value.trim();
-  const amount=parseFloat(document.getElementById('mc-event-amount').value)||0;
+  const amount=numInputParse(document.getElementById('mc-event-amount').value);
   if(!name)return alert('내용을 입력해주세요');
   if(!S.consumptionCalendar[y])S.consumptionCalendar[y]={};
   if(!S.consumptionCalendar[y][m])S.consumptionCalendar[y][m]=[];
@@ -2393,8 +2357,8 @@ function editSavingsGoal(id){
   const y=S.calYear;const g=(S.savingsGoals[y]||[]).find(g=>g.id==id);if(!g)return;
   document.getElementById('modal-savings-id').value=id;
   document.getElementById('msg-name').value=g.name;
-  document.getElementById('msg-target').value=g.target;
-  document.getElementById('msg-saved').value=g.saved;
+  document.getElementById('msg-target').value=(g.target||0).toLocaleString('ko-KR');
+  document.getElementById('msg-saved').value=(g.saved||0).toLocaleString('ko-KR');
   document.getElementById('msg-color').value=g.color||'#A29BFE';
   document.querySelectorAll('.color-swatch').forEach(b=>b.classList.toggle('active',b.dataset.color===(g.color||'#A29BFE')));
   openModal('savings');
@@ -2403,8 +2367,8 @@ function editSavingsGoal(id){
 function saveSavingsGoal(){
   const y=S.calYear;const id=document.getElementById('modal-savings-id').value;
   const name=document.getElementById('msg-name').value.trim();
-  const target=parseFloat(document.getElementById('msg-target').value)||0;
-  const saved=parseFloat(document.getElementById('msg-saved').value)||0;
+  const target=numInputParse(document.getElementById('msg-target').value);
+  const saved=numInputParse(document.getElementById('msg-saved').value);
   const color=document.getElementById('msg-color').value||'#A29BFE';
   if(!name)return alert('목표명을 입력해주세요');
   if(!S.savingsGoals[y])S.savingsGoals[y]=[];
@@ -2420,7 +2384,7 @@ function deleteSavingsGoal(id){
 
 function updateSavedAmount(id,val){
   const y=S.calYear;const g=(S.savingsGoals[y]||[]).find(g=>g.id==id);
-  if(g)g.saved=parseFloat(val)||0;
+  if(g)g.saved=numInputParse(val);
   saveState();renderSavingsGoals();
 }
 
@@ -2442,7 +2406,7 @@ function toggleFoodDirect(checked){
 function saveFoodDirect(val){
   const cm=S.currentMonths.food;const key=mkey(cm.y,cm.m);
   if(!S.foodDirectSet[key])S.foodDirectSet[key]={direct:true,amount:0};
-  S.foodDirectSet[key].amount=parseFloat(val)||0;
+  S.foodDirectSet[key].amount=numInputParse(val);
   saveState();renderFood();renderIncome();renderDashboard();
 }
 
@@ -2534,7 +2498,7 @@ function addAutoInline(){
   const rawMemo=(document.getElementById('la-memo').value||'').trim();
   const tags=extractTagsFromMemo(rawMemo);
   const memo=cleanMemoText(rawMemo);
-  const amount=parseFloat(document.getElementById('la-amount').value)||0;
+  const amount=numInputParse(document.getElementById('la-amount').value);
   if(!memo||amount<=0)return alert('메모와 금액을 입력해주세요');
   if(!S.automations)S.automations=[];
   S.automations.push({id:genId(),type,billingDay,category,memo,tags,amount,name:memo,active:true});
@@ -2655,7 +2619,7 @@ function addLedgerEntry(){
   const date=document.getElementById('lq-date').value;
   const category=document.getElementById('lq-category').value;
   const rawMemo=document.getElementById('lq-memo').value.trim();
-  const amount=parseFloat(document.getElementById('lq-amount').value)||0;
+  const amount=numInputParse(document.getElementById('lq-amount').value);
   if(!date||amount<=0)return;
   const tags=extractTagsFromMemo(rawMemo);
   const memo=cleanMemoText(rawMemo);
@@ -2733,7 +2697,7 @@ function saveLedgerEdit(){
   const type=document.getElementById('mle-type').value;
   const category=document.getElementById('mle-category').value;
   const rawMemo=document.getElementById('mle-memo').value.trim();
-  const amount=parseFloat(document.getElementById('mle-amount').value)||0;
+  const amount=numInputParse(document.getElementById('mle-amount').value);
   if(!date||amount<=0)return alert('날짜와 금액을 입력해주세요');
   const tags=extractTagsFromMemo(rawMemo);
   const memo=cleanMemoText(rawMemo);
@@ -3193,7 +3157,7 @@ function editSub(id){
 function saveSub(){
   const id=document.getElementById('modal-sub-id').value;
   const name=document.getElementById('ms2-name').value.trim();
-  const amount=parseFloat(document.getElementById('ms2-amount').value)||0;
+  const amount=numInputParse(document.getElementById('ms2-amount').value);
   const billingDay=parseInt(document.getElementById('ms2-day').value)||1;
   const category=document.getElementById('ms2-category').value;
   if(!name||amount<=0)return alert('서비스명과 금액을 입력해주세요');
@@ -3223,7 +3187,7 @@ function editAuto(id){
   document.getElementById('ma2-day').value=a.billingDay;
   const memoWithTags=(a.tags&&a.tags.length>0)?((a.memo||a.name||'')+(a.tags.map(t=>' #'+t).join(''))).trim():(a.memo||a.name||'');
   document.getElementById('ma2-memo').value=memoWithTags;
-  document.getElementById('ma2-amount').value=a.amount;
+  document.getElementById('ma2-amount').value=(a.amount||0).toLocaleString('ko-KR');
   document.getElementById('modal-auto-edit-label').textContent='수정';
   _syncAutoModalCatSelect(a.category);
   openModal('auto');
@@ -3237,7 +3201,7 @@ function saveAuto(){
   const rawMemo=document.getElementById('ma2-memo').value.trim();
   const tags=extractTagsFromMemo(rawMemo);
   const memo=cleanMemoText(rawMemo);
-  const amount=parseFloat(document.getElementById('ma2-amount').value)||0;
+  const amount=numInputParse(document.getElementById('ma2-amount').value);
   if(!memo||amount<=0)return alert('메모와 금액을 입력해주세요');
   if(!S.automations)S.automations=[];
   if(id){
@@ -3346,6 +3310,7 @@ function toggleLcatPanel(){
   const hidden=panel.style.display==='none'||!panel.style.display;
   panel.style.display=hidden?'block':'none';
   if(arrow)arrow.textContent=hidden?'∧':'∨';
+  if(hidden)renderLcatPanel();
 }
 
 // ===== MONTH NAVIGATION =====
@@ -3866,6 +3831,7 @@ window.App={
   toggleBudgetSync,
   addLcatEntry,deleteLcatEntry,toggleLcatSavings,saveLcatName,toggleLcatPanel,
   openDeleteModal,confirmDeleteMonth,deleteMonthData,
+  numInputFmt,numInputParse,
 };
 
 // ===== INIT =====
