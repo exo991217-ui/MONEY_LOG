@@ -436,7 +436,8 @@ function getEffectiveVariable(y,m){
     name:cat,
     category:cat,
     amount:amt+(ledgerSums[cat]||0),
-    autoFromCredit:true
+    autoFromCredit:true,
+    autoFromLedger:(ledgerSums[cat]||0)>0
   }));
 
   // Manual items (no autoFromFood, no autoFromCredit, sync ledger amounts for all categories including 식비)
@@ -2536,20 +2537,51 @@ function applyLedgerAutomations(y,m){
   const key=mkey(y,m);
   if(!S.ledger[key])S.ledger[key]=[];
   const skipped=S.autoSkippedIds||[];
+
+  const today=new Date();
+  const todayY=today.getFullYear(),todayM=today.getMonth()+1,todayD=today.getDate();
+
+  // 미래 달이면 아무것도 생성하지 않음
+  if(y>todayY||(y===todayY&&m>todayM))return;
+
+  // 중복 자동화 항목 제거 (같은 날짜+메모+금액인 auto 항목)
+  const dupSeen=new Set();
+  S.ledger[key]=S.ledger[key].filter(e=>{
+    if(!e.autoLedgerId)return true;
+    const sig=e.date+'|'+e.memo+'|'+e.amount;
+    if(dupSeen.has(sig))return false;
+    dupSeen.add(sig);
+    return true;
+  });
+
   let changed=false;
   automations.forEach(a=>{
+    const startY=a.startYear||(a.startMonth?todayY:null)||todayY;
+    const startM=a.startMonth||1;
+
+    // 시작 달 이전이면 스킵
+    if(y<startY||(y===startY&&m<startM))return;
+
+    const day=Math.min(a.billingDay||1,28);
+
+    // 현재 달인 경우, 결제일이 아직 안 지났으면 스킵
+    if(y===todayY&&m===todayM&&todayD<day)return;
+
     const autoLedgerId='auto_'+a.id+'_'+key;
-    const exists=S.ledger[key].some(e=>e.autoLedgerId===autoLedgerId);
+    const dateStr=y+'-'+String(m).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+    const memo=a.memo||a.name||'자동화';
+
+    // 기존 항목 확인 (ID 또는 동일 날짜+메모+금액)
+    const exists=S.ledger[key].some(e=>
+      e.autoLedgerId===autoLedgerId||
+      (e.autoLedgerId&&e.date===dateStr&&e.memo===memo&&e.amount===a.amount)
+    );
     if(!exists&&!skipped.includes(autoLedgerId)){
-      const day=Math.min(a.billingDay||1,28);
-      const dateStr=y+'-'+String(m).padStart(2,'0')+'-'+String(day).padStart(2,'0');
       S.ledger[key].push({
         id:genId(),autoLedgerId,
         date:dateStr,type:a.type||'expense',
         category:a.category||'📦 기타',
-        memo:a.memo||a.name||'자동화',
-        tags:a.tags||[],
-        amount:a.amount
+        memo,tags:a.tags||[],amount:a.amount
       });
       changed=true;
     }
@@ -2572,6 +2604,9 @@ function _syncAutoModalCatSelect(selected){
 function addAutoInline(){
   const type=document.getElementById('la-type').value;
   const billingDay=parseInt(document.getElementById('la-day').value)||1;
+  const today=new Date();
+  const startYear=parseInt(document.getElementById('la-start-year').value)||today.getFullYear();
+  const startMonth=parseInt(document.getElementById('la-start-month').value)||today.getMonth()+1;
   const category=(document.getElementById('la-cat-sel').value)||((S.ledgerCategories&&S.ledgerCategories[0])?S.ledgerCategories[0].name:'📦 기타');
   const rawMemo=(document.getElementById('la-memo').value||'').trim();
   const tags=extractTagsFromMemo(rawMemo);
@@ -2579,9 +2614,11 @@ function addAutoInline(){
   const amount=numInputParse(document.getElementById('la-amount').value);
   if(!memo||amount<=0)return alert('메모와 금액을 입력해주세요');
   if(!S.automations)S.automations=[];
-  S.automations.push({id:genId(),type,billingDay,category,memo,tags,amount,name:memo,active:true});
+  S.automations.push({id:genId(),type,billingDay,startYear,startMonth,category,memo,tags,amount,name:memo,active:true});
   saveState();
   document.getElementById('la-day').value='';
+  document.getElementById('la-start-year').value='';
+  document.getElementById('la-start-month').value='';
   document.getElementById('la-memo').value='';
   document.getElementById('la-amount').value='';
   const cm=S.currentMonths.ledger;
@@ -3193,7 +3230,7 @@ function renderAutoList(){
     <div class="auto-card ${a.active===false?'auto-inactive':''}">
       <div class="auto-card-left">
         <div class="auto-card-name">${a.memo||a.name||'—'}<span class="auto-type-badge ${(a.type||'expense')==='income'?'income':'expense'}">${(a.type||'expense')==='income'?'수입':'지출'}</span></div>
-        <div class="auto-card-meta">${a.category} · 매월 <span class="auto-day-badge">${a.billingDay}일</span></div>
+        <div class="auto-card-meta">${a.category} · 매월 <span class="auto-day-badge">${a.billingDay}일</span>${a.startYear?` · <span style="font-size:10px;color:var(--text-sub);">시작 ${a.startYear}.${String(a.startMonth||1).padStart(2,'0')}</span>`:''}</div>
       </div>
       <div class="auto-card-right">
         <div class="auto-card-amount ${(a.type||'expense')==='income'?'green':'red'}">${fmt(a.amount)}</div>
@@ -3248,9 +3285,12 @@ function deleteSub(id){if(!confirm('삭제하시겠어요?'))return;S.subscripti
 function toggleSub(id,active){const sub=S.subscriptions.find(s=>s.id==id);if(sub)sub.active=active;saveState();renderSubscriptions();}
 
 function openAutoModal(){
+  const today=new Date();
   document.getElementById('modal-auto-id').value='';
   document.getElementById('ma2-type').value='expense';
   document.getElementById('ma2-day').value='';
+  document.getElementById('ma2-start-year').value=today.getFullYear();
+  document.getElementById('ma2-start-month').value=today.getMonth()+1;
   document.getElementById('ma2-memo').value='';
   document.getElementById('ma2-amount').value='';
   document.getElementById('modal-auto-edit-label').textContent='추가';
@@ -3260,9 +3300,12 @@ function openAutoModal(){
 
 function editAuto(id){
   const a=(S.automations||[]).find(a=>a.id==id);if(!a)return;
+  const today=new Date();
   document.getElementById('modal-auto-id').value=id;
   document.getElementById('ma2-type').value=a.type||'expense';
   document.getElementById('ma2-day').value=a.billingDay;
+  document.getElementById('ma2-start-year').value=a.startYear||today.getFullYear();
+  document.getElementById('ma2-start-month').value=a.startMonth||(today.getMonth()+1);
   const memoWithTags=(a.tags&&a.tags.length>0)?((a.memo||a.name||'')+(a.tags.map(t=>' #'+t).join(''))).trim():(a.memo||a.name||'');
   document.getElementById('ma2-memo').value=memoWithTags;
   document.getElementById('ma2-amount').value=(a.amount||0).toLocaleString('ko-KR');
@@ -3275,6 +3318,9 @@ function saveAuto(){
   const id=document.getElementById('modal-auto-id').value;
   const type=document.getElementById('ma2-type').value;
   const billingDay=parseInt(document.getElementById('ma2-day').value)||1;
+  const today=new Date();
+  const startYear=parseInt(document.getElementById('ma2-start-year').value)||today.getFullYear();
+  const startMonth=parseInt(document.getElementById('ma2-start-month').value)||(today.getMonth()+1);
   const category=document.getElementById('ma2-cat-sel').value||(S.ledgerCategories&&S.ledgerCategories[0]?S.ledgerCategories[0].name:'📦 기타');
   const rawMemo=document.getElementById('ma2-memo').value.trim();
   const tags=extractTagsFromMemo(rawMemo);
@@ -3284,9 +3330,9 @@ function saveAuto(){
   if(!S.automations)S.automations=[];
   if(id){
     const a=S.automations.find(a=>a.id==id);
-    if(a){a.type=type;a.billingDay=billingDay;a.category=category;a.memo=memo;a.tags=tags;a.amount=amount;a.name=memo;}
+    if(a){a.type=type;a.billingDay=billingDay;a.startYear=startYear;a.startMonth=startMonth;a.category=category;a.memo=memo;a.tags=tags;a.amount=amount;a.name=memo;}
   } else {
-    S.automations.push({id:genId(),type,billingDay,category,memo,tags,amount,name:memo,active:true});
+    S.automations.push({id:genId(),type,billingDay,startYear,startMonth,category,memo,tags,amount,name:memo,active:true});
   }
   saveState();closeModal();
   const cm=S.currentMonths.ledger;
