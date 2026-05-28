@@ -989,9 +989,80 @@ function cancelDefaultMode(){
   renderIncome();
 }
 
-// 현재 달 포함 이후 모든 달에 기본값 항목을 추가/업데이트 (직접 추가한 항목은 유지)
+// ===== 기본값 모드 드래그 정렬 =====
+let _dmDragging=null;
+let _dmTouchEl=null,_dmTouchListId=null;
+
+function _dmDragStart(e,type,id){
+  _dmDragging={type,id};
+  e.dataTransfer.effectAllowed='move';
+  const item=e.currentTarget.closest('[data-drag-id]');
+  if(item)item.classList.add('dm-dragging');
+}
+function _dmDragOver(e,type){
+  if(!_dmDragging||_dmDragging.type!==type)return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect='move';
+  e.currentTarget.classList.add('dm-drag-over');
+}
+function _dmDragLeave(e){
+  e.currentTarget.classList.remove('dm-drag-over');
+}
+function _dmDrop(e,type,targetId){
+  e.preventDefault();
+  e.currentTarget.classList.remove('dm-drag-over');
+  if(!_dmDragging||_dmDragging.type!==type)return;
+  const fromId=_dmDragging.id;
+  _dmDragging=null;
+  if(fromId===targetId)return;
+  const listId=type==='income'?'income-list':'fixed-list';
+  const list=document.getElementById(listId);
+  const fromEl=list.querySelector(`[data-drag-id="${fromId}"]`);
+  const toEl=list.querySelector(`[data-drag-id="${targetId}"]`);
+  if(!fromEl||!toEl)return;
+  const items=[...list.querySelectorAll('[data-drag-id]')];
+  if(items.indexOf(fromEl)<items.indexOf(toEl))toEl.after(fromEl);
+  else toEl.before(fromEl);
+}
+function _dmDragEnd(e){
+  document.querySelectorAll('.dm-dragging,.dm-drag-over').forEach(el=>{
+    el.classList.remove('dm-dragging','dm-drag-over');
+  });
+  _dmDragging=null;
+}
+function _dmTouchStart(e,listId){
+  const item=e.currentTarget.closest('[data-drag-id]');
+  if(!item)return;
+  _dmTouchEl=item;
+  _dmTouchListId=listId;
+  item.classList.add('dm-dragging');
+  document.addEventListener('touchmove',_dmTouchMove,{passive:false});
+  document.addEventListener('touchend',_dmTouchEnd,{once:true});
+}
+function _dmTouchMove(e){
+  if(!_dmTouchEl||!_dmTouchListId)return;
+  e.preventDefault();
+  const touch=e.touches[0];
+  const el=document.elementFromPoint(touch.clientX,touch.clientY);
+  const target=el&&el.closest('[data-drag-id]');
+  if(!target||target===_dmTouchEl)return;
+  const list=document.getElementById(_dmTouchListId);
+  if(!list.contains(target))return;
+  const items=[...list.querySelectorAll('[data-drag-id]')];
+  if(items.indexOf(_dmTouchEl)<items.indexOf(target))target.after(_dmTouchEl);
+  else target.before(_dmTouchEl);
+}
+function _dmTouchEnd(){
+  if(_dmTouchEl)_dmTouchEl.classList.remove('dm-dragging');
+  _dmTouchEl=null;_dmTouchListId=null;
+  document.removeEventListener('touchmove',_dmTouchMove);
+}
+
+// 현재 달 포함 이후 모든 달에 기본값 항목을 추가/업데이트 (직접 추가한 항목은 유지, 순서 동기화)
 function _propagateDefaultsToFutureMonths(fromY,fromM){
   const di=S.defaultItems||{income:[],fixed:[]};
+  const defIncNames=di.income.map(d=>d.name);
+  const defFixNames=di.fixed.map(d=>d.name);
   Object.keys(S.monthlyData).forEach(key=>{
     const parts=key.split('-');
     const ky=parseInt(parts[0]),km=parseInt(parts[1]);
@@ -1007,18 +1078,33 @@ function _propagateDefaultsToFutureMonths(fromY,fromM){
       if(ex){ex.category=def.category;ex.amount=def.amount;ex.isSavings=def.isSavings;}
       else{mdata.fixed.push({...def,id:genId()});}
     });
+    // 기본값 순서 적용 (기본값 항목을 지정된 순서로 앞에, 나머지는 뒤에 유지)
+    mdata.income.sort((a,b)=>{
+      const ai=defIncNames.indexOf(a.name),bi=defIncNames.indexOf(b.name);
+      if(ai<0&&bi<0)return 0;if(ai<0)return 1;if(bi<0)return -1;return ai-bi;
+    });
+    mdata.fixed.sort((a,b)=>{
+      const ai=defFixNames.indexOf(a.name),bi=defFixNames.indexOf(b.name);
+      if(ai<0&&bi<0)return 0;if(ai<0)return 1;if(bi<0)return -1;return ai-bi;
+    });
   });
 }
 
 function saveDefaultItems(){
   const cm=S.currentMonths.income;
   const data=getMonthData(cm.y,cm.m);
+  // 드래그로 변경된 DOM 순서 읽기
+  const incomeOrder=[...document.getElementById('income-list').querySelectorAll('[data-drag-id]')].map(el=>Number(el.dataset.dragId));
+  const fixedOrder=[...document.getElementById('fixed-list').querySelectorAll('[data-drag-id]')].map(el=>Number(el.dataset.dragId));
+  // 현재 달 데이터를 DOM 순서에 맞게 정렬
+  if(incomeOrder.length)data.income.sort((a,b)=>{const ai=incomeOrder.indexOf(a.id),bi=incomeOrder.indexOf(b.id);return(ai<0?9999:ai)-(bi<0?9999:bi);});
+  if(fixedOrder.length)data.fixed.sort((a,b)=>{const ai=fixedOrder.indexOf(a.id),bi=fixedOrder.indexOf(b.id);return(ai<0?9999:ai)-(bi<0?9999:bi);});
   const checkedIncome=Array.from(document.querySelectorAll('.default-chk-income:checked')).map(el=>el.value);
   const checkedFixed=Array.from(document.querySelectorAll('.default-chk-fixed:checked')).map(el=>el.value);
   if(!S.defaultItems)S.defaultItems={income:[],fixed:[]};
   S.defaultItems.income=data.income.filter(i=>checkedIncome.includes(String(i.id))).map(i=>({name:i.name,category:i.category,amount:i.amount}));
   S.defaultItems.fixed=data.fixed.filter(i=>checkedFixed.includes(String(i.id))).map(i=>({name:i.name,category:i.category,amount:i.amount,isSavings:i.isSavings}));
-  // 이후 달에도 즉시 반영
+  // 이후 달에도 즉시 반영 (순서 포함)
   _propagateDefaultsToFutureMonths(cm.y,cm.m);
   saveState();
   _defaultMode=false;
@@ -1088,8 +1174,14 @@ function renderIncome(){
 
   // Income list
   document.getElementById('income-list').innerHTML=data.income.map(item=>`
-    <div class="expense-item${_defaultMode?' default-mode-item':''}">
-      ${_defaultMode?`<input type="checkbox" class="default-chk default-chk-income" value="${item.id}" ${isDefaultIncome(item)?'checked':''}>`:''}
+    <div class="expense-item${_defaultMode?' default-mode-item':''}"${_defaultMode?` data-drag-id="${item.id}" draggable="true"
+      ondragstart="App._dmDragStart(event,'income',${item.id})"
+      ondragover="App._dmDragOver(event,'income')"
+      ondragleave="App._dmDragLeave(event)"
+      ondrop="App._dmDrop(event,'income',${item.id})"
+      ondragend="App._dmDragEnd(event)`:''}>
+      ${_defaultMode?`<span class="dm-handle" ontouchstart="App._dmTouchStart(event,'income-list')">⠿</span>
+      <input type="checkbox" class="default-chk default-chk-income" value="${item.id}" ${isDefaultIncome(item)?'checked':''}>`:''}
       <div class="item-left"><span class="item-name">${item.name}</span><span class="item-cat">${item.category}</span></div>
       <div class="item-right">
         <span class="item-amount green">${fmt(item.amount)}</span>
@@ -1102,8 +1194,14 @@ function renderIncome(){
 
   // Fixed list (with isSavings badge)
   document.getElementById('fixed-list').innerHTML=data.fixed.map(item=>`
-    <div class="expense-item${_defaultMode?' default-mode-item':''}">
-      ${_defaultMode?`<input type="checkbox" class="default-chk default-chk-fixed" value="${item.id}" ${isDefaultFixed(item)?'checked':''}>`:''}
+    <div class="expense-item${_defaultMode?' default-mode-item':''}"${_defaultMode?` data-drag-id="${item.id}" draggable="true"
+      ondragstart="App._dmDragStart(event,'fixed',${item.id})"
+      ondragover="App._dmDragOver(event,'fixed')"
+      ondragleave="App._dmDragLeave(event)"
+      ondrop="App._dmDrop(event,'fixed',${item.id})"
+      ondragend="App._dmDragEnd(event)`:''}>
+      ${_defaultMode?`<span class="dm-handle" ontouchstart="App._dmTouchStart(event,'fixed-list')">⠿</span>
+      <input type="checkbox" class="default-chk default-chk-fixed" value="${item.id}" ${isDefaultFixed(item)?'checked':''}>`:''}
       <div class="item-left">
         <span class="item-name">${item.name}${item.isSavings?'<span class="savings-tag">💜저축</span>':''}</span>
         <span class="item-cat">${item.category}</span>
@@ -3832,6 +3930,7 @@ window.App={
   addLcatEntry,deleteLcatEntry,toggleLcatSavings,saveLcatName,toggleLcatPanel,
   openDeleteModal,confirmDeleteMonth,deleteMonthData,
   numInputFmt,numInputParse,
+  _dmDragStart,_dmDragOver,_dmDragLeave,_dmDrop,_dmDragEnd,_dmTouchStart,_dmTouchMove,_dmTouchEnd,
 };
 
 // ===== INIT =====
