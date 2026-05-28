@@ -1208,7 +1208,7 @@ function renderCredit(){
               </div>
             </label>
             <div class="credit-simple-right">
-              <span class="credit-simple-amount">${fmt(monthly)}원</span>
+              <span class="credit-simple-amount">${fmt(monthly)}</span>
               <span class="credit-status-badge ${statusClass}">${statusLabel}</span>
               <div class="credit-row-actions">
                 <button class="credit-edit-btn" onclick="App.editCredit(${card.id})">✏️ 수정</button>
@@ -1245,7 +1245,7 @@ function renderCredit(){
             <tr class="${isCurrent?'install-row-current':''}">
               <td>${i+1}회차${isCurrent?'<span class="install-current-badge"> (이번 달)</span>':''}</td>
               <td>${dateStr}</td>
-              <td>${fmt(monthly)}원</td>
+              <td>${fmt(monthly)}</td>
               <td>
                 <label class="credit-check-label" style="gap:4px;justify-content:flex-start;">
                   <input type="checkbox" ${isPaid?'checked':''} onchange="App.toggleCreditPaid(${card.id},'${pk}',this.checked)"/>
@@ -1264,7 +1264,7 @@ function renderCredit(){
               <div class="credit-install-stats">
                 <div class="credit-install-stat">
                   <div class="credit-install-stat-label">월 납부</div>
-                  <div class="credit-install-stat-val">${fmt(monthly)}원</div>
+                  <div class="credit-install-stat-val">${fmt(monthly)}</div>
                 </div>
                 <div class="credit-install-stat">
                   <div class="credit-install-stat-label">진행</div>
@@ -1293,7 +1293,7 @@ function renderCredit(){
       <div class="credit-card-group">
         <div class="credit-card-group-header">
           <span class="credit-card-group-name">💳 ${cardName}</span>
-          <span class="credit-card-group-count">총 ${items.length}건 · 남은 대금 ${fmt(groupRemaining)}원</span>
+          <span class="credit-card-group-count">총 ${items.length}건 · 남은 대금 ${fmt(groupRemaining)}</span>
         </div>
         ${oneTimeSection}${installSection}
       </div>`;
@@ -2484,17 +2484,21 @@ function renderLedger(){
   const entries=S.ledger[key]||[];
   const filter=S.ledgerFilter;
   const tagFilter=S.ledgerTagFilter;
-  let filtered=filter?entries.filter(e=>e.category===filter):entries;
+  let filtered=filter==='__credit__'?entries.filter(e=>e.creditAutoId):filter?entries.filter(e=>e.category===filter):entries;
   if(tagFilter)filtered=filtered.filter(e=>(e.tags||[]).includes(tagFilter));
   const cats=[...new Set(entries.map(e=>e.category))];
   const filterBar=document.getElementById('ledger-filter-bar');
   if(filterBar){
+    const creditEntries=entries.filter(e=>e.creditAutoId);
     filterBar.innerHTML=[
       `<button class="ledger-filter-chip ${!filter?'active':''}" onclick="App.setLedgerFilter(null)">전체 (${entries.length})</button>`,
       ...cats.map(c=>{
         const cnt=entries.filter(e=>e.category===c).length;
-        return `<button class="ledger-filter-chip ${filter===c?'active':''}" onclick="App.setLedgerFilter('${c}')">${c} (${cnt})</button>`;
-      })
+        const cc=getCategoryColor(c);
+        const isActive=filter===c;
+        return `<button class="ledger-filter-chip ${isActive?'active':''}" style="--chip-strip:${cc.strip};--chip-bg:${cc.bg};--chip-color:${cc.color};" onclick="App.setLedgerFilter('${c}')">${c} (${cnt})</button>`;
+      }),
+      creditEntries.length>0?`<button class="ledger-filter-chip ledger-filter-credit ${filter==='__credit__'?'active':''}" onclick="App.setLedgerFilter(S.ledgerFilter==='__credit__'?null:'__credit__')">💳 신용카드만 (${creditEntries.length})</button>`:''
     ].join('');
   }
   // Tag filter bar
@@ -2535,15 +2539,21 @@ function renderLedger(){
           <span style="font-weight:800;${dayNet>=0?'color:var(--green)':'color:var(--red)'}">${dayNet>=0?'+':''}${fmt(dayNet)}</span>
         </div>
         ${items.map(e=>{
-          const tagPills=(e.tags&&e.tags.length>0)?`<div class="ledger-tag-pills">${e.tags.map(t=>{const col=getTagColor(t);return `<span class="ledger-tag-pill" style="--tag-bg:${col.bg};--tag-color:${col.color};" onclick="App.setTagFilter('${t}')">#${t}</span>`;}).join('')}</div>`:'';
+          const cc=getCategoryColor(e.category);
+          const tagPills=(e.tags&&e.tags.length>0)?`<div class="ledger-tag-pills">${e.tags.map(t=>{const col=getTagColorForCategory(e.category);return `<span class="ledger-tag-pill" style="--tag-bg:${col.bg};--tag-color:${col.color};" onclick="App.setTagFilter('${t}')">#${t}</span>`;}).join('')}</div>`:'';
+          const creditBadge=e.creditAutoId?`<span class="ledger-credit-auto-badge" style="--cat-strip:${cc.strip};">💳 신용카드 자동</span>`:'';
           return `
-          <div class="ledger-entry ${e.type}">
+          <div class="ledger-entry ${e.type}" style="--cat-strip:${cc.strip};--cat-bg:${cc.bg};--cat-color:${cc.color};">
+            <div class="ledger-cat-strip"></div>
             <div class="ledger-entry-left">
-              <span class="ledger-cat-badge">${e.category}${e.creditAutoId?'<span style="font-size:10px;margin-left:3px;opacity:.7;">자동</span>':''}</span>
+              <span class="ledger-cat-badge" style="background:${cc.bg};color:${cc.color};">${e.category}</span>
               <div class="ledger-memo-wrap">
                 <span class="ledger-memo">${e.memo||'—'}</span>
                 ${tagPills}
               </div>
+            </div>
+            <div class="ledger-entry-mid">
+              ${creditBadge}
             </div>
             <div class="ledger-entry-right">
               <span class="ledger-amount ${e.type==='income'?'green':'red'}">${e.type==='income'?'+':'−'}${fmt(e.amount)}</span>
@@ -2677,9 +2687,34 @@ const TAG_PALETTE=[
   {bg:'#FFF9E6',color:'#B07C00'},
   {bg:'#EEF4FF',color:'#2A5BD7'},
 ];
+
+// ===== 가계부 카테고리 색상 팔레트 =====
+const LEDGER_CAT_COLORS={
+  '식비':    {strip:'#FF6B6B',bg:'#FFF0F0',color:'#C0392B'},
+  '생활':    {strip:'#FFA94D',bg:'#FFF5E6',color:'#D4620A'},
+  '주거/공과':{strip:'#74B9FF',bg:'#EBF5FF',color:'#1565C0'},
+  '교통':    {strip:'#55EFC4',bg:'#E0FFF6',color:'#007B60'},
+  '문화/여가':{strip:'#A29BFE',bg:'#F0EEFF',color:'#6C5CE7'},
+  '저축/투자':{strip:'#FDCB6E',bg:'#FFFBE6',color:'#B07C00'},
+  '기타':    {strip:'#B2BEC3',bg:'#F4F6F8',color:'#636E72'},
+  '신용카드': {strip:'#6C5CE7',bg:'#F0EEFF',color:'#4834d4'},
+};
+const _CAT_FALLBACK_STRIPS=['#FF6B6B','#FFA94D','#74B9FF','#55EFC4','#A29BFE','#FDCB6E','#FD79A8','#00CEC9'];
+function getCategoryColor(catName){
+  if(LEDGER_CAT_COLORS[catName])return LEDGER_CAT_COLORS[catName];
+  let h=0;for(let i=0;i<catName.length;i++)h=(h*31+catName.charCodeAt(i))&0xFFFF;
+  const strip=_CAT_FALLBACK_STRIPS[Math.abs(h)%_CAT_FALLBACK_STRIPS.length];
+  return{strip,bg:strip+'18',color:strip};
+}
+
 function getTagColor(tagName){
   let h=0;for(let i=0;i<tagName.length;i++)h=(h*31+tagName.charCodeAt(i))&0xFFFF;
   return TAG_PALETTE[Math.abs(h)%TAG_PALETTE.length];
+}
+// 태그 색을 카테고리 색과 일치시키는 함수 (가계부 항목 내 태그용)
+function getTagColorForCategory(catName){
+  const cc=getCategoryColor(catName);
+  return{bg:cc.bg,color:cc.color};
 }
 
 // ===== TAG DROPDOWN =====
