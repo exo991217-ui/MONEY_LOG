@@ -1147,3 +1147,63 @@ body { background: var(--t-bg) !important; }
   .food-amount{font-size:11.5px;}
   .food-cal-dow{font-size:12px;padding:8px 0;}
 }
+
+/* ===== 예산 카테고리 연동 태그 ===== */
+.budget-linked-cats{
+  display:flex;flex-wrap:wrap;gap:4px;
+  margin:4px 0 6px;
+}
+.budget-linked-tag{
+  font-size:11px;font-weight:600;
+  padding:2px 8px;border-radius:10px;
+  background:#EDF7FF;color:#2980B9;
+  border:1px solid #B3D7F5;
+  white-space:nowrap;
+}
+
+/* ===== 예산 카테고리 연동 모달 ===== */
+.bcsync-body{
+  display:flex;flex-direction:column;gap:6px;
+  max-height:280px;overflow-y:auto;
+  padding:4px 0;margin-bottom:8px;
+}
+.bcsync-check-row{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 10px;border-radius:8px;
+  background:var(--bg);cursor:pointer;
+  transition:background .12s;
+}
+.bcsync-check-row:hover{background:var(--green-light);}
+.bcsync-check-row input[type=checkbox]{
+  width:16px;height:16px;accent-color:var(--green);flex-shrink:0;cursor:pointer;
+}
+.bcsync-check-label-text{
+  font-size:13px;font-weight:500;color:var(--text-main);
+}
+
+/* ===== 펀드 계산기 — 자산 연동 ===== */
+.fc-asset-link-badge{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:11px;font-weight:700;
+  padding:2px 8px;border-radius:10px;
+  background:#EAFAF1;color:#27AE60;
+  border:1px solid #A9DFBF;
+  margin-left:8px;white-space:nowrap;
+  vertical-align:middle;
+}
+.fc-linked-time{
+  font-size:11px;color:var(--text-sub);
+  margin-top:2px;padding-left:2px;
+}
+.fc-asset-link-toggle{
+  font-size:12px;padding:5px 12px;
+  white-space:nowrap;
+  background:var(--green-light);color:var(--green);
+  border:1.5px solid #C8EDD9;
+  transition:background .15s,color .15s;
+}
+.fc-asset-link-toggle:hover{background:#C8EDD9;}
+.fc-link-btn-active{
+  background:#EAFAF1 !important;color:#27AE60 !important;
+  border-color:#A9DFBF !important;font-weight:700;
+}
