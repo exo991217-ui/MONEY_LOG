@@ -521,36 +521,6 @@ function renderAll(){
   renderLedger();renderLcatPanel();
 }
 
-// ===== BUDGET DEFAULT MODE =====
-let _budgetDefaultMode=false;
-
-function openBudgetDefaultMode(){
-  _budgetDefaultMode=true;
-  const banner=document.getElementById('budget-default-banner');
-  if(banner)banner.style.display='flex';
-  const cm=S.currentMonths.income;
-  renderBudget(cm.y,cm.m);
-}
-
-function cancelBudgetDefaultMode(){
-  _budgetDefaultMode=false;
-  const banner=document.getElementById('budget-default-banner');
-  if(banner)banner.style.display='none';
-  const cm=S.currentMonths.income;
-  renderBudget(cm.y,cm.m);
-}
-
-function saveBudgetDefaultMode(){
-  const checks=document.querySelectorAll('.budget-default-chk');
-  checks.forEach(chk=>{
-    const id=parseInt(chk.dataset.id);
-    const cat=(S.budgetCategories||[]).find(c=>c.id===id);
-    if(cat)cat.synced=chk.checked;
-  });
-  saveState();
-  cancelBudgetDefaultMode();
-}
-
 // ===== BUDGET CATEGORIES =====
 function renderBudget(y,m){
   const el=document.getElementById('budget-cat-list');
@@ -604,12 +574,13 @@ function renderBudget(y,m){
         ?`<span class="budget-linked-tag">📒${linkedArr[0]}</span>`
         :`<span class="budget-linked-tag">📒${linkedArr[0]}+${linkedArr.length-1}</span>`)
       :'';
-    // 기본값 설정 모드에서는 checkbox 표시
-    const defaultChk=_budgetDefaultMode
-      ?`<input type="checkbox" class="budget-default-chk" data-id="${cat.id}" ${cat.synced!==false?'checked':''} style="margin-right:6px;accent-color:var(--green);width:15px;height:15px;flex-shrink:0;"/>`
+    // 기본값 설정 모드
+    const da=_defaultMode?` data-drag-id="${cat.id}" draggable="true" ondragstart="App._dmDragStart(event,'budget',${cat.id})" ondragover="App._dmDragOver(event,'budget')" ondragleave="App._dmDragLeave(event)" ondrop="App._dmDrop(event,'budget',${cat.id})" ondragend="App._dmDragEnd(event)"`:'';
+    const defaultChk=_defaultMode
+      ?`<span class="dm-handle" ontouchstart="App._dmTouchStart(event,'budget-cat-list')">⠿</span><input type="checkbox" class="budget-default-chk" data-id="${cat.id}" ${cat.synced!==false?'checked':''} style="accent-color:var(--green);width:15px;height:15px;flex-shrink:0;cursor:pointer;"/>`
       :'';
     return `
-      <div class="budget-cat-row">
+      <div class="budget-cat-row${_defaultMode?' default-mode-item':''}"${da}>
         <div class="budget-cat-top">
           <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;overflow:hidden;">
             ${defaultChk}
@@ -618,9 +589,10 @@ function renderBudget(y,m){
           </div>
           <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
             <span class="budget-cat-amounts">${fmt(spent)}<span class="budget-cat-of"> / ${fmt(effectiveBudget)}</span></span>
-            <button class="budget-link-text-btn${hasLinked?' linked':''}" onclick="App.openBudgetCatSyncModal(${cat.id})">🔗</button>
-            <button class="icon-btn" onclick="App.openBudgetModal(${cat.id})">✏️</button>
-            <button class="icon-btn" onclick="App.deleteBudgetCategory(${cat.id})">🗑️</button>
+            ${_defaultMode?'':
+              `<button class="budget-link-text-btn${hasLinked?' linked':''}" onclick="App.openBudgetCatSyncModal(${cat.id})">🔗</button>
+               <button class="icon-btn" onclick="App.openBudgetModal(${cat.id})">✏️</button>
+               <button class="icon-btn" onclick="App.deleteBudgetCategory(${cat.id})">🗑️</button>`}
           </div>
         </div>
         <div class="budget-cat-bar-wrap">
@@ -1161,10 +1133,14 @@ let _defaultMode=false;
 function openDefaultMode(){
   _defaultMode=true;
   renderIncome();
+  const cm=S.currentMonths.income;
+  renderBudget(cm.y,cm.m);
 }
 function cancelDefaultMode(){
   _defaultMode=false;
   renderIncome();
+  const cm=S.currentMonths.income;
+  renderBudget(cm.y,cm.m);
 }
 
 // ===== 기본값 모드 드래그 정렬 =====
@@ -1193,7 +1169,7 @@ function _dmDrop(e,type,targetId){
   const fromId=_dmDragging.id;
   _dmDragging=null;
   if(fromId===targetId)return;
-  const listId=type==='income'?'income-list':'fixed-list';
+  const listId=type==='income'?'income-list':type==='budget'?'budget-cat-list':'fixed-list';
   const list=document.getElementById(listId);
   const fromEl=list.querySelector(`[data-drag-id="${fromId}"]`);
   const toEl=list.querySelector(`[data-drag-id="${targetId}"]`);
@@ -1284,9 +1260,20 @@ function saveDefaultItems(){
   S.defaultItems.fixed=data.fixed.filter(i=>checkedFixed.includes(String(i.id))).map(i=>({name:i.name,category:i.category,amount:i.amount,isSavings:i.isSavings}));
   // 이후 달에도 즉시 반영 (순서 포함)
   _propagateDefaultsToFutureMonths(cm.y,cm.m);
+  // 예산 카테고리 기본값(synced) + 순서 저장
+  const budgetOrder=[...document.getElementById('budget-cat-list').querySelectorAll('[data-drag-id]')].map(el=>Number(el.dataset.dragId));
+  if(budgetOrder.length&&S.budgetCategories){
+    S.budgetCategories.sort((a,b)=>{const ai=budgetOrder.indexOf(a.id),bi=budgetOrder.indexOf(b.id);return(ai<0?9999:ai)-(bi<0?9999:bi);});
+  }
+  document.querySelectorAll('.budget-default-chk').forEach(chk=>{
+    const id=parseInt(chk.dataset.id);
+    const cat=(S.budgetCategories||[]).find(c=>c.id===id);
+    if(cat)cat.synced=chk.checked;
+  });
   saveState();
   _defaultMode=false;
   renderIncome();
+  renderBudget(cm.y,cm.m);
 }
 
 // 체크한 항목을 기본값에서 제거하고 이후 달에서도 삭제
@@ -4083,7 +4070,6 @@ window.App={
   openModal,closeModal,openVariableModal,
   openBudgetModal,saveBudgetCategory,deleteBudgetCategory,
   openBudgetCatSyncModal,saveBudgetCatSync,
-  openBudgetDefaultMode,cancelBudgetDefaultMode,saveBudgetDefaultMode,
   openIncomeModal,openFixedModal,openDefaultMode,cancelDefaultMode,saveDefaultItems,deleteDefaultItems,saveIncome,saveFixed,saveVariable,saveCredit,openCreditModal,editCredit,saveAsset,saveStock,
   editItem,deleteItem,
   updateAssetAmount,updateStockPrice,updateStockBuyAmount,updateStockCurrentAmount,onStockTypeChange,renderAssetStocks,
