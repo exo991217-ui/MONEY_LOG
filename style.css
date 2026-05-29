@@ -1236,3 +1236,19 @@ body { background: var(--t-bg) !important; }
   height:100%;border-radius:99px;background:var(--green);
   transition:width .4s ease,background .4s ease;width:0%;
 }
+
+/* ===== 소비 캘린더 수정 버튼 ===== */
+.cal-event-edit{
+  background:none;border:none;cursor:pointer;font-size:13px;
+  padding:2px 4px;border-radius:4px;opacity:0.6;flex-shrink:0;
+  line-height:1;
+}
+.cal-event-edit:hover{opacity:1;background:var(--bg);}
+
+/* ===== 자금분배 배지 연동해제 자물쇠 ===== */
+.fc-badge-unlink{
+  cursor:pointer;margin-left:5px;font-size:13px;opacity:0.85;
+  display:inline-flex;align-items:center;
+  transition:opacity .15s;
+}
+.fc-badge-unlink:hover{opacity:1;}
