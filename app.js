@@ -1387,9 +1387,7 @@ function renderIncome(){
     const catJSON=JSON.stringify(item.name);
     return `
       <div class="expense-item var-hoverable"
-           onmouseenter="App.showVarPreview(this,${catJSON},${item.amount})"
-           onmouseleave="App.hideVarPreview(180)"
-           onclick="if('ontouchstart' in window||window.innerWidth<=768)App.showVarPreview(this,${catJSON},${item.amount})">
+           onclick="App.showVarPreview(this,${catJSON},${item.amount})">
         <div class="item-left">
           <span class="item-name">${item.name}</span>
           ${showCat?`<span class="item-cat">${item.category}</span>`:''}
@@ -3910,6 +3908,7 @@ function switchTab(tab){
 // ===== VARIABLE EXPENSE PREVIEW PANEL =====
 let _varPreviewTimer=null;
 let _varPreviewCat=null;
+let _varActiveEl=null;
 
 function _ensureVarPanel(){
   if(!document.getElementById('var-preview-panel')){
@@ -3920,16 +3919,46 @@ function _ensureVarPanel(){
   }
 }
 
+function _clearVarActive(){
+  if(_varActiveEl){
+    _varActiveEl.classList.remove('var-item-active');
+    _varActiveEl.style.border='';
+    _varActiveEl.style.borderRadius='';
+    _varActiveEl.style.background='';
+    _varActiveEl.style.paddingLeft='';
+    _varActiveEl.style.paddingRight='';
+    _varActiveEl=null;
+  }
+}
+
 function showVarPreview(el,category,total){
   _ensureVarPanel();
   clearTimeout(_varPreviewTimer);
   const panel=document.getElementById('var-preview-panel');
   if(!panel)return;
+  // 같은 항목 다시 클릭 → 닫기
   if(_varPreviewCat===category&&panel.classList.contains('visible')){
-    panel.classList.remove('visible');_varPreviewCat=null;return;
+    panel.classList.remove('visible');
+    _varPreviewCat=null;
+    _clearVarActive();
+    return;
   }
+  // 이전 활성 항목 테두리 제거 후 새 항목 활성화
+  _clearVarActive();
+  _varActiveEl=el;
   _varPreviewCat=category;
+  // 현재 달 테마 컬러 가져오기
   const cm=S.currentMonths.income;
+  const theme=getMonthTheme(cm.m);
+  const themeColor=theme.color;
+  const themeBorder=theme.border;
+  const themeLight=theme.light;
+  // 활성 항목에 테마 테두리 적용
+  el.style.border='1.5px solid '+themeBorder;
+  el.style.borderRadius='10px';
+  el.style.background=themeLight;
+  el.style.paddingLeft='7px';
+  el.style.paddingRight='7px';
   const key=mkey(cm.y,cm.m);
   const entries=(S.ledger[key]||[])
     .filter(e=>e.type==='expense'&&e.category===category)
@@ -3952,16 +3981,17 @@ function showVarPreview(el,category,total){
         </div>
       </div>`;
     }).join('');
+  const catJSON=JSON.stringify(category);
   panel.innerHTML=`
     <div class="vpp-header">
       <span class="vpp-title">${category} 최근 지출</span>
-      <span class="vpp-link" onclick="App.goToLedger()">전체 보기 ›</span>
+      <span class="vpp-link" style="color:${themeColor};" onclick="App.goToLedger(${catJSON})">전체 보기 ›</span>
     </div>
     <div class="vpp-list">${listHTML}</div>
-    <div class="vpp-footer">이번 달 <strong>${Math.round(total).toLocaleString('ko-KR')}원</strong></div>
+    <div class="vpp-footer">이번 달 <strong style="color:${themeColor};">${Math.round(total).toLocaleString('ko-KR')}원</strong></div>
   `;
-  panel.onmouseenter=()=>{clearTimeout(_varPreviewTimer);};
-  panel.onmouseleave=()=>{hideVarPreview(150);};
+  // 패널 테두리에 테마 컬러 적용
+  panel.style.borderColor=themeBorder;
   const rect=el.getBoundingClientRect();
   const panelW=280,margin=10;
   let left=rect.right+margin;
@@ -3982,11 +4012,13 @@ function hideVarPreview(delay){
   _varPreviewTimer=setTimeout(()=>{
     const panel=document.getElementById('var-preview-panel');
     if(panel){panel.classList.remove('visible');_varPreviewCat=null;}
+    _clearVarActive();
   },delay!=null?delay:150);
 }
 
-function goToLedger(){
+function goToLedger(cat){
   hideVarPreview(0);
+  if(cat){S.ledgerFilter=cat;}
   document.querySelector('.nav-item[data-tab="ledger"]')?.click();
 }
 
