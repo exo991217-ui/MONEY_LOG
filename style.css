@@ -709,7 +709,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text-main);min-hei
 .add-btn.primary { background: linear-gradient(135deg, var(--t1), var(--t2)) !important; }
 .report-btn { background: linear-gradient(135deg, var(--t1), var(--t2)) !important; }
 .remaining-budget-card { background: linear-gradient(135deg, var(--t1) 0%, var(--t2) 100%) !important; }
-.budget-cat-bar-fill { background: var(--t1) !important; }
+.budget-cat-bar-fill { background: var(--t1); }
 .savings-add-main-btn { background: linear-gradient(135deg, var(--t1), var(--t2)) !important; }
 body { background: var(--t-bg) !important; }
 
