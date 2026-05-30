@@ -2826,7 +2826,7 @@ function renderLedger(){
         </button>
         <div class="ledger-filter-dropdown" id="ledger-filter-dropdown" style="display:none;">${chipItems}</div>
       </div>
-      ${isFiltered?`<span class="ledger-filter-active-label">${activeLabel}</span>`:''}
+      ${isFiltered?`<button class="ledger-filter-clear-btn" onclick="App.setLedgerFilter(null);App._closeLedgerFilterDropdown()">해제</button>`:''}
     `;
   }
   // Tag filter bar
