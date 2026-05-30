@@ -1081,7 +1081,15 @@ body { background: var(--t-bg) !important; }
   gap:6px;
   padding:0;
   align-items:center;
+  flex:1;
+  min-width:0;
 }
+.ledger-filter-clear-btn{
+  padding:4px 14px;border-radius:20px;border:1.5px solid #F06292;
+  background:#FFF0F5;color:#F06292;font-size:12px;font-weight:700;
+  cursor:pointer;transition:all .15s;white-space:nowrap;flex-shrink:0;
+}
+.ledger-filter-clear-btn:hover{background:#F06292;color:white;}
 .ledger-tag-chip{
   font-size:12px;
   font-weight:600;
