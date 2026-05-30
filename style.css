@@ -376,7 +376,8 @@ body{font-family:var(--font);background:var(--bg);color:var(--text-main);min-hei
 .ledger-import-btn{padding:7px 14px;border-radius:20px;border:1.5px solid var(--green);background:var(--green-light);color:var(--green);font-size:12.5px;font-weight:700;cursor:pointer;transition:all .15s}
 .ledger-import-btn:hover{background:var(--green);color:white}
 .ledger-filter-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
-.ledger-filter-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;position:relative;flex-shrink:0;}
+.ledger-filter-combined-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+.ledger-filter-bar{display:flex;align-items:center;gap:6px;position:relative;flex-shrink:0;}
 /* 필터 드롭다운 */
 .ledger-filter-wrap{position:relative;display:inline-block;}
 .ledger-filter-icon-btn{
@@ -1079,6 +1080,7 @@ body { background: var(--t-bg) !important; }
   flex-wrap:wrap;
   gap:6px;
   padding:0;
+  align-items:center;
 }
 .ledger-tag-chip{
   font-size:12px;
