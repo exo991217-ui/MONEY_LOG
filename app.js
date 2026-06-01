@@ -833,6 +833,8 @@ function syncFundCalcToAssets(){
   S.fundCalc.assetLinkedAt=Date.now();
   saveState();
   renderFundCalc();
+  const dashTab=document.getElementById('tab-dashboard');
+  if(dashTab&&dashTab.classList.contains('active'))renderDashboard();
 }
 
 function toggleAssetTotalLink(linked){
@@ -960,6 +962,9 @@ function setFundAmount(val){
   if(S.fundCalc.assetLinked)return; // 연동 중 직접 편집 차단
   S.fundCalc.amount=numInputParse(val);
   saveState();renderFundCalc();
+  // 대시보드 잔여 예산 실시간 반영
+  const dashTab=document.getElementById('tab-dashboard');
+  if(dashTab&&dashTab.classList.contains('active'))renderDashboard();
 }
 
 function addFundItem(){
@@ -1065,17 +1070,23 @@ function renderDashboard(){
   // Banner: ledger-based (includes all expense categories including 신용카드 auto entries)
   const ledBannerIn=entries.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
   const ledBannerOut=entries.filter(e=>e.type==='expense').reduce((s,e)=>s+e.amount,0);
-  const bannerRemaining=entries.length>0?ledBannerIn-ledBannerOut:remaining;
+  const ledgerRemaining=entries.length>0?ledBannerIn-ledBannerOut:remaining;
   const bannerIsLedger=entries.length>0;
+
+  // 잔여 예산: 자금 분배 계산기 현재 보유 금액과 연동
+  const fundCalcAmt=S.fundCalc&&S.fundCalc.amount>0?S.fundCalc.amount:null;
+  const bannerRemaining=fundCalcAmt!==null?fundCalcAmt:ledgerRemaining;
+  const bannerSubText=fundCalcAmt!==null
+    ?'💰 자금 분배 계산기 연동 금액'
+    :(bannerIsLedger?'📒 수입 '+fmt(ledBannerIn)+' − 지출 '+fmt(ledBannerOut):'수입 '+fmt(totalIncome)+' − 지출 '+fmt(totalExpense));
+
   const banner=document.getElementById('dash-budget-banner');
   const monthTheme=getMonthTheme(cm.m);
   banner.style.background=bannerRemaining>=0
     ?monthTheme.gradient
     :'linear-gradient(135deg,#F06292,#EF5350)';
   document.getElementById('dash-remaining').textContent=fmt(bannerRemaining);
-  document.getElementById('dash-banner-sub').textContent=bannerIsLedger
-    ?'📒 수입 '+fmt(ledBannerIn)+' − 지출 '+fmt(ledBannerOut)
-    :'수입 '+fmt(totalIncome)+' − 지출 '+fmt(totalExpense);
+  document.getElementById('dash-banner-sub').textContent=bannerSubText;
 
   const ledIn=entries.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
   const ledOut=entries.filter(e=>e.type==='expense').reduce((s,e)=>s+e.amount,0);
@@ -1559,7 +1570,7 @@ function renderCredit(){
       <div class="credit-card-group">
         <div class="credit-card-group-header">
           <span class="credit-card-group-name">💳 ${cardName}</span>
-          <span class="credit-card-group-count">총 ${items.length}건 · 남은 대금 ${fmt(groupRemaining)}</span>
+          <span class="credit-card-group-count">총 ${oneTimeItems.length+installItems.length}건 · 남은 대금 ${fmt(groupRemaining)}</span>
         </div>
         ${oneTimeSection}${installSection}
       </div>`;
@@ -2675,8 +2686,19 @@ function updateRate(cardId,rateId,field,val){const c=S.cardSettings.find(c=>c.id
 // ===== SAVINGS RATE =====
 function renderSavingsRate(){
   const cm=S.currentMonths.dashboard;
-  const income=getTotalIncome(cm.y,cm.m);
-  const savings=getTotalSavings(cm.y,cm.m); // only isSavings-tagged fixed items
+  const key=mkey(cm.y,cm.m);
+  const entries=S.ledger[key]||[];
+
+  // 가계부 기록 기준 수입
+  const income=entries.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+
+  // 가계부 기록 기준 저축 (isSavings 카테고리 또는 #저축 태그)
+  const savingsLcats=new Set((S.ledgerCategories||[]).filter(c=>c.isSavings).map(c=>c.name));
+  const savings=entries.filter(e=>
+    e.type==='expense'&&
+    (savingsLcats.has(e.category)||(e.tags||[]).includes('저축'))
+  ).reduce((s,e)=>s+e.amount,0);
+
   const rate=income>0?(savings/income*100):0;
   const pct=Math.max(0,Math.min(100,rate));
   const color=rate>=30?'#43C98A':rate>=15?'#FFB347':'#F06292';
@@ -2684,7 +2706,7 @@ function renderSavingsRate(){
   const detailEl=document.getElementById('dash-sr-detail');
   const fillEl=document.getElementById('dash-sr-fill');
   if(pctEl){pctEl.textContent=rate.toFixed(1)+'%';pctEl.style.color=color;}
-  if(detailEl)detailEl.textContent='저축 '+fmt(savings)+' / 수입 '+fmt(income);
+  if(detailEl)detailEl.textContent='저축 '+fmt(savings)+' / 수입 '+fmt(income)+' (가계부 기준)';
   if(fillEl){fillEl.style.width=pct+'%';fillEl.style.background=color;}
 }
 
@@ -4098,11 +4120,10 @@ function switchTab(tab){
   if(tabEl)tabEl.classList.add('active');
   const navEl=document.querySelector('[data-tab="'+tab+'"]');
   if(navEl)navEl.classList.add('active');
-  // 가계부 서브메뉴 활성화
-  if(tab==='ledger'||tab==='monthly-archive'){
+  // 가계부 서브메뉴 활성화 (월 마감은 독립 탭으로 분리)
+  if(tab==='ledger'){
     const parentEl=document.querySelector('.nav-item-group[data-group="ledger"]');
     if(parentEl)parentEl.classList.add('active');
-    // 서브메뉴 열기
     const subMenu=document.getElementById('ledger-submenu');
     if(subMenu)subMenu.style.display='block';
   }
