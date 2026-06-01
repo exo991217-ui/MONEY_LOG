@@ -3752,6 +3752,17 @@ async function downloadMonthlyReport(){
     const pendingGoals=goals.filter(g=>g.saved<g.target).slice(0,3);
     const defaultGoals=['변동지출 계획 세우기','식비 예산 설정해보기','투자 비중 늘리기'];
     const goalsList=pendingGoals.length>0?pendingGoals.map(g=>g.name):defaultGoals;
+    // 전월 카테고리 맵 (TOP 소비 증감 비교용)
+    const prevCatMap={};
+    if(S.monthlyData[prevKey]){
+      getEffectiveVariable(py,pm).forEach(v=>{
+        const cn=v.category;
+        if(cn==='식비'||cn==='🍚 식비')return;
+        prevCatMap[cn]=(prevCatMap[cn]||0)+(parseFloat(v.amount)||0);
+      });
+      const prevFoodAmt=getFoodTotal(py,pm);
+      if(prevFoodAmt>0)prevCatMap['🍚 식비']=(prevCatMap['🍚 식비']||0)+prevFoodAmt;
+    }
     // Fixed expense list
     const fixedItems=getMonthData(y,m).fixed;
     const now=new Date();
@@ -3786,6 +3797,24 @@ async function downloadMonthlyReport(){
         <div style="font-size:17px;font-weight:900;color:${s.color};margin-bottom:4px;">${s.value}</div>
         <div style="font-size:10px;color:#9490A8;">${s.sub||s.change}</div>
       </div>`).join('')}
+  </div>
+  <!-- 일평균 지출 + 무지출 날수 -->
+  <div style="display:flex;gap:10px;padding:4px 24px 14px;background:#F7F4FF;">
+    <div style="flex:1;background:white;border-radius:12px;padding:12px 16px;border:1.5px solid #EEE9FF;box-shadow:0 2px 8px rgba(162,155,254,.10);display:flex;align-items:center;gap:12px;">
+      <div style="font-size:22px;">📅</div>
+      <div>
+        <div style="font-size:10px;color:#9490A8;font-weight:600;margin-bottom:3px;">일평균 지출</div>
+        <div style="font-size:16px;font-weight:900;color:#F06292;">${avgPerDay>0?fmt(avgPerDay):'—'}</div>
+      </div>
+    </div>
+    <div style="flex:1;background:white;border-radius:12px;padding:12px 16px;border:1.5px solid #EEE9FF;box-shadow:0 2px 8px rgba(162,155,254,.10);display:flex;align-items:center;gap:12px;">
+      <div style="font-size:22px;">🏆</div>
+      <div>
+        <div style="font-size:10px;color:#9490A8;font-weight:600;margin-bottom:3px;">무지출 날수</div>
+        <div style="font-size:16px;font-weight:900;color:#43C98A;">${zeroDays}일 <span style="font-size:11px;color:#9490A8;font-weight:500;">/ ${daysInMonth}일 중</span></div>
+      </div>
+    </div>
+    <div style="flex:3;"></div>
   </div>
   <!-- 지출구조 + 저축투자 -->
   <div style="display:flex;gap:16px;padding:16px 24px;background:#F7F4FF;">
@@ -3859,11 +3888,16 @@ async function downloadMonthlyReport(){
       ${top3.map((c,i)=>{
         const pct=totalExpense>0?(c[1]/totalExpense*100).toFixed(1):0;
         const rankColors=['#A29BFE','#74B9FF','#43C98A'];
+        const prevAmt=prevCatMap[c[0]]||0;
+        const hasPrev=Object.keys(prevCatMap).length>0&&prevAmt>0;
+        const diff=hasPrev?c[1]-prevAmt:null;
+        const diffStr=diff!==null?(diff>0?`▲${Math.round(Math.abs(diff)/1000)}k`:`▽${Math.round(Math.abs(diff)/1000)}k`):'';
+        const diffColor=diff!==null?(diff>0?'#F06292':'#43C98A'):'';
         return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed #F0EBF8;">
           <div style="width:26px;height:26px;border-radius:50%;background:${rankColors[i]};color:white;font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${i+1}</div>
           <div style="flex:1;">
             <div style="font-size:13px;font-weight:700;">${c[0]}</div>
-            <div style="font-size:10px;color:#9490A8;">${fmt(c[1])} (${pct}%)</div>
+            <div style="font-size:10px;color:#9490A8;display:flex;align-items:center;gap:5px;">${fmt(c[1])} (${pct}%)${diffStr?`<span style="color:${diffColor};font-weight:700;">${diffStr}</span>`:''}</div>
           </div>
           <div style="height:6px;width:60px;background:#F0EBF8;border-radius:4px;overflow:hidden;">
             <div style="height:100%;width:${pct}%;background:${rankColors[i]};border-radius:4px;"></div>
