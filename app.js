@@ -1761,8 +1761,8 @@ async function tryFetchPrice(yahooUrl,isKorean){
 }
 
 async function fetchStockPrices(){
-  const btn=document.getElementById('stock-refresh-btn');
-  const status=document.getElementById('stock-refresh-status');
+  const btn=document.getElementById('asset-stock-refresh-btn');
+  const status=document.getElementById('asset-stock-refresh-status');
   if(!btn)return;
   btn.classList.add('loading');btn.textContent='🔄 새로고침 중...';
   if(status)status.textContent='현재가를 가져오는 중...';
@@ -3699,11 +3699,21 @@ async function downloadMonthlyReport(){
     const daysInMonth=new Date(y,m,0).getDate();
     const zeroDays=daysInMonth-new Set(expEntries.map(e=>e.date)).size;
     const avgPerDay=expEntries.length>0?Math.round(totalExpense/daysInMonth):0;
-    // Top spending by category
+    // Top spending by category — 변동지출 + 식비만 집계 (고정지출 제외)
     const catMap={};
-    getEffectiveVariable(y,m).forEach(v=>{catMap[v.category]=(catMap[v.category]||0)+(parseFloat(v.amount)||0);});
-    if(foodTotal>0)catMap['식비']=(catMap['식비']||0)+foodTotal;
-    getMonthData(y,m).fixed.filter(f=>!f.isSavings).forEach(f=>{catMap[f.category]=(catMap[f.category]||0)+(parseFloat(f.amount)||0);});
+    getEffectiveVariable(y,m).forEach(v=>{
+      // 식비 카테고리(이모지 포함)는 별도로 foodTotal로 처리하므로 스킵
+      const catName=v.category;
+      if(catName==='식비'||catName==='🍚 식비')return;
+      catMap[catName]=(catMap[catName]||0)+(parseFloat(v.amount)||0);
+    });
+    // 식비는 항상 foodTotal 또는 가계부 식비 기록에서 통합
+    const ledgerFoodCats=['식비','🍚 식비'];
+    const ledgerFoodTotal=(S.ledger[mkey(y,m)]||[])
+      .filter(e=>e.type==='expense'&&!e.creditAutoId&&ledgerFoodCats.includes(e.category))
+      .reduce((s,e)=>s+e.amount,0);
+    const effectiveFoodTotal=Math.max(foodTotal,ledgerFoodTotal);
+    if(effectiveFoodTotal>0)catMap['식비']=effectiveFoodTotal;
     const catEntries=Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
     const top3=catEntries.slice(0,3);
     // 6-month trend
