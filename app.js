@@ -3711,16 +3711,27 @@ async function downloadMonthlyReport(){
     const totalVar=getTotalVariable(y,m);
     const foodTotal=getFoodTotal(y,m);
     const totalSavings=getTotalSavings(y,m);
-    const totalExpense=totalFixed+totalVar+foodTotal;
+    // 가계부에 식비 기록이 있으면 foodTotal은 이미 totalVar에 포함돼 있으므로 별도 합산 제외
+    const ledgerFoodCats=['식비','🍚 식비'];
+    const ledgerKey=mkey(y,m);
+    const ledgerFoodTotal=(S.ledger[ledgerKey]||[])
+      .filter(e=>e.type==='expense'&&!e.creditAutoId&&ledgerFoodCats.includes(e.category))
+      .reduce((s,e)=>s+e.amount,0);
+    const hasLedgerFood=ledgerFoodTotal>0;
+    // 가계부 식비 기록이 있으면 foodTotal 중복 제외, 없으면 식비 캘린더 사용
+    const totalExpense=totalFixed+totalVar+(hasLedgerFood?0:foodTotal);
     const remaining=totalIncome-totalExpense;
     const savingsRate=totalIncome>0?(totalSavings/totalIncome*100):0;
     const stockVal=getTotalStockValue();
     const assetTotal=getTotalAssets();
     const prevIncome=S.monthlyData[prevKey]?getTotalIncome(py,pm):0;
-    const prevExpense=S.monthlyData[prevKey]?(getTotalFixed(py,pm)+getTotalVariable(py,pm)+getFoodTotal(py,pm)):0;
+    const prevLedgerFoodTotal=(S.ledger[mkey(py,pm)]||[])
+      .filter(e=>e.type==='expense'&&!e.creditAutoId&&ledgerFoodCats.includes(e.category))
+      .reduce((s,e)=>s+e.amount,0);
+    const prevHasLedgerFood=prevLedgerFoodTotal>0;
+    const prevExpense=S.monthlyData[prevKey]?(getTotalFixed(py,pm)+getTotalVariable(py,pm)+(prevHasLedgerFood?0:getFoodTotal(py,pm))):0;
     const prevSavings=S.monthlyData[prevKey]?getTotalSavings(py,pm):0;
     const netChange=remaining-(prevIncome>0?prevIncome-prevExpense:0);
-    const ledgerKey=mkey(y,m);
     const entries=S.ledger[ledgerKey]||[];
     const expEntries=entries.filter(e=>e.type==='expense'&&!e.creditAutoId);
     const daysInMonth=new Date(y,m,0).getDate();
@@ -3729,17 +3740,13 @@ async function downloadMonthlyReport(){
     // Top spending by category — 변동지출 + 식비만 집계 (고정지출 제외)
     const catMap={};
     getEffectiveVariable(y,m).forEach(v=>{
-      // 식비 카테고리(이모지 포함)는 별도로 foodTotal로 처리하므로 스킵
+      // 식비는 아래에서 effectiveFoodTotal로 통합 처리
       const catName=v.category;
       if(catName==='식비'||catName==='🍚 식비')return;
       catMap[catName]=(catMap[catName]||0)+(parseFloat(v.amount)||0);
     });
-    // 식비는 항상 foodTotal 또는 가계부 식비 기록에서 통합
-    const ledgerFoodCats=['식비','🍚 식비'];
-    const ledgerFoodTotal=(S.ledger[mkey(y,m)]||[])
-      .filter(e=>e.type==='expense'&&!e.creditAutoId&&ledgerFoodCats.includes(e.category))
-      .reduce((s,e)=>s+e.amount,0);
-    const effectiveFoodTotal=Math.max(foodTotal,ledgerFoodTotal);
+    // 식비: 가계부 기록이 있으면 가계부 기준, 없으면 식비 캘린더 기준
+    const effectiveFoodTotal=hasLedgerFood?ledgerFoodTotal:foodTotal;
     if(effectiveFoodTotal>0)catMap['🍚 식비']=(catMap['🍚 식비']||0)+effectiveFoodTotal;
     const catEntries=Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
     const top3=catEntries.slice(0,3);
@@ -3750,7 +3757,8 @@ async function downloadMonthlyReport(){
       while(tm<1){tm+=12;ty--;}
       const tKey=mkey(ty,tm);
       const tData=S.monthlyData[tKey];
-      const tTotal=tData?(getTotalFixed(ty,tm)+getTotalVariable(ty,tm)+getFoodTotal(ty,tm)):null;
+      const tLedgerFood=(S.ledger[tKey]||[]).filter(e=>e.type==='expense'&&!e.creditAutoId&&ledgerFoodCats.includes(e.category)).reduce((s,e)=>s+e.amount,0);
+      const tTotal=tData?(getTotalFixed(ty,tm)+getTotalVariable(ty,tm)+(tLedgerFood>0?0:getFoodTotal(ty,tm))):null;
       trend.push({y:ty,m:tm,total:tTotal});
     }
     const trendMax=Math.max(...trend.map(t=>t.total||0),1);
