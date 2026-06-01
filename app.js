@@ -35,7 +35,7 @@ const DEFAULT_DATA=()=>{
     ]
   }],
   currentMonths:{dashboard:{y:_y,m:_m},income:{y:_y,m:_m},credit:{y:_y,m:_m},food:{y:_y,m:_m},ledger:{y:_y,m:_m}},
-  calYear:_y,ledger:{},subscriptions:[],automations:[],closedMonths:{},ledgerFilter:null,ledgerTagFilter:null,
+  calYear:_y,ledger:{},subscriptions:[],automations:[],closedMonths:{},monthClosedArchive:{},ledgerFilter:null,ledgerTagFilter:null,
   budgetCategories:[
     {id:101,name:'식비',budget:200000,synced:true,syncFrom:'',linkedCategories:[]},
     {id:102,name:'생필품',budget:200000,synced:true,syncFrom:'',linkedCategories:[]},
@@ -91,6 +91,7 @@ function loadState(){
       S.automations=S.automations.map(a=>({type:'expense',memo:a.name||'',tags:[],...a}));
       if(!S.autoSkippedIds)S.autoSkippedIds=[];
       if(!S.closedMonths)S.closedMonths={};
+      if(!S.monthClosedArchive)S.monthClosedArchive={};
       if(!S.budgetCategories)S.budgetCategories=DEFAULT_DATA().budgetCategories;
       if(!S.monthBudgets)S.monthBudgets={};
       if(!S.assetCategories)S.assetCategories=['계좌','적금','주식'];
@@ -240,6 +241,7 @@ window.FB_MERGE = function(fbData) {
     S.automations=S.automations.map(a=>({type:'expense',memo:a.name||'',tags:[],...a}));
     if(!S.autoSkippedIds)S.autoSkippedIds=[];
     if(!S.closedMonths)S.closedMonths={};
+    if(!S.monthClosedArchive)S.monthClosedArchive={};
     if(!S.budgetCategories)S.budgetCategories=D.budgetCategories;
     if(!S.monthBudgets)S.monthBudgets={};
     if(!S.assetCategories)S.assetCategories=['계좌','적금','주식'];
@@ -3317,12 +3319,29 @@ function closeMonth(){
   const budOut=getTotalFixed(cm.y,cm.m)+getTotalVariable(cm.y,cm.m)+getFoodTotal(cm.y,cm.m);
   const savings=getTotalSavings(cm.y,cm.m);
   const sr=budIn>0?(savings/budIn*100).toFixed(1):0;
-  S.closedMonths[key]={
-    closedAt:Date.now(),note:document.getElementById('cm-note').value,
-    ledgerIncome:entries.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0),
-    ledgerExpense:entries.filter(e=>e.type==='expense').reduce((s,e)=>s+e.amount,0),
+  const note=document.getElementById('cm-note').value;
+  const ledIn=entries.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+  const ledOut=entries.filter(e=>e.type==='expense').reduce((s,e)=>s+e.amount,0);
+  const snapshot={
+    closedAt:Date.now(),note,
+    year:cm.y,month:cm.m,
+    ledgerIncome:ledIn,ledgerExpense:ledOut,
     budgetIncome:budIn,budgetExpense:budOut,savings,savingsRate:sr,
+    categories:(()=>{
+      const effectiveVars=getEffectiveVariable(cm.y,cm.m);
+      const catMap={};
+      effectiveVars.forEach(v=>{catMap[v.category]=(catMap[v.category]||0)+(parseFloat(v.amount)||0);});
+      const foodAmt=getFoodTotal(cm.y,cm.m);
+      if(foodAmt>0)catMap['식비']=(catMap['식비']||0)+foodAmt;
+      return Object.entries(catMap).sort((a,b)=>b[1]-a[1]).map(([name,amount])=>{
+        const bCat=(S.budgetCategories||[]).find(b=>b.name===name);
+        return{name,amount,budget:bCat?.budget||0};
+      });
+    })(),
+    ledgerEntries:entries.map(e=>({...e})),
   };
+  S.closedMonths[key]={closedAt:snapshot.closedAt,note,ledgerIncome:ledIn,ledgerExpense:ledOut,budgetIncome:budIn,budgetExpense:budOut,savings,savingsRate:sr};
+  S.monthClosedArchive[key]=snapshot;
   saveState();closeModal();renderLedger();
 }
 
@@ -3331,6 +3350,119 @@ function reopenMonth(){
   if(!confirm('마감을 취소하고 다시 편집 가능하게 할까요?'))return;
   delete S.closedMonths[key];
   saveState();renderLedger();
+}
+
+// ===== MONTHLY ARCHIVE TAB =====
+function renderMonthlyArchive(){
+  const el=document.getElementById('archive-list');
+  if(!el)return;
+  const archive=S.monthClosedArchive||{};
+  const keys=Object.keys(archive).sort((a,b)=>{
+    const [ay,am]=a.split('-').map(Number);
+    const [by,bm]=b.split('-').map(Number);
+    return by!==ay?by-ay:bm-am;
+  });
+  const countEl=document.getElementById('archive-count');
+  if(countEl)countEl.textContent=keys.length+'건';
+  if(keys.length===0){
+    el.innerHTML=`<div class="archive-empty">
+      <div style="font-size:40px;margin-bottom:12px;">📋</div>
+      <div style="font-size:15px;font-weight:700;color:var(--text-main);margin-bottom:6px;">아직 마감된 달이 없어요</div>
+      <div style="font-size:13px;color:var(--text-sub);line-height:1.6;">가계부 탭에서 <strong>월 마감</strong> 버튼을 눌러<br>마감 확정을 하면 여기에 자동 저장됩니다.</div>
+    </div>`;
+    return;
+  }
+  el.innerHTML=keys.map(key=>{
+    const snap=archive[key];
+    const y=snap.year;const m=snap.month;
+    const theme=MONTH_THEMES[m]||MONTH_THEMES[5];
+    const sr=parseFloat(snap.savingsRate||0);
+    const srColor=sr>=30?'var(--green)':sr>=15?'var(--orange)':'var(--red)';
+    const closedDate=new Date(snap.closedAt).toLocaleDateString('ko-KR');
+    const catRows=(snap.categories||[]).slice(0,5).map(c=>{
+      const barPct=Math.min(100,c.budget>0?Math.round(c.amount/c.budget*100):50);
+      const barColor=c.budget>0&&c.amount>c.budget?'var(--red)':c.budget>0&&(c.amount/c.budget)>=0.7?'var(--orange)':'var(--purple)';
+      const note=c.budget>0?`<span style="font-size:11px;color:${c.amount>c.budget?'var(--red)':'var(--green)'};">${c.amount>c.budget?'▲초과 '+fmt(c.amount-c.budget):'▽여유 '+fmt(c.budget-c.amount)}</span>`:'';
+      return `<div class="arch-cat-row">
+        <div class="arch-cat-top">
+          <span class="arch-cat-name">${c.name}</span>
+          <div style="display:flex;align-items:center;gap:6px;">${note}<span class="arch-cat-amount">${fmt(c.amount)}</span></div>
+        </div>
+        <div class="arch-cat-bar-wrap"><div class="arch-cat-bar" style="width:${barPct}%;background:${barColor};"></div></div>
+      </div>`;
+    }).join('');
+    const ledRows=(snap.ledgerEntries||[]).slice(0,5).map(e=>{
+      const dp=(e.date||'').split('-');
+      const ds=dp.length===3?dp[1]+'/'+dp[2]:(e.date||'');
+      const tc=e.type==='income'?'var(--green)':'var(--red)';
+      return `<div class="arch-led-row">
+        <span class="arch-led-date">${ds}</span>
+        <span class="arch-led-cat">${e.category||''}</span>
+        <span class="arch-led-memo">${e.memo||''}</span>
+        <span class="arch-led-amount" style="color:${tc};">${e.type==='income'?'+':'-'}${fmt(e.amount)}</span>
+      </div>`;
+    }).join('');
+    const totalEntries=(snap.ledgerEntries||[]).length;
+    return `<div class="arch-card" id="arch-card-${key}">
+      <div class="arch-card-header" style="background:linear-gradient(135deg,${theme.t1}18,${theme.t2}22);border-bottom:2px solid ${theme.t2}44;" onclick="App._toggleArchiveCard('${key}')">
+        <div class="arch-card-title">
+          <span class="arch-month-badge" style="background:linear-gradient(135deg,${theme.t1},${theme.t2});">${y}년 ${m}월</span>
+          ${snap.note?`<span class="arch-note-preview">"${snap.note}"</span>`:''}
+        </div>
+        <div class="arch-card-meta">
+          <span class="arch-closed-date">📋 ${closedDate} 마감</span>
+          <span class="arch-sr-badge" style="color:${srColor};background:${srColor}18;">저축률 ${sr}%</span>
+          <span class="arch-expand-arrow" id="arch-arrow-${key}">∨</span>
+        </div>
+      </div>
+      <div class="arch-card-body" id="arch-body-${key}" style="display:none;">
+        <div class="arch-stats-grid">
+          <div class="arch-stat-box">
+            <div class="arch-stat-label">💰 예산 수입</div>
+            <div class="arch-stat-val green">${fmt(snap.budgetIncome)}</div>
+          </div>
+          <div class="arch-stat-box">
+            <div class="arch-stat-label">💸 예산 지출</div>
+            <div class="arch-stat-val red">${fmt(snap.budgetExpense)}</div>
+          </div>
+          <div class="arch-stat-box">
+            <div class="arch-stat-label">📒 가계부 지출</div>
+            <div class="arch-stat-val orange">${fmt(snap.ledgerExpense)}</div>
+          </div>
+          <div class="arch-stat-box" style="background:${srColor}12;border:1.5px solid ${srColor}44;">
+            <div class="arch-stat-label">🎯 저축률</div>
+            <div class="arch-stat-val" style="color:${srColor};font-size:20px;">${sr}%</div>
+          </div>
+        </div>
+        ${snap.categories&&snap.categories.length>0?`
+        <div class="arch-section-title">📊 카테고리별 지출</div>
+        <div class="arch-cat-list">${catRows}</div>`:''}
+        ${snap.ledgerEntries&&snap.ledgerEntries.length>0?`
+        <div class="arch-section-title">📝 가계부 내역 (최근 5건 / 총 ${totalEntries}건)</div>
+        <div class="arch-led-list">${ledRows}</div>`:''}
+        <div class="arch-card-footer">
+          <button class="arch-delete-btn" onclick="App.deleteArchiveEntry('${key}')">🗑️ 이 마감 삭제</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function _toggleArchiveCard(key){
+  const body=document.getElementById('arch-body-'+key);
+  const arrow=document.getElementById('arch-arrow-'+key);
+  if(!body)return;
+  const isOpen=body.style.display!=='none';
+  body.style.display=isOpen?'none':'block';
+  if(arrow)arrow.textContent=isOpen?'∨':'∧';
+}
+
+function deleteArchiveEntry(key){
+  const [y,m]=key.split('-').map(Number);
+  if(!confirm(`⚠️ ${y}년 ${m}월 마감 기록을 삭제할까요?\n\n삭제하면 복구할 수 없습니다.`))return;
+  if(S.monthClosedArchive)delete S.monthClosedArchive[key];
+  saveState();
+  renderMonthlyArchive();
 }
 
 
@@ -3883,7 +4015,7 @@ function confirmDeleteMonth(key){
 
 function deleteMonthData(key){
   const [y,m]=key.split('-').map(Number);
-  // 해당 달 데이터만 삭제
+  // 해당 달 데이터만 삭제 (월 마감 아카이브는 삭제하지 않음)
   if(S.monthlyData)delete S.monthlyData[key];
   if(S.foodCalendar)delete S.foodCalendar[key];
   if(S.foodDirectSet)delete S.foodDirectSet[key];
@@ -3895,6 +4027,7 @@ function deleteMonthData(key){
     if(Object.keys(S.consumptionCalendar[y]).length===0)
       delete S.consumptionCalendar[y];
   }
+  // monthClosedArchive는 삭제하지 않음 — 월 마감 탭에서만 개별 삭제 가능
   saveState();
   // 모달 내 목록 갱신
   const listEl=document.getElementById('delete-month-list');
@@ -3916,8 +4049,29 @@ function switchTab(tab){
   if(tabEl)tabEl.classList.add('active');
   const navEl=document.querySelector('[data-tab="'+tab+'"]');
   if(navEl)navEl.classList.add('active');
+  // 가계부 서브메뉴 활성화
+  if(tab==='ledger'||tab==='monthly-archive'){
+    const parentEl=document.querySelector('.nav-item-group[data-group="ledger"]');
+    if(parentEl)parentEl.classList.add('active');
+    // 서브메뉴 열기
+    const subMenu=document.getElementById('ledger-submenu');
+    if(subMenu)subMenu.style.display='block';
+  }
+  if(tab==='monthly-archive'){
+    renderMonthlyArchive();
+  }
   // Close sidebar on mobile
   if(window.innerWidth<=680)closeSidebar();
+}
+
+function toggleLedgerSubmenu(e){
+  e.stopPropagation();
+  const sub=document.getElementById('ledger-submenu');
+  if(!sub)return;
+  const isOpen=sub.style.display!=='none'&&sub.style.display!=='';
+  sub.style.display=isOpen?'none':'block';
+  const arrow=document.getElementById('ledger-sub-arrow');
+  if(arrow)arrow.textContent=isOpen?'›':'∨';
 }
 
 // ===== APP EXPORT =====
@@ -4013,6 +4167,7 @@ window.App={
   onMemoInput,onMemoKeydown,selectMemoTag,hideMemoDropdown,
   toggleImportPanel,doImportToLedger,
   openCloseMonthModal,closeMonth,reopenMonth,
+  renderMonthlyArchive,deleteArchiveEntry,_toggleArchiveCard,toggleLedgerSubmenu,
   fetchStockPrices,
   downloadMonthlyReport,
   showVarPreview,goToLedger,
@@ -4043,7 +4198,7 @@ window.App={
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded',()=>{
   document.querySelectorAll('.nav-item').forEach(item=>{
-    item.addEventListener('click',()=>switchTab(item.dataset.tab));
+    if(item.dataset.tab)item.addEventListener('click',()=>switchTab(item.dataset.tab));
   });
   document.querySelectorAll('.modal').forEach(m=>m.addEventListener('click',e=>e.stopPropagation()));
 
