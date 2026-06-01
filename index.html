@@ -49,16 +49,8 @@
       <li class="nav-item" data-tab="assets">🏦 자산 목록</li>
       <li class="nav-item" data-tab="calendar">🗓️ 소비 캘린더</li>
       <li class="nav-item" data-tab="food">🍱 식비 캘린더</li>
-      <li class="nav-item-group" data-group="ledger">
-        <div class="nav-item nav-group-header" onclick="App.toggleLedgerSubmenu(event)">
-          <span>📒 가계부</span>
-          <span id="ledger-sub-arrow" class="nav-group-arrow">›</span>
-        </div>
-        <ul class="nav-submenu" id="ledger-submenu" style="display:none;">
-          <li class="nav-item nav-sub-item" data-tab="ledger">📒 가계부</li>
-          <li class="nav-item nav-sub-item" data-tab="monthly-archive">📋 월 마감</li>
-        </ul>
-      </li>
+      <li class="nav-item" data-tab="ledger">📒 가계부</li>
+      <li class="nav-item" data-tab="monthly-archive">📋 월 마감</li>
     </ul>
     <button class="sidebar-delete-btn" onclick="App.openDeleteModal()">🗑️ 데이터 삭제</button>
     <div class="sidebar-storage">
