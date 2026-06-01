@@ -3332,7 +3332,7 @@ function closeMonth(){
       const catMap={};
       effectiveVars.forEach(v=>{catMap[v.category]=(catMap[v.category]||0)+(parseFloat(v.amount)||0);});
       const foodAmt=getFoodTotal(cm.y,cm.m);
-      if(foodAmt>0)catMap['식비']=(catMap['식비']||0)+foodAmt;
+      if(foodAmt>0)catMap['🍚 식비']=(catMap['🍚 식비']||0)+foodAmt;
       return Object.entries(catMap).sort((a,b)=>b[1]-a[1]).map(([name,amount])=>{
         const bCat=(S.budgetCategories||[]).find(b=>b.name===name);
         return{name,amount,budget:bCat?.budget||0};
@@ -3391,18 +3391,23 @@ function renderMonthlyArchive(){
         <div class="arch-cat-bar-wrap"><div class="arch-cat-bar" style="width:${barPct}%;background:${barColor};"></div></div>
       </div>`;
     }).join('');
-    const ledRows=(snap.ledgerEntries||[]).slice(0,5).map(e=>{
+    const top5Expenses=(snap.ledgerEntries||[])
+      .filter(e=>e.type==='expense'&&!e.creditAutoId)
+      .sort((a,b)=>b.amount-a.amount)
+      .slice(0,5);
+    const ledRows=top5Expenses.map((e,i)=>{
       const dp=(e.date||'').split('-');
       const ds=dp.length===3?dp[1]+'/'+dp[2]:(e.date||'');
-      const tc=e.type==='income'?'var(--green)':'var(--red)';
+      const rankColors=['#A29BFE','#74B9FF','#43C98A','#FFB347','#F06292'];
       return `<div class="arch-led-row">
+        <span class="arch-led-rank" style="width:20px;height:20px;border-radius:50%;background:${rankColors[i]};color:white;font-weight:800;font-size:11px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">${i+1}</span>
         <span class="arch-led-date">${ds}</span>
         <span class="arch-led-cat">${e.category||''}</span>
         <span class="arch-led-memo">${e.memo||''}</span>
-        <span class="arch-led-amount" style="color:${tc};">${e.type==='income'?'+':'-'}${fmt(e.amount)}</span>
+        <span class="arch-led-amount" style="color:var(--red);">-${fmt(e.amount)}</span>
       </div>`;
     }).join('');
-    const totalEntries=(snap.ledgerEntries||[]).length;
+    const totalEntries=(snap.ledgerEntries||[]).filter(e=>e.type==='expense'&&!e.creditAutoId).length;
     return `<div class="arch-card" id="arch-card-${key}">
       <div class="arch-card-header" style="background:linear-gradient(135deg,${theme.t1}18,${theme.t2}22);border-bottom:2px solid ${theme.t2}44;" onclick="App._toggleArchiveCard('${key}')">
         <div class="arch-card-title">
@@ -3437,8 +3442,8 @@ function renderMonthlyArchive(){
         ${snap.categories&&snap.categories.length>0?`
         <div class="arch-section-title">📊 카테고리별 지출</div>
         <div class="arch-cat-list">${catRows}</div>`:''}
-        ${snap.ledgerEntries&&snap.ledgerEntries.length>0?`
-        <div class="arch-section-title">📝 가계부 내역 (최근 5건 / 총 ${totalEntries}건)</div>
+        ${top5Expenses.length>0?`
+        <div class="arch-section-title">💸 지출 TOP 5 (총 ${totalEntries}건 중)</div>
         <div class="arch-led-list">${ledRows}</div>`:''}
         <div class="arch-card-footer">
           <button class="arch-delete-btn" onclick="App.deleteArchiveEntry('${key}')">🗑️ 이 마감 삭제</button>
@@ -3713,7 +3718,7 @@ async function downloadMonthlyReport(){
       .filter(e=>e.type==='expense'&&!e.creditAutoId&&ledgerFoodCats.includes(e.category))
       .reduce((s,e)=>s+e.amount,0);
     const effectiveFoodTotal=Math.max(foodTotal,ledgerFoodTotal);
-    if(effectiveFoodTotal>0)catMap['식비']=effectiveFoodTotal;
+    if(effectiveFoodTotal>0)catMap['🍚 식비']=(catMap['🍚 식비']||0)+effectiveFoodTotal;
     const catEntries=Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
     const top3=catEntries.slice(0,3);
     // 6-month trend
