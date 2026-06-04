@@ -289,8 +289,24 @@ body{font-family:var(--font);background:var(--bg);color:var(--text-main);min-hei
 .cm-cat-bar{height:100%;border-radius:4px;transition:width .4s ease}
 
 /* ===== CALENDAR ===== */
-.cal-year-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
-.cal-month-card{background:white;border-radius:var(--radius-sm);border:1.5px solid var(--border);box-shadow:var(--shadow);overflow:hidden;min-height:120px}
+.cal-year-scroll-wrap{overflow-x:auto;padding-bottom:10px;-webkit-overflow-scrolling:touch}
+.cal-year-grid{display:flex;flex-direction:row;flex-wrap:nowrap;gap:14px;min-width:max-content}
+.cal-month-card{background:white;border-radius:var(--radius-sm);border:1.5px solid var(--border);box-shadow:var(--shadow);overflow:hidden;min-height:120px;min-width:200px;width:200px;flex-shrink:0}
+.cal-section-label{font-size:15px;font-weight:800;color:var(--text-main);margin-bottom:14px;display:flex;align-items:center;gap:10px;padding:0 2px}
+.cal-section-sub{font-size:12px;font-weight:500;color:var(--text-sub);background:var(--border);border-radius:20px;padding:2px 10px}
+.weekly-spend-container{background:white;border-radius:var(--radius);border:1.5px solid var(--border);box-shadow:var(--shadow);overflow:hidden;padding:18px 22px}
+.weekly-spend-empty{padding:18px 0;text-align:center;color:var(--text-sub);font-size:13px;line-height:1.8}
+.weekly-spend-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)}
+.weekly-spend-row:last-of-type{border-bottom:none}
+.weekly-spend-label{font-size:13px;font-weight:700;color:var(--text-main);min-width:70px;flex-shrink:0}
+.weekly-spend-days{font-size:11px;font-weight:500;color:var(--text-sub);margin-left:4px}
+.weekly-spend-bar-wrap{flex:1;height:10px;background:var(--border);border-radius:6px;overflow:hidden}
+.weekly-spend-bar{height:100%;background:linear-gradient(90deg,#A29BFE,#74B9FF);border-radius:6px;transition:width .4s ease}
+.weekly-spend-right{display:flex;flex-direction:column;align-items:flex-end;min-width:90px;flex-shrink:0}
+.weekly-spend-amount{font-size:13px;font-weight:800;color:var(--text-main)}
+.weekly-spend-pct{font-size:11px;color:var(--text-sub);font-weight:600}
+.weekly-spend-total{margin-top:12px;padding-top:12px;border-top:1.5px solid var(--border);text-align:right;font-size:13px;color:var(--text-sub)}
+.weekly-spend-total strong{color:var(--text-main);font-weight:800}
 .cal-month-header{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;font-weight:800;font-size:14px;border-bottom:1px solid var(--border)}
 .cal-month-now{background:linear-gradient(135deg,#E8FFE8,#EFFFFE);border-top:3px solid var(--green)}
 .cal-month-now .cal-month-header{color:var(--green)}
@@ -612,7 +628,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text-main);min-hei
   .installment-grid{grid-template-columns:1fr}
   .dash-ledger-grid{grid-template-columns:1fr 1fr}
   .stock-summary-bar{grid-template-columns:1fr}
-  .cal-year-grid{grid-template-columns:repeat(2,1fr)}
+  .cal-month-card{min-width:160px;width:160px}
   .food-panel-fields{grid-template-columns:1fr}
   .page-header{flex-direction:column;gap:10px}
   .ledger-quick-form{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:start;}
