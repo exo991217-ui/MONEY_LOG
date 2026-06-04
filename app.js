@@ -1844,7 +1844,6 @@ function renderCalendar(){
   }).join('');
   renderSavingsGoals();
   renderFood();
-  renderWeeklySpend();
 }
 
 function renderSavingsGoals(){
@@ -1965,27 +1964,62 @@ function renderFood(){
   const firstDay=new Date(cm.y,cm.m-1,1).getDay();
   const daysInMonth=new Date(cm.y,cm.m,0).getDate();
   const dowLabels=['일','월','화','수','목','금','토'];
-  let cells='';
-  for(let i=0;i<firstDay;i++)cells+='<div class="food-day empty"></div>';
+
+  // 공과금 제외 가계부 지출 항목
+  const ledgerEntries=(S.ledger[key]||[]).filter(e=>e.type==='expense'&&!e.creditAutoId&&!(e.category||'').includes('공과금'));
+
+  // 모든 셀 목록 (앞 빈칸 + 날짜 + 뒤 빈칸)
+  const allCells=[];
+  for(let i=0;i<firstDay;i++)allCells.push({type:'empty'});
   for(let d=1;d<=daysInMonth;d++){
     const dow=(firstDay+d-1)%7;
-    const dd=days[d]||{};
-    const isOpen=currentFoodPanel===d;
-    cells+=`
-      <div class="food-day${isOpen?' panel-open':''}" onclick="App.toggleFoodPanel(${d})" title="클릭하여 편집">
+    allCells.push({type:'day',d,dow,dd:days[d]||{},isOpen:currentFoodPanel===d});
+  }
+  const rem=(firstDay+daysInMonth)%7;
+  if(rem>0)for(let i=0;i<7-rem;i++)allCells.push({type:'empty'});
+
+  // 주차별 행 + 주간 소비 요약 생성
+  const totalRows=allCells.length/7;
+  let rowsHTML='';
+  for(let row=0;row<totalRows;row++){
+    const rowCells=allCells.slice(row*7,(row+1)*7);
+    const rowDays=rowCells.filter(c=>c.type==='day').map(c=>c.d);
+
+    // 식비 캘린더 주합계
+    const foodWeekTotal=rowDays.reduce((s,d)=>s+(Number((days[d]||{}).amount)||0),0);
+    // 가계부 주합계 (공과금 제외)
+    const ledgerWeekTotal=ledgerEntries.filter(e=>{
+      const d=parseInt((e.date||'').split('-')[2])||0;
+      return rowDays.includes(d);
+    }).reduce((s,e)=>s+e.amount,0);
+
+    const rowHTML=rowCells.map(cell=>{
+      if(cell.type==='empty')return '<div class="food-day empty"></div>';
+      const{d,dow,dd,isOpen}=cell;
+      return `<div class="food-day${isOpen?' panel-open':''}" onclick="App.toggleFoodPanel(${d})" title="클릭하여 편집">
         <div class="food-day-num ${dow===0?'sun':dow===6?'sat':''}">${d}</div>
         ${dd.special?`<div class="food-special-tag">${dd.special}</div>`:''}
         ${dd.memo?`<div class="food-memo">${dd.memo}</div>`:''}
         ${dd.amount?`<div class="food-amount">${Number(dd.amount).toLocaleString('ko-KR')}</div>`:''}
       </div>`;
+    }).join('');
+
+    rowsHTML+=`<div class="food-cal-week-row">${rowHTML}</div>`;
+    rowsHTML+=`<div class="food-week-summary" style="border-color:${ft.border};">
+      <span class="food-week-label" style="color:${ft.color};">${row+1}주차</span>
+      <div class="food-week-totals">
+        ${foodWeekTotal>0?`<span class="food-week-chip food-week-food" style="background:${ft.light};color:${ft.color};">식비 ${fmt(foodWeekTotal)}</span>`:''}
+        ${ledgerWeekTotal>0?`<span class="food-week-chip food-week-ledger">소비 ${fmt(ledgerWeekTotal)}</span>`:''}
+        ${foodWeekTotal===0&&ledgerWeekTotal===0?`<span class="food-week-none">기록 없음</span>`:''}
+      </div>
+    </div>`;
   }
-  const rem=(firstDay+daysInMonth)%7;
-  if(rem>0)for(let i=0;i<7-rem;i++)cells+='<div class="food-day empty"></div>';
+
   document.getElementById('food-calendar').innerHTML=`
     <div class="food-cal-header" style="background:${ft.light};">
       ${dowLabels.map((d,i)=>`<div class="food-cal-dow ${i===0?'sun':i===6?'sat':''}">${d}</div>`).join('')}
     </div>
-    <div class="food-cal-grid">${cells}</div>
+    <div class="food-cal-rows">${rowsHTML}</div>
     <div style="padding:14px 18px;background:${ft.light};border-top:1.5px solid ${ft.border};font-size:13px;font-weight:700;text-align:right;color:${ft.color};">총 ${fmt(foodTotal)}</div>`;
 
   // Re-render panel if one was open
