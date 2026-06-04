@@ -3284,17 +3284,31 @@ function openCloseMonthModal(){
   const effectiveVars=getEffectiveVariable(cm.y,cm.m);
   const catMap={};
   effectiveVars.forEach(v=>{catMap[v.category]=(catMap[v.category]||0)+(parseFloat(v.amount)||0);});
-  // Add food
-  const foodAmt=getFoodTotal(cm.y,cm.m);
-  if(foodAmt>0)catMap['식비']=(catMap['식비']||0)+foodAmt;
+  // [수정] 식비 캘린더 금액을 별도로 더하지 않음 — getEffectiveVariable이 이미 가계부 식비 포함
   const catEntries=Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
   const maxAmt=catEntries.length>0?catEntries[0][1]:1;
 
-  const catRows=catEntries.map(([cat,amt])=>{
+  // [수정] 카테고리별 고유 색상 팔레트 (모달)
+  const CM_CAT_COLORS={
+    '식비':'#FF8A65','🍚 식비':'#FF8A65',
+    '생필품':'#4DB6AC','생활용품':'#4DB6AC','🧴 생활용품':'#4DB6AC',
+    '문화/여가':'#CE93D8','문화·취미':'#CE93D8','🎨 문화·취미':'#CE93D8',
+    '기타':'#90A4AE','📦 기타':'#90A4AE',
+    '교통':'#64B5F6','교통·통신':'#64B5F6','🚗 교통·차량':'#64B5F6',
+    '주거':'#FFD54F','주거/공과':'#FFD54F','주거·공과금':'#FFD54F','🏠 주거·공과금':'#FFD54F',
+    '건강':'#81C784','💪 건강':'#81C784',
+    '저축/투자':'#A29BFE','💰 금융':'#80CBC4',
+    '패션·미용':'#F48FB1','👕 패션·미용':'#F48FB1',
+    '여행':'#4FC3F7','✈ 여행':'#4FC3F7',
+    '경조사':'#FFCA28','🎁 경조사':'#FFCA28',
+  };
+  const CM_FALLBACK=['#A29BFE','#64B5F6','#FF8A65','#4DB6AC','#F48FB1','#FFD54F','#81C784','#80CBC4'];
+  const catRows=catEntries.map(([cat,amt],i)=>{
     const bCat=(S.budgetCategories||[]).find(b=>b.name===cat);
     const bAmt=bCat?.budget||0;
     const barPct=Math.min(100,(amt/(maxAmt||1))*100);
-    const barColor=bAmt>0&&amt>bAmt?'var(--red)':bAmt>0&&(amt/bAmt)>=0.7?'var(--orange)':'var(--purple)';
+    const baseColor=CM_CAT_COLORS[cat]||CM_FALLBACK[i%CM_FALLBACK.length];
+    const barColor=bAmt>0&&amt>bAmt?'var(--red)':baseColor;
     const note=bAmt>0?`<span class="cm-cat-note" style="color:${amt>bAmt?'var(--red)':'var(--green)'};">${amt>bAmt?'▲초과 '+fmt(amt-bAmt):'▽여유 '+fmt(bAmt-amt)}</span>`:'';
     return `
       <div class="cm-cat-row">
@@ -3353,8 +3367,7 @@ function closeMonth(){
       const effectiveVars=getEffectiveVariable(cm.y,cm.m);
       const catMap={};
       effectiveVars.forEach(v=>{catMap[v.category]=(catMap[v.category]||0)+(parseFloat(v.amount)||0);});
-      const foodAmt=getFoodTotal(cm.y,cm.m);
-      if(foodAmt>0)catMap['🍚 식비']=(catMap['🍚 식비']||0)+foodAmt;
+      // [수정] 식비 캘린더 금액을 별도로 더하지 않음 — getEffectiveVariable이 이미 가계부 식비 포함
       return Object.entries(catMap).sort((a,b)=>b[1]-a[1]).map(([name,amount])=>{
         const bCat=(S.budgetCategories||[]).find(b=>b.name===name);
         return{name,amount,budget:bCat?.budget||0};
@@ -3401,9 +3414,28 @@ function renderMonthlyArchive(){
     const sr=parseFloat(snap.savingsRate||0);
     const srColor=sr>=30?'var(--green)':sr>=15?'var(--orange)':'var(--red)';
     const closedDate=new Date(snap.closedAt).toLocaleDateString('ko-KR');
-    const catRows=(snap.categories||[]).slice(0,5).map(c=>{
-      const barPct=Math.min(100,c.budget>0?Math.round(c.amount/c.budget*100):50);
-      const barColor=c.budget>0&&c.amount>c.budget?'var(--red)':c.budget>0&&(c.amount/c.budget)>=0.7?'var(--orange)':'var(--purple)';
+    // [수정] 카테고리별 고유 색상 팔레트
+    const CAT_COLORS={
+      '식비':'#FF8A65','🍚 식비':'#FF8A65',
+      '생필품':'#4DB6AC','생활용품':'#4DB6AC','🧴 생활용품':'#4DB6AC',
+      '문화/여가':'#CE93D8','문화·취미':'#CE93D8','🎨 문화·취미':'#CE93D8',
+      '기타':'#90A4AE','📦 기타':'#90A4AE',
+      '교통':'#64B5F6','교통·통신':'#64B5F6','🚗 교통·차량':'#64B5F6',
+      '주거':'#FFD54F','주거/공과':'#FFD54F','주거·공과금':'#FFD54F','🏠 주거·공과금':'#FFD54F',
+      '건강':'#81C784','💪 건강':'#81C784',
+      '저축/투자':'#A29BFE','💰 금융':'#80CBC4',
+      '패션·미용':'#F48FB1','👕 패션·미용':'#F48FB1',
+      '여행':'#4FC3F7','✈ 여행':'#4FC3F7',
+      '경조사':'#FFCA28','🎁 경조사':'#FFCA28',
+    };
+    const FALLBACK_COLORS=['#A29BFE','#64B5F6','#FF8A65','#4DB6AC','#F48FB1','#FFD54F','#81C784','#80CBC4'];
+    const cats5=(snap.categories||[]).slice(0,5);
+    // [수정] 최대 금액 기준으로 바 비율 계산 (상대 비율)
+    const maxCatAmt=Math.max(...cats5.map(c=>c.amount),1);
+    const catRows=cats5.map((c,i)=>{
+      const barPct=Math.min(100,Math.round(c.amount/maxCatAmt*100));
+      const baseColor=CAT_COLORS[c.name]||FALLBACK_COLORS[i%FALLBACK_COLORS.length];
+      const barColor=c.budget>0&&c.amount>c.budget?'var(--red)':baseColor;
       const note=c.budget>0?`<span style="font-size:11px;color:${c.amount>c.budget?'var(--red)':'var(--green)'};">${c.amount>c.budget?'▲초과 '+fmt(c.amount-c.budget):'▽여유 '+fmt(c.budget-c.amount)}</span>`:'';
       return `<div class="arch-cat-row">
         <div class="arch-cat-top">
