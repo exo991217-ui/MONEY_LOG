@@ -531,7 +531,7 @@ function getActiveBudgetCats(y,m){
 function renderAll(){
   applyMonthTheme(S.currentMonths.dashboard.m);
   renderDashboard();renderIncome();renderCredit();renderAssets();
-  renderCalendar();renderFood();renderInstallment();
+  renderCalendar();renderInstallment();
   renderLedger();renderLcatPanel();
 }
 
@@ -1843,6 +1843,8 @@ function renderCalendar(){
       </div>`;
   }).join('');
   renderSavingsGoals();
+  renderFood();
+  renderWeeklySpend();
 }
 
 function renderSavingsGoals(){
@@ -1900,6 +1902,46 @@ function renderSavingsGoals(){
         </div>
       </div>`;
   }).join('');
+}
+
+function renderWeeklySpend(){
+  const container=document.getElementById('weekly-spend-container');
+  if(!container)return;
+  const cm=S.currentMonths.food;
+  const key=mkey(cm.y,cm.m);
+  const entries=(S.ledger[key]||[]).filter(e=>
+    e.type==='expense'&&
+    !e.creditAutoId&&
+    !(e.category||'').includes('공과금')
+  );
+  if(entries.length===0){
+    container.innerHTML='<div class="weekly-spend-empty">이번 달 소비 내역이 없어요<br><span style="font-size:12px;color:var(--text-sub);">가계부에 지출을 입력하면 여기에 자동 표시됩니다</span></div>';
+    return;
+  }
+  const daysInMonth=new Date(cm.y,cm.m,0).getDate();
+  const weekTotals={};
+  entries.forEach(e=>{
+    const d=parseInt((e.date||'').split('-')[2])||1;
+    const wn=Math.ceil(d/7);
+    weekTotals[wn]=(weekTotals[wn]||0)+e.amount;
+  });
+  const total=entries.reduce((s,e)=>s+e.amount,0);
+  const maxWeek=Math.max(...Object.values(weekTotals),1);
+  container.innerHTML=Object.entries(weekTotals).sort((a,b)=>a[0]-b[0]).map(([wn,wTotal])=>{
+    const wNum=parseInt(wn);
+    const startDay=(wNum-1)*7+1;
+    const endDay=Math.min(wNum*7,daysInMonth);
+    const barPct=Math.round(wTotal/maxWeek*100);
+    const pctOfTotal=total>0?(wTotal/total*100).toFixed(0):0;
+    return `<div class="weekly-spend-row">
+      <div class="weekly-spend-label">${wNum}주차<span class="weekly-spend-days">${startDay}~${endDay}일</span></div>
+      <div class="weekly-spend-bar-wrap"><div class="weekly-spend-bar" style="width:${barPct}%"></div></div>
+      <div class="weekly-spend-right">
+        <span class="weekly-spend-amount">${fmt(wTotal)}</span>
+        <span class="weekly-spend-pct">${pctOfTotal}%</span>
+      </div>
+    </div>`;
+  }).join('')+`<div class="weekly-spend-total">이번 달 합계 <strong>${fmt(total)}</strong></div>`;
 }
 
 // ===== FOOD CALENDAR — INLINE PANEL =====
@@ -4292,6 +4334,7 @@ window.App={
   toggleSidebar,closeSidebar,
   editAuto,saveAuto,deleteAuto,toggleAuto,
   openAssetModal,promptAddAssetCategory,openStockModal,
+  renderWeeklySpend,
   toggleCalFoodSync,
   saveRemainingBudget,
   renderFundCalc,setFundAmount,addFundItem,deleteFundItem,updateFundItem,
