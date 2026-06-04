@@ -627,8 +627,8 @@ function renderBudget(y,m){
             <span class="budget-cat-amounts">${fmt(spent)}<span class="budget-cat-of"> / ${fmt(effectiveBudget)}</span></span>
             ${_defaultMode?'':
               `<button class="budget-link-text-btn${hasLinked?' linked':''}" onclick="App.openBudgetCatSyncModal(${cat.id})">🔗</button>
-               <button class="icon-btn" onclick="App.openBudgetModal(${cat.id})">✏️</button>
-               <button class="icon-btn" onclick="App.deleteBudgetCategory(${cat.id})">🗑️</button>`}
+               <button class="icon-btn" onclick="App.openBudgetModal(${cat.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+               <button class="icon-btn" onclick="App.deleteBudgetCategory(${cat.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>`}
           </div>
         </div>
         <div class="budget-cat-bar-wrap" style="background:${trackColor};">
@@ -903,7 +903,7 @@ function renderFundCalc(){
               onkeydown="if(event.key==='Enter')App.updateFundItem(${item.id},'amount',this.value)"/>
             <span class="fc-item-unit">원</span>
           </div>
-          <button class="icon-btn" onclick="App.deleteFundItem(${item.id})">🗑️</button>
+          <button class="icon-btn" onclick="App.deleteFundItem(${item.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
         </div>`).join('');
     }
   }
@@ -1370,7 +1370,7 @@ function renderIncome(){
       <div class="item-left"><span class="item-name">${item.name}</span><span class="item-cat">${item.category}</span></div>
       <div class="item-right">
         <span class="item-amount green">${fmt(item.amount)}</span>
-        ${_defaultMode?'':`<div class="item-actions"><button class="icon-btn" onclick="App.editItem('income',${item.id})">✏️</button><button class="icon-btn" onclick="App.deleteItem('income',${item.id})">🗑️</button></div>`}
+        ${_defaultMode?'':`<div class="item-actions"><button class="icon-btn" onclick="App.editItem('income',${item.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="icon-btn" onclick="App.deleteItem('income',${item.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></div>`}
       </div>
     </div>`;
   }).join('')||(data.income.length===0&&_defaultMode?'<div style="font-size:12px;color:var(--text-sub);padding:8px 0;">수입 항목이 없습니다</div>':'');
@@ -1386,7 +1386,7 @@ function renderIncome(){
       </div>
       <div class="item-right">
         <span class="item-amount ${item.isSavings?'purple':'red'}">${fmt(item.amount)}</span>
-        ${_defaultMode?'':`<div class="item-actions"><button class="icon-btn" onclick="App.editItem('fixed',${item.id})">✏️</button><button class="icon-btn" onclick="App.deleteItem('fixed',${item.id})">🗑️</button></div>`}
+        ${_defaultMode?'':`<div class="item-actions"><button class="icon-btn" onclick="App.editItem('fixed',${item.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="icon-btn" onclick="App.deleteItem('fixed',${item.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></div>`}
       </div>
     </div>`;
   }).join('')||(data.fixed.length===0&&_defaultMode?'<div style="font-size:12px;color:var(--text-sub);padding:8px 0;">고정 지출 항목이 없습니다</div>':'');
@@ -1409,8 +1409,8 @@ function renderIncome(){
         <div class="item-right">
           <span class="item-amount orange">${fmt(item.amount)}</span>
           ${!isAuto?`<div class="item-actions">
-            <button class="icon-btn" onclick="event.stopPropagation();App.editItem('variable',${item.id})">✏️</button>
-            <button class="icon-btn" onclick="event.stopPropagation();App.deleteItem('variable',${item.id})">🗑️</button>
+            <button class="icon-btn" onclick="event.stopPropagation();App.editItem('variable',${item.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+            <button class="icon-btn" onclick="event.stopPropagation();App.deleteItem('variable',${item.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
           </div>`:''}
         </div>
       </div>`;
@@ -1488,8 +1488,8 @@ function renderCredit(){
               <span class="credit-simple-amount">${fmt(monthly)}</span>
               <span class="credit-status-badge ${statusClass}">${statusLabel}</span>
               <div class="credit-row-actions">
-                <button class="credit-edit-btn" onclick="App.editCredit(${card.id})">✏️ 수정</button>
-                <button class="credit-delete-btn" style="font-size:12px;padding:2px 6px;border:1px solid var(--border);border-radius:6px;" onclick="App.deleteCredit(${card.id})">🗑️</button>
+                <button class="credit-edit-btn" onclick="App.editCredit(${card.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> 수정</button>
+                <button class="credit-delete-btn" style="font-size:12px;padding:2px 6px;border:1px solid var(--border);border-radius:6px;" onclick="App.deleteCredit(${card.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
               </div>
             </div>
           </div>`;
@@ -1549,8 +1549,8 @@ function renderCredit(){
                 </div>
               </div>
               <div class="credit-row-actions">
-                <button class="credit-edit-btn" onclick="App.editCredit(${card.id})">✏️ 수정</button>
-                <button class="credit-delete-btn" style="font-size:12px;padding:2px 6px;border:1px solid var(--border);border-radius:6px;" onclick="App.deleteCredit(${card.id})">🗑️</button>
+                <button class="credit-edit-btn" onclick="App.editCredit(${card.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> 수정</button>
+                <button class="credit-delete-btn" style="font-size:12px;padding:2px 6px;border:1px solid var(--border);border-radius:6px;" onclick="App.deleteCredit(${card.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
               </div>
             </div>
             <table class="credit-install-table">
@@ -1626,8 +1626,8 @@ function renderAssetStocks(){
       <div class="stk-card-top">
         <div class="stk-card-name">${st.name}</div>
         <div class="stk-card-actions">
-          <button class="icon-btn" onclick="App.editItem('stock',${st.id})">✏️</button>
-          <button class="icon-btn" onclick="App.deleteItem('stock',${st.id})">🗑️</button>
+          <button class="icon-btn" onclick="App.editItem('stock',${st.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="icon-btn" onclick="App.deleteItem('stock',${st.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
         </div>
       </div>
       ${st.ticker?`<div class="stk-card-ticker">${st.ticker}${st.sector?' · '+st.sector:''}</div>`:''}
@@ -1661,8 +1661,8 @@ function renderAssetStocks(){
       <div class="stk-card-top">
         <div class="stk-card-name">${st.name}</div>
         <div class="stk-card-actions">
-          <button class="icon-btn" onclick="App.editItem('stock',${st.id})">✏️</button>
-          <button class="icon-btn" onclick="App.deleteItem('stock',${st.id})">🗑️</button>
+          <button class="icon-btn" onclick="App.editItem('stock',${st.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="icon-btn" onclick="App.deleteItem('stock',${st.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
         </div>
       </div>
       ${st.ticker&&st.ticker!=='금현물'?`<div class="stk-card-ticker">${st.ticker}${st.sector?' · '+st.sector:''}</div>`:st.sector?`<div class="stk-card-ticker">${st.sector}</div>`:''}
@@ -1740,8 +1740,8 @@ function renderAssets(){
         <div class="asset-name">${a.name}</div>
         <div style="display:flex;align-items:center;gap:12px;">
           <span class="asset-amount">${fmt(a.amount)}</span>
-          <button class="icon-btn" onclick="App.editItem('asset',${a.id})">✏️</button>
-          <button class="icon-btn" onclick="App.deleteItem('asset',${a.id})">🗑️</button>
+          <button class="icon-btn" onclick="App.editItem('asset',${a.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="icon-btn" onclick="App.deleteItem('asset',${a.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
         </div>
       </div>`).join('');
     html+='</div>';
@@ -1775,7 +1775,7 @@ async function fetchStockPrices(){
   const btn=document.getElementById('asset-stock-refresh-btn');
   const status=document.getElementById('asset-stock-refresh-status');
   if(!btn)return;
-  btn.classList.add('loading');btn.textContent='🔄 새로고침 중...';
+  btn.classList.add('loading');btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg> 새로고침 중...';
   if(status)status.textContent='현재가를 가져오는 중...';
   let updated=0,failed=[];
   for(const st of S.stocks){
@@ -1795,7 +1795,7 @@ async function fetchStockPrices(){
     await new Promise(r=>setTimeout(r,400));
   }
   saveState();renderAssetStocks();renderDashboard();
-  btn.classList.remove('loading');btn.textContent='🔄 현재가 새로고침';
+  btn.classList.remove('loading');btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg> 현재가 새로고침';
   const now=new Date().toLocaleTimeString('ko-KR');
   if(status){
     if(updated>0)status.textContent=`${now} — ${updated}개 업데이트${failed.length>0?' | 실패: '+failed.join(', '):''}`;
@@ -1835,8 +1835,8 @@ function renderCalendar(){
             <div class="cal-event-item">
               <span class="cal-event-name">${e.name}${e.amount>0?'<br><span class="cal-event-amount">'+fmt(e.amount)+'</span>':''}</span>
               <div style="display:flex;gap:2px;flex-shrink:0;">
-                <button class="cal-event-edit" onclick="App.editCalEvent(${y},${m},${e.id})">✏️</button>
-                <button class="cal-event-delete" onclick="App.deleteCalEvent(${y},${m},${e.id})">✕</button>
+                <button class="cal-event-edit" onclick="App.editCalEvent(${y},${m},${e.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                <button class="cal-event-delete" onclick="App.deleteCalEvent(${y},${m},${e.id})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
               </div>
             </div>`).join('')}
         </div>
@@ -1877,8 +1877,8 @@ function renderSavingsGoals(){
             ${done?'<span class="goal-done-badge">🎉 달성!</span>':''}
           </div>
           <div class="savings-goal-card-actions">
-            <button class="icon-btn" onclick="App.editSavingsGoal(${g.id})">✏️</button>
-            <button class="icon-btn" onclick="App.deleteSavingsGoal(${g.id})">🗑️</button>
+            <button class="icon-btn" onclick="App.editSavingsGoal(${g.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+            <button class="icon-btn" onclick="App.deleteSavingsGoal(${g.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
           </div>
         </div>
         <div class="savings-progress-track">
@@ -2199,7 +2199,7 @@ function renderCardSettings(){
     <div class="card-setting-item">
       <div class="card-setting-header">
         <input class="card-setting-name-input" type="text" value="${card.name}" onchange="App.updateCardName(${card.id},this.value)"/>
-        <button class="card-setting-delete" onclick="App.deleteCardSetting(${card.id})">🗑️</button>
+        <button class="card-setting-delete" onclick="App.deleteCardSetting(${card.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
       </div>
       <table class="rate-table">
         <thead><tr><th>최소</th><th>최대</th><th>연이율 (%)</th><th></th></tr></thead>
@@ -2209,7 +2209,7 @@ function renderCardSettings(){
               <td><input class="rate-input" type="number" value="${r.minMonths}" onchange="App.updateRate(${card.id},${r.id},'minMonths',this.value)"/></td>
               <td><input class="rate-input" type="number" value="${r.maxMonths}" onchange="App.updateRate(${card.id},${r.id},'maxMonths',this.value)"/></td>
               <td><input class="rate-input" type="number" step="0.1" value="${r.rate}" onchange="App.updateRate(${card.id},${r.id},'rate',this.value)"/></td>
-              <td><button class="icon-btn" onclick="App.deleteRate(${card.id},${r.id})">✕</button></td>
+              <td><button class="icon-btn" onclick="App.deleteRate(${card.id},${r.id})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></td>
             </tr>`).join('')}
         </tbody>
       </table>
@@ -2991,8 +2991,8 @@ function renderLedger(){
             </div>
             <div class="ledger-entry-right">
               <span class="ledger-amount ${e.type==='income'?'green':'red'}">${e.type==='income'?'+':'−'}${fmt(e.amount)}</span>
-              <button class="icon-btn" onclick="App.openEditLedgerModal('${key}',${e.id})" title="수정" style="font-size:13px;">✏️</button>
-              <button class="icon-btn" onclick="App.deleteLedgerEntry('${key}',${e.id})">🗑️</button>
+              <button class="icon-btn" onclick="App.openEditLedgerModal('${key}',${e.id})" title="수정" style="font-size:13px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+              <button class="icon-btn" onclick="App.deleteLedgerEntry('${key}',${e.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
             </div>
           </div>`;}).join('')}
       </div>`;
@@ -3576,7 +3576,7 @@ function renderMonthlyArchive(){
         <div class="arch-section-title">💸 지출 TOP 5 (총 ${totalEntries}건 중)</div>
         <div class="arch-led-list">${ledRows}</div>`:''}
         <div class="arch-card-footer">
-          <button class="arch-delete-btn" onclick="App.deleteArchiveEntry('${key}')">🗑️ 이 마감 삭제</button>
+          <button class="arch-delete-btn" onclick="App.deleteArchiveEntry('${key}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg> 이 마감 삭제</button>
         </div>
       </div>
     </div>`;
@@ -3623,8 +3623,8 @@ function renderAutoList(){
       <div class="auto-card-right">
         <div class="auto-card-amount ${(a.type||'expense')==='income'?'green':'red'}">${fmt(a.amount)}</div>
         <label class="sub-toggle-label"><input type="checkbox" ${a.active!==false?'checked':''} onchange="App.toggleAuto(${a.id},this.checked)"/> ${a.active!==false?'활성':'중지'}</label>
-        <button class="icon-btn" onclick="App.editAuto(${a.id})">✏️</button>
-        <button class="icon-btn" onclick="App.deleteAuto(${a.id})">🗑️</button>
+        <button class="icon-btn" onclick="App.editAuto(${a.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        <button class="icon-btn" onclick="App.deleteAuto(${a.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
       </div>
     </div>`).join('');
 }
@@ -3717,7 +3717,7 @@ function renderLcatPanel(){
       <input class="lcat-name-input" type="text" value="${c.name}"
         onchange="App.saveLcatName(${c.id},this.value)"
         onkeydown="if(event.key==='Enter')this.blur()"/>
-      <button class="icon-btn" onclick="App.deleteLcatEntry(${c.id})">🗑️</button>
+      <button class="icon-btn" onclick="App.deleteLcatEntry(${c.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
     </div>`).join('')}
   </div>
   <div style="display:flex;gap:8px;margin-top:10px;">
