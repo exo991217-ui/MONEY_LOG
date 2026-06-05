@@ -398,7 +398,7 @@
     <!-- ===== 캘린더 (통합: 연간 소비 + 식비 + 주간 소비내역 + 저축 목표) ===== -->
     <section class="tab-content" id="tab-calendar">
       <div class="page-header">
-        <div><h1 class="page-title">캘린더 🗓️</h1><p class="page-sub">연간 소비 일정과 월간 식비를 한눈에 보세요</p></div>
+        <div><h1 class="page-title">캘린더 🗓️</h1><p class="page-sub">연간 소비 일정과 저축 목표를 한눈에 보세요</p></div>
         <div class="month-nav">
           <button class="month-btn" onclick="App.changeCalYear(-1)">‹</button>
           <span class="month-label" id="cal-year-label">2026년</span>
@@ -406,11 +406,40 @@
         </div>
       </div>
 
-      <!-- 연간 캘린더 -->
-      <div class="cal-section-label">연간 캘린더</div>
-      <div class="cal-year-scroll-wrap">
+      <!-- ★ 통합 연간 현황 카드 (연간 캘린더 + 저축 목표) -->
+      <div class="cal-annual-wrapper">
+
+        <!-- 상단: 저축 목표 통합 영역 -->
+        <div class="cal-savings-band">
+          <div class="cal-savings-band-header">
+            <div class="cal-savings-band-left">
+              <span class="cal-savings-band-icon">🎯</span>
+              <span class="cal-savings-band-title">저축 목표</span>
+              <span class="savings-section-sub" id="savings-overall-sub">달성률 0%</span>
+            </div>
+            <button class="savings-add-main-btn" onclick="App.openSavingsModal()">+ 목표 추가</button>
+          </div>
+          <!-- 전체 달성 프로그레스 바 -->
+          <div class="cal-savings-overall-row">
+            <span class="cal-savings-overall-label" id="savings-overall-saved">저축 0원</span>
+            <div class="savings-overall-track" style="flex:1;margin:0 12px;">
+              <div class="savings-overall-fill" id="savings-overall-fill" style="width:0%"></div>
+            </div>
+            <span class="cal-savings-overall-label" id="savings-overall-target">목표 0원</span>
+          </div>
+          <!-- 개별 저축 목표 목록 (컴팩트 카드) -->
+          <div class="savings-goals-container" id="savings-goals-container"></div>
+        </div>
+
+        <!-- 구분선: 저축 목표 ↔ 연간 캘린더 -->
+        <div class="cal-annual-divider">
+          <span>📅 연간 캘린더</span>
+        </div>
+
+        <!-- 12개월 그리드 -->
         <div class="cal-year-grid" id="cal-year-grid"></div>
-      </div>
+
+      </div><!-- /.cal-annual-wrapper -->
 
       <!-- 캘린더 (식비 월간) -->
       <div class="cal-section-label" style="margin-top:32px;">
@@ -444,26 +473,6 @@
       <div class="food-calendar" id="food-calendar"></div>
       <!-- Inline edit panel appears here dynamically -->
 
-      <!-- 저축 목표 -->
-      <div class="savings-section-wrapper" style="margin-top:32px;">
-        <div class="savings-section-header">
-          <div>
-            <span class="savings-section-title">🎯 저축 목표</span>
-            <span class="savings-section-sub" id="savings-overall-sub">달성률 0%</span>
-          </div>
-          <button class="savings-add-main-btn" onclick="App.openSavingsModal()">+ 목표 추가</button>
-        </div>
-        <div class="savings-overall-bar-wrap">
-          <div class="savings-overall-labels">
-            <span id="savings-overall-saved">저축 0원</span>
-            <span id="savings-overall-target">목표 0원</span>
-          </div>
-          <div class="savings-overall-track">
-            <div class="savings-overall-fill" id="savings-overall-fill" style="width:0%"></div>
-          </div>
-        </div>
-        <div class="savings-goals-container" id="savings-goals-container"></div>
-      </div>
     </section>
 
     <!-- ===== LEDGER ===== -->
