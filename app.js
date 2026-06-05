@@ -1815,32 +1815,37 @@ function renderCalendar(){
   const months=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
   const grid=document.getElementById('cal-year-grid');
 
+  // 연간 저축 현황 바 (실 저축금액이 있는 일정들의 합계)
+  const allEvents=Object.values(S.consumptionCalendar[y]||{}).flat();
+  const savingsAll=allEvents.filter(e=>e.amount>0&&e.savedAmt!=null);
+  const annualTarget=savingsAll.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+  const annualSaved=savingsAll.reduce((s,e)=>s+(parseFloat(e.savedAmt)||0),0);
+  const annualPct=annualTarget>0?Math.min(100,(annualSaved/annualTarget)*100):0;
+  const annualDone=annualPct>=100;
+  const barEl=document.getElementById('cal-annual-savings-bar');
+  if(barEl){
+    if(savingsAll.length>0){
+      barEl.innerHTML=`
+        <div class="cal-annual-savings-bar-wrap">
+          <div class="cal-annual-savings-bar-info">
+            <span class="cal-annual-savings-bar-label">🎯 저축 현황</span>
+            <span class="cal-annual-savings-bar-amounts">${fmt(annualSaved)} / ${fmt(annualTarget)}</span>
+            <span class="cal-annual-savings-bar-pct" style="color:${annualDone?'#43C98A':'#A29BFE'}">${annualPct.toFixed(1)}%</span>
+          </div>
+          <div class="cal-annual-savings-track">
+            <div class="cal-annual-savings-fill" style="width:${annualPct}%;background:${annualDone?'linear-gradient(90deg,#43C98A,#00B894)':'linear-gradient(90deg,#A29BFE,#6C5CE7)'}"></div>
+          </div>
+        </div>`;
+    } else {
+      barEl.innerHTML='';
+    }
+  }
+
   grid.innerHTML=months.map((mLabel,idx)=>{
     const m=idx+1;
     const isNow=(now.getFullYear()===y&&now.getMonth()+1===m);
     const events=((S.consumptionCalendar[y]||{})[m])||[];
     const eventsTotal=events.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
-
-    // 이 달 일정 중 실 저축금액이 입력된 항목들 → 미니 바
-    const savingsEvents=events.filter(e=>e.amount>0&&e.savedAmt!=null&&e.savedAmt>=0);
-    let savingsMiniHtml='';
-    if(savingsEvents.length>0){
-      savingsMiniHtml=`<div class="cal-month-savings-mini">${
-        savingsEvents.map(e=>{
-          const pct=Math.min(100,(parseFloat(e.savedAmt)||0)/(parseFloat(e.amount)||1)*100);
-          const done=pct>=100;
-          return `<div class="${done?'cal-month-savings-done':''}">
-            <div class="cal-month-savings-mini-label">
-              <span>🎯 ${e.name}</span>
-              <span style="color:${done?'#43C98A':'#A29BFE'}">${fmt(e.savedAmt)} / ${fmt(e.amount)}</span>
-            </div>
-            <div class="cal-month-savings-mini-bar">
-              <div class="cal-month-savings-mini-fill" style="width:${pct}%;${done?'background:linear-gradient(90deg,#43C98A,#00B894)':''}"></div>
-            </div>
-          </div>`;
-        }).join('')
-      }</div>`;
-    }
 
     return `
       <div class="cal-month-card ${isNow?'cal-month-now':''}">
@@ -1861,7 +1866,6 @@ function renderCalendar(){
               </div>
             </div>`).join('')}
         </div>
-        ${savingsMiniHtml}
       </div>`;
   }).join('');
   renderSavingsGoals();
@@ -2704,7 +2708,7 @@ function saveCalEvent(){
   } else {
     S.consumptionCalendar[y][m].push({id:genId(),name,amount,savedAmt});
   }
-  saveState();closeModal();renderCalendar();
+  saveState();closeModal();setTimeout(renderCalendar,0);
 }
 
 function deleteCalEvent(y,m,id){
