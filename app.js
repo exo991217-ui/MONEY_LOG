@@ -1815,34 +1815,25 @@ function renderCalendar(){
   const months=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
   const grid=document.getElementById('cal-year-grid');
 
-  // 연간 저축 현황 — 라벨 안에 인라인 바 + % 달성
-  const allEvents=Object.values(S.consumptionCalendar[y]||{}).flat();
-  const savingsAll=allEvents.filter(e=>e.amount>0);
-  const annualTarget=savingsAll.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
-  const annualSaved=savingsAll.reduce((s,e)=>s+(parseFloat(e.savedAmt)||0),0);
-  const annualPct=annualTarget>0?Math.min(100,(annualSaved/annualTarget)*100):0;
-  const annualDone=annualPct>=100;
-  const progEl=document.getElementById('cal-savings-progress');
-  if(progEl){
-    if(savingsAll.length>0){
-      const color=annualDone?'#43C98A':'#A29BFE';
-      const bg=annualDone?'linear-gradient(90deg,#43C98A,#00B894)':'linear-gradient(90deg,#A29BFE,#6C5CE7)';
-      progEl.innerHTML=`<div class="cal-savings-progress-row">
-        <div class="cal-savings-progress-track">
-          <div class="cal-savings-progress-fill" style="width:${annualPct}%;background:${bg}"></div>
-        </div>
-        <span class="cal-savings-progress-pct" style="color:${color}">${annualPct.toFixed(0)}% 달성</span>
-      </div>`;
-    } else {
-      progEl.innerHTML='';
-    }
-  }
-
   grid.innerHTML=months.map((mLabel,idx)=>{
     const m=idx+1;
     const isNow=(now.getFullYear()===y&&now.getMonth()+1===m);
     const events=((S.consumptionCalendar[y]||{})[m])||[];
     const eventsTotal=events.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+
+    // 이 달 개별 저축 바 (금액 있는 일정 기준)
+    const mSavings=events.filter(e=>e.amount>0);
+    const mTarget=mSavings.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+    const mSaved=mSavings.reduce((s,e)=>s+(parseFloat(e.savedAmt)||0),0);
+    const mPct=mTarget>0?Math.min(100,(mSaved/mTarget)*100):0;
+    const mDone=mPct>=100;
+    const mBarHtml=mTarget>0?`
+      <div class="cal-month-bar">
+        <div class="cal-month-bar-track">
+          <div class="cal-month-bar-fill" style="width:${mPct}%;background:${mDone?'linear-gradient(90deg,#43C98A,#00B894)':'linear-gradient(90deg,#A29BFE,#6C5CE7)'}"></div>
+        </div>
+        <span class="cal-month-bar-pct" style="color:${mDone?'#43C98A':'#A29BFE'}">${mPct.toFixed(0)}%</span>
+      </div>`:'';
 
     return `
       <div class="cal-month-card ${isNow?'cal-month-now':''}">
@@ -1863,6 +1854,7 @@ function renderCalendar(){
               </div>
             </div>`).join('')}
         </div>
+        ${mBarHtml}
       </div>`;
   }).join('');
   renderSavingsGoals();
