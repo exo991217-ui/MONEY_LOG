@@ -1815,12 +1815,13 @@ function renderCalendar(){
   const months=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
   const grid=document.getElementById('cal-year-grid');
 
-  // 저축 목표 요약 (월 카드 미니 바용)
+  // 저축 목표 요약 (월 카드 미니 바용) — 목표 있고 미달성인 경우에만 표시
   const goals=S.savingsGoals[y]||[];
   const totalTarget=goals.reduce((s,g)=>s+(parseFloat(g.target)||0),0);
   const totalSaved=goals.reduce((s,g)=>s+(parseFloat(g.saved)||0),0);
   const overallPct=totalTarget>0?Math.min(100,(totalSaved/totalTarget)*100):0;
-  const hasSavings=goals.length>0&&totalTarget>0;
+  // 목표가 있고, 아직 100% 미달성인 경우에만 미니 바 표시
+  const hasSavings=goals.length>0&&totalTarget>0&&overallPct<100;
 
   grid.innerHTML=months.map((mLabel,idx)=>{
     const m=idx+1;
