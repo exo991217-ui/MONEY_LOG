@@ -566,11 +566,11 @@ body{font-family:var(--font);background:var(--bg);color:var(--text-main);min-hei
 .savings-mini-amounts{font-size:11px;color:var(--text-sub);white-space:nowrap;}
 .savings-mini-empty{font-size:13px;color:var(--text-sub);padding:8px 0 4px;text-align:center;}
 
-/* ===== 연간 라벨 인라인 저축 바 ===== */
-.cal-label-savings{display:flex;align-items:center;gap:8px;margin-left:auto;}
-.cal-label-savings-track{width:100px;height:6px;background:#EDE8FF;border-radius:4px;overflow:hidden;}
-.cal-label-savings-fill{height:100%;border-radius:4px;transition:width .5s ease;}
-.cal-label-savings-pct{font-size:12px;font-weight:700;white-space:nowrap;}
+/* ===== 연간 저축 달성 바 ===== */
+.cal-savings-progress-row{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.cal-savings-progress-track{flex:1;height:7px;background:#EDE8FF;border-radius:4px;overflow:hidden;}
+.cal-savings-progress-fill{height:100%;border-radius:4px;transition:width .5s ease;}
+.cal-savings-progress-pct{font-size:13px;font-weight:800;white-space:nowrap;flex-shrink:0;}
 
 /* Subscriptions */
 .sub-inner-tab{padding:6px 14px;border-radius:20px;border:1.5px solid var(--border);background:white;color:var(--text-sub);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s}
