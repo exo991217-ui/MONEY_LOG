@@ -1814,19 +1814,40 @@ function renderCalendar(){
   const now=new Date();
   const months=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
   const grid=document.getElementById('cal-year-grid');
+
+  // 저축 목표 요약 (월 카드 미니 바용)
+  const goals=S.savingsGoals[y]||[];
+  const totalTarget=goals.reduce((s,g)=>s+(parseFloat(g.target)||0),0);
+  const totalSaved=goals.reduce((s,g)=>s+(parseFloat(g.saved)||0),0);
+  const overallPct=totalTarget>0?Math.min(100,(totalSaved/totalTarget)*100):0;
+  const hasSavings=goals.length>0&&totalTarget>0;
+
   grid.innerHTML=months.map((mLabel,idx)=>{
     const m=idx+1;
-    const key=y+'-'+m;
     const isNow=(now.getFullYear()===y&&now.getMonth()+1===m);
     const events=((S.consumptionCalendar[y]||{})[m])||[];
     const eventsTotal=events.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
-    const monthTotal=eventsTotal;
+
+    // 이 달까지의 저축 진행률 미니 바 (연간 달성 기준)
+    const monthProgress=hasSavings?Math.min(100,overallPct):0;
+    const isDone=overallPct>=100;
+    const savingsMiniHtml=hasSavings?`
+      <div class="cal-month-savings-mini ${isDone?'cal-month-savings-done':''}">
+        <div class="cal-month-savings-mini-label">
+          <span>🎯 저축</span>
+          <span style="color:${isDone?'#43C98A':'#A29BFE'}">${overallPct.toFixed(0)}%</span>
+        </div>
+        <div class="cal-month-savings-mini-bar">
+          <div class="cal-month-savings-mini-fill" style="width:${monthProgress}%"></div>
+        </div>
+      </div>`:'';
+
     return `
       <div class="cal-month-card ${isNow?'cal-month-now':''}">
         <div class="cal-month-header">
           <span>${mLabel}${isNow?'<span class="cal-now-tag">NOW</span>':''}</span>
           <div style="display:flex;align-items:center;gap:4px;">
-            ${monthTotal>0?`<span class="cal-month-total">${fmt(monthTotal)}</span>`:''}
+            ${eventsTotal>0?`<span class="cal-month-total">${fmt(eventsTotal)}</span>`:''}
             <button class="cal-month-add" onclick="App.openCalModal(${y},${m})">+</button>
           </div>
         </div>
@@ -1840,6 +1861,7 @@ function renderCalendar(){
               </div>
             </div>`).join('')}
         </div>
+        ${savingsMiniHtml}
       </div>`;
   }).join('');
   renderSavingsGoals();
@@ -1852,15 +1874,35 @@ function renderSavingsGoals(){
   const totalTarget=goals.reduce((s,g)=>s+(parseFloat(g.target)||0),0);
   const totalSaved=goals.reduce((s,g)=>s+(parseFloat(g.saved)||0),0);
   const overallPct=totalTarget>0?Math.min(100,(totalSaved/totalTarget)*100):0;
-  const subEl=document.getElementById('savings-overall-sub');if(subEl)subEl.textContent='달성률 '+overallPct.toFixed(1)+'%';
-  const savedEl=document.getElementById('savings-overall-saved');if(savedEl)savedEl.textContent='저축 '+fmt(totalSaved);
-  const targetEl=document.getElementById('savings-overall-target');if(targetEl)targetEl.textContent='목표 '+fmt(totalTarget);
+
+  // 공통 헤더 업데이트
+  const subEl=document.getElementById('savings-overall-sub');
+  if(subEl)subEl.textContent='달성률 '+overallPct.toFixed(1)+'%';
+  const savedEl=document.getElementById('savings-overall-saved');
+  if(savedEl)savedEl.textContent='저축 '+fmt(totalSaved);
+  const targetEl=document.getElementById('savings-overall-target');
+  if(targetEl)targetEl.textContent='목표 '+fmt(totalTarget);
   const fillEl=document.getElementById('savings-overall-fill');
-  if(fillEl){fillEl.style.width=overallPct+'%';fillEl.style.background=overallPct>=100?'linear-gradient(90deg,#43C98A,#00B894)':'linear-gradient(90deg,#A29BFE,#6C5CE7)';}
-  const container=document.getElementById('savings-goals-container');if(!container)return;
-  if(goals.length===0){
-    container.innerHTML=`<div class="savings-empty-state"><div style="font-size:36px;margin-bottom:10px;">🎯</div><div style="font-size:15px;font-weight:700;color:#5E4BC4;margin-bottom:4px;">아직 저축 목표가 없어요</div><div style="font-size:13px;color:#9490A8;">위 "+ 목표 추가" 버튼을 눌러서 시작하세요!</div></div>`;return;
+  if(fillEl){
+    fillEl.style.width=overallPct+'%';
+    fillEl.style.background=overallPct>=100
+      ?'linear-gradient(90deg,#43C98A,#00B894)'
+      :'linear-gradient(90deg,#A29BFE,#6C5CE7)';
   }
+
+  const container=document.getElementById('savings-goals-container');
+  if(!container)return;
+
+  if(goals.length===0){
+    container.innerHTML=`
+      <div class="savings-empty-state">
+        <div style="font-size:32px;margin-bottom:8px;">🎯</div>
+        <div style="font-size:14px;font-weight:700;color:#5E4BC4;margin-bottom:3px;">아직 저축 목표가 없어요</div>
+        <div style="font-size:12px;color:#9490A8;">"+ 목표 추가" 버튼을 눌러서 시작하세요!</div>
+      </div>`;
+    return;
+  }
+
   container.innerHTML=goals.map(g=>{
     const target=parseFloat(g.target)||0;
     const saved=parseFloat(g.saved)||0;
@@ -1882,12 +1924,13 @@ function renderSavingsGoals(){
           </div>
         </div>
         <div class="savings-progress-track">
-          <div class="savings-progress-fill" style="width:${pct}%;background:${color};"></div>
+          <div class="savings-progress-fill" style="width:${pct}%;background:${done?'linear-gradient(90deg,#43C98A,#00B894)':color};"></div>
         </div>
         <div class="savings-goal-meta">
           <div class="savings-goal-meta-left">
             <span class="savings-saved-label">저축</span>
-            <input class="savings-saved-input" type="text" inputmode="numeric" value="${saved?(saved).toLocaleString('ko-KR'):''}"
+            <input class="savings-saved-input" type="text" inputmode="numeric"
+              value="${saved?(saved).toLocaleString('ko-KR'):''}"
               oninput="App.numInputFmt(this)"
               onchange="App.updateSavedAmount(${g.id},this.value)"
               onkeydown="if(event.key==='Enter'){App.updateSavedAmount(${g.id},this.value);this.blur();}"
@@ -1901,6 +1944,22 @@ function renderSavingsGoals(){
         </div>
       </div>`;
   }).join('');
+
+  // 월 카드 미니 바도 같이 갱신 (저축 변경 시 캘린더 그리드 반영)
+  const grid=document.getElementById('cal-year-grid');
+  if(grid){
+    const hasSavings=goals.length>0&&totalTarget>0;
+    const isDone=overallPct>=100;
+    grid.querySelectorAll('.cal-month-savings-mini').forEach(el=>{
+      if(!hasSavings){el.style.display='none';return;}
+      el.style.display='';
+      el.classList.toggle('cal-month-savings-done',isDone);
+      const pctEl=el.querySelector('.cal-month-savings-mini-label span:last-child');
+      if(pctEl){pctEl.textContent=overallPct.toFixed(0)+'%';pctEl.style.color=isDone?'#43C98A':'#A29BFE';}
+      const fill=el.querySelector('.cal-month-savings-mini-fill');
+      if(fill)fill.style.width=overallPct+'%';
+    });
+  }
 }
 
 function renderWeeklySpend(){
