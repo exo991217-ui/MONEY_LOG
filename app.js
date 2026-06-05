@@ -1815,30 +1815,23 @@ function renderCalendar(){
   const months=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
   const grid=document.getElementById('cal-year-grid');
 
-  // 연간 저축 현황 바 (실 저축금액이 있는 일정들의 합계)
+  // 연간 저축 현황 — 라벨 안에 인라인 바 + % 달성
   const allEvents=Object.values(S.consumptionCalendar[y]||{}).flat();
   const savingsAll=allEvents.filter(e=>e.amount>0&&e.savedAmt!=null);
   const annualTarget=savingsAll.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
   const annualSaved=savingsAll.reduce((s,e)=>s+(parseFloat(e.savedAmt)||0),0);
   const annualPct=annualTarget>0?Math.min(100,(annualSaved/annualTarget)*100):0;
   const annualDone=annualPct>=100;
-  const barEl=document.getElementById('cal-annual-savings-bar');
-  if(barEl){
-    if(savingsAll.length>0){
-      barEl.innerHTML=`
-        <div class="cal-annual-savings-bar-wrap">
-          <div class="cal-annual-savings-bar-info">
-            <span class="cal-annual-savings-bar-label">🎯 저축 현황</span>
-            <span class="cal-annual-savings-bar-amounts">${fmt(annualSaved)} / ${fmt(annualTarget)}</span>
-            <span class="cal-annual-savings-bar-pct" style="color:${annualDone?'#43C98A':'#A29BFE'}">${annualPct.toFixed(1)}%</span>
-          </div>
-          <div class="cal-annual-savings-track">
-            <div class="cal-annual-savings-fill" style="width:${annualPct}%;background:${annualDone?'linear-gradient(90deg,#43C98A,#00B894)':'linear-gradient(90deg,#A29BFE,#6C5CE7)'}"></div>
-          </div>
-        </div>`;
-    } else {
-      barEl.innerHTML='';
-    }
+  const labelEl=document.getElementById('cal-annual-label');
+  if(labelEl){
+    const barHtml=savingsAll.length>0?`
+      <div class="cal-label-savings">
+        <div class="cal-label-savings-track">
+          <div class="cal-label-savings-fill" style="width:${annualPct}%;background:${annualDone?'linear-gradient(90deg,#43C98A,#00B894)':'linear-gradient(90deg,#A29BFE,#6C5CE7)'}"></div>
+        </div>
+        <span class="cal-label-savings-pct" style="color:${annualDone?'#43C98A':'#A29BFE'}">${annualPct.toFixed(0)}% 달성</span>
+      </div>`:'';
+    labelEl.innerHTML='연간 캘린더'+barHtml;
   }
 
   grid.innerHTML=months.map((mLabel,idx)=>{
