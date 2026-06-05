@@ -533,6 +533,116 @@ body{font-family:var(--font);background:var(--bg);color:var(--text-main);min-hei
 .savings-remaining-label{font-size:11px;color:var(--text-sub);background:var(--bg);border-radius:5px;padding:2px 6px}
 .savings-empty-state{text-align:center;padding:32px 20px;color:var(--text-sub)}
 
+/* ===== 통합 연간 현황 (캘린더 + 저축 목표) ===== */
+.cal-annual-wrapper{
+  background:white;
+  border-radius:var(--radius);
+  border:1.5px solid #D1C4FF;
+  box-shadow:0 4px 24px rgba(162,155,254,.13);
+  overflow:hidden;
+  margin-bottom:0;
+}
+
+/* 저축 목표 상단 밴드 */
+.cal-savings-band{
+  background:linear-gradient(135deg,#F7F4FF 0%,#EEF0FF 100%);
+  border-bottom:1.5px solid #DDD6FF;
+  padding:20px 24px 0;
+}
+.cal-savings-band-header{
+  display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:14px;
+}
+.cal-savings-band-left{display:flex;align-items:center;gap:8px}
+.cal-savings-band-icon{font-size:18px}
+.cal-savings-band-title{font-size:16px;font-weight:800;color:#5E4BC4}
+
+/* 전체 달성 프로그레스 행 */
+.cal-savings-overall-row{
+  display:flex;align-items:center;
+  margin-bottom:16px;
+}
+.cal-savings-overall-label{
+  font-size:12px;font-weight:700;color:#7C5CBF;
+  white-space:nowrap;flex-shrink:0;
+}
+
+/* 저축 목표 컴팩트 그리드 (통합 캘린더 안에서) */
+.cal-annual-wrapper .savings-goals-container{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+  gap:10px;
+  padding:0 0 20px;
+}
+.cal-annual-wrapper .savings-goal-card{
+  background:white;
+  border-radius:12px;
+  padding:13px 16px;
+  border:1.5px solid rgba(162,155,254,.3);
+  box-shadow:none;
+}
+.cal-annual-wrapper .savings-goal-card.goal-done{
+  border-color:#43C98A;background:#F0FFF8;
+}
+.cal-annual-wrapper .savings-progress-track{
+  height:8px;margin-bottom:8px;
+}
+.cal-annual-wrapper .savings-saved-input{
+  width:110px;font-size:12px;padding:4px 8px;
+}
+.cal-annual-wrapper .savings-empty-state{
+  padding:20px;grid-column:1/-1;
+}
+
+/* 구분선 */
+.cal-annual-divider{
+  display:flex;align-items:center;
+  padding:12px 24px;
+  background:#F7F4FF;
+  border-bottom:1.5px solid #EDE8FF;
+  font-size:13px;font-weight:800;color:#7C5CBF;
+  gap:8px;
+}
+.cal-annual-divider::after{
+  content:'';flex:1;height:1.5px;
+  background:linear-gradient(90deg,#D1C4FF,transparent);
+  margin-left:10px;
+}
+
+/* 캘린더 그리드를 wrapper 안에서 패딩 */
+.cal-annual-wrapper .cal-year-grid{
+  padding:20px 24px 24px;
+  gap:12px;
+}
+
+/* 월 카드 저축 미니 바 */
+.cal-month-savings-mini{
+  padding:5px 12px 8px;
+  border-top:1px dashed #EDE8FF;
+}
+.cal-month-savings-mini-label{
+  font-size:10px;color:#A29BFE;font-weight:700;margin-bottom:4px;
+  display:flex;justify-content:space-between;align-items:center;
+}
+.cal-month-savings-mini-bar{
+  height:4px;background:#EDE8FF;border-radius:3px;overflow:hidden;
+}
+.cal-month-savings-mini-fill{
+  height:100%;border-radius:3px;
+  background:linear-gradient(90deg,#A29BFE,#6C5CE7);
+  transition:width .4s ease;
+}
+.cal-month-savings-done .cal-month-savings-mini-fill{
+  background:linear-gradient(90deg,#43C98A,#00B894);
+}
+
+@media(max-width:680px){
+  .cal-annual-wrapper .savings-goals-container{grid-template-columns:1fr}
+  .cal-annual-wrapper .cal-year-grid{padding:14px 12px 16px}
+  .cal-savings-band{padding:16px 14px 0}
+  .cal-annual-divider{padding:10px 14px}
+}
+
 /* Subscriptions */
 .sub-inner-tab{padding:6px 14px;border-radius:20px;border:1.5px solid var(--border);background:white;color:var(--text-sub);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s}
 .sub-inner-tab.active{background:var(--purple-light);color:#5E4BC4;border-color:#A29BFE}
