@@ -1817,21 +1817,25 @@ function renderCalendar(){
 
   // 연간 저축 현황 — 라벨 안에 인라인 바 + % 달성
   const allEvents=Object.values(S.consumptionCalendar[y]||{}).flat();
-  const savingsAll=allEvents.filter(e=>e.amount>0&&e.savedAmt!=null);
+  const savingsAll=allEvents.filter(e=>e.amount>0);
   const annualTarget=savingsAll.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
   const annualSaved=savingsAll.reduce((s,e)=>s+(parseFloat(e.savedAmt)||0),0);
   const annualPct=annualTarget>0?Math.min(100,(annualSaved/annualTarget)*100):0;
   const annualDone=annualPct>=100;
-  const labelEl=document.getElementById('cal-annual-label');
-  if(labelEl){
-    const barHtml=savingsAll.length>0?`
-      <div class="cal-label-savings">
-        <div class="cal-label-savings-track">
-          <div class="cal-label-savings-fill" style="width:${annualPct}%;background:${annualDone?'linear-gradient(90deg,#43C98A,#00B894)':'linear-gradient(90deg,#A29BFE,#6C5CE7)'}"></div>
+  const progEl=document.getElementById('cal-savings-progress');
+  if(progEl){
+    if(savingsAll.length>0){
+      const color=annualDone?'#43C98A':'#A29BFE';
+      const bg=annualDone?'linear-gradient(90deg,#43C98A,#00B894)':'linear-gradient(90deg,#A29BFE,#6C5CE7)';
+      progEl.innerHTML=`<div class="cal-savings-progress-row">
+        <div class="cal-savings-progress-track">
+          <div class="cal-savings-progress-fill" style="width:${annualPct}%;background:${bg}"></div>
         </div>
-        <span class="cal-label-savings-pct" style="color:${annualDone?'#43C98A':'#A29BFE'}">${annualPct.toFixed(0)}% 달성</span>
-      </div>`:'';
-    labelEl.innerHTML='연간 캘린더'+barHtml;
+        <span class="cal-savings-progress-pct" style="color:${color}">${annualPct.toFixed(0)}% 달성</span>
+      </div>`;
+    } else {
+      progEl.innerHTML='';
+    }
   }
 
   grid.innerHTML=months.map((mLabel,idx)=>{
