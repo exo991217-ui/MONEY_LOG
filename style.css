@@ -1486,3 +1486,15 @@ body { background: var(--t-bg) !important; }
 .icon-btn svg,.cal-event-edit svg,.cal-event-delete svg{vertical-align:middle;display:block}
 .stock-refresh-btn{display:inline-flex;align-items:center;gap:5px}
 .stock-refresh-btn svg{flex-shrink:0}
+
+/* ── 호버 클릭 편집 ── */
+.item-hover-edit{cursor:pointer;transition:background .15s,box-shadow .15s;}
+.expense-item.item-hover-edit:hover{background:var(--purple-light);}
+.asset-item.item-hover-edit{transition:background .15s;}
+.asset-item.item-hover-edit:hover{background:var(--purple-light);}
+.cal-event-item.item-hover-edit{border-radius:6px;transition:background .15s;}
+.cal-event-item.item-hover-edit:hover{background:rgba(162,155,254,.18);}
+.savings-goal-card.item-hover-edit{transition:box-shadow .18s,transform .18s;}
+.savings-goal-card.item-hover-edit:hover{box-shadow:0 6px 20px rgba(162,155,254,.35);transform:translateY(-2px);}
+.ledger-entry.item-hover-edit{transition:background .15s;}
+.ledger-entry.item-hover-edit:hover{background:rgba(162,155,254,.07);}
