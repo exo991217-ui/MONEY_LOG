@@ -1821,19 +1821,14 @@ function renderCalendar(){
     const events=((S.consumptionCalendar[y]||{})[m])||[];
     const eventsTotal=events.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
 
-    // 이 달 개별 저축 바 (금액 있는 일정 기준)
-    const mSavings=events.filter(e=>e.amount>0);
-    const mTarget=mSavings.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
-    const mSaved=mSavings.reduce((s,e)=>s+(parseFloat(e.savedAmt)||0),0);
+    // 이 달 개별 저축 바
+    const mTarget=events.reduce((s,e)=>s+(Number(e.amount)||0),0);
+    const mSaved=events.reduce((s,e)=>s+(Number(e.savedAmt)||0),0);
     const mPct=mTarget>0?Math.min(100,(mSaved/mTarget)*100):0;
     const mDone=mPct>=100;
-    const mBarHtml=mTarget>0?`
-      <div class="cal-month-bar">
-        <div class="cal-month-bar-track">
-          <div class="cal-month-bar-fill" style="width:${mPct}%;background:${mDone?'linear-gradient(90deg,#43C98A,#00B894)':'linear-gradient(90deg,#A29BFE,#6C5CE7)'}"></div>
-        </div>
-        <span class="cal-month-bar-pct" style="color:${mDone?'#43C98A':'#A29BFE'}">${mPct.toFixed(0)}%</span>
-      </div>`:'';
+    const mBarColor=mDone?'linear-gradient(90deg,#43C98A,#00B894)':'linear-gradient(90deg,#A29BFE,#6C5CE7)';
+    const mPctColor=mDone?'#43C98A':'#6C5CE7';
+    const mBarHtml=mTarget>0?`<div class="cal-month-bar"><div class="cal-month-bar-track"><div class="cal-month-bar-fill" style="width:${mPct.toFixed(2)}%;background:${mBarColor}"></div></div><span class="cal-month-bar-pct" style="color:${mPctColor}">${mPct.toFixed(0)}%</span></div>`:'';
 
     return `
       <div class="cal-month-card ${isNow?'cal-month-now':''}">
@@ -1853,8 +1848,8 @@ function renderCalendar(){
                 <button class="cal-event-delete" onclick="App.deleteCalEvent(${y},${m},${e.id})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
               </div>
             </div>`).join('')}
+          ${mBarHtml}
         </div>
-        ${mBarHtml}
       </div>`;
   }).join('');
   renderSavingsGoals();
