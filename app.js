@@ -1815,33 +1815,32 @@ function renderCalendar(){
   const months=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
   const grid=document.getElementById('cal-year-grid');
 
-  // 저축 목표 요약 (월 카드 미니 바용) — 목표 있고 미달성인 경우에만 표시
-  const goals=S.savingsGoals[y]||[];
-  const totalTarget=goals.reduce((s,g)=>s+(parseFloat(g.target)||0),0);
-  const totalSaved=goals.reduce((s,g)=>s+(parseFloat(g.saved)||0),0);
-  const overallPct=totalTarget>0?Math.min(100,(totalSaved/totalTarget)*100):0;
-  // 목표가 있고, 아직 100% 미달성인 경우에만 미니 바 표시
-  const hasSavings=goals.length>0&&totalTarget>0&&overallPct<100;
-
   grid.innerHTML=months.map((mLabel,idx)=>{
     const m=idx+1;
     const isNow=(now.getFullYear()===y&&now.getMonth()+1===m);
     const events=((S.consumptionCalendar[y]||{})[m])||[];
     const eventsTotal=events.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
 
-    // 이 달까지의 저축 진행률 미니 바 (연간 달성 기준)
-    const monthProgress=hasSavings?Math.min(100,overallPct):0;
-    const isDone=overallPct>=100;
-    const savingsMiniHtml=hasSavings?`
-      <div class="cal-month-savings-mini ${isDone?'cal-month-savings-done':''}">
-        <div class="cal-month-savings-mini-label">
-          <span>🎯 저축</span>
-          <span style="color:${isDone?'#43C98A':'#A29BFE'}">${overallPct.toFixed(0)}%</span>
-        </div>
-        <div class="cal-month-savings-mini-bar">
-          <div class="cal-month-savings-mini-fill" style="width:${monthProgress}%"></div>
-        </div>
-      </div>`:'';
+    // 이 달 일정 중 실 저축금액이 입력된 항목들 → 미니 바
+    const savingsEvents=events.filter(e=>e.amount>0&&e.savedAmt!=null&&e.savedAmt>=0);
+    let savingsMiniHtml='';
+    if(savingsEvents.length>0){
+      savingsMiniHtml=`<div class="cal-month-savings-mini">${
+        savingsEvents.map(e=>{
+          const pct=Math.min(100,(parseFloat(e.savedAmt)||0)/(parseFloat(e.amount)||1)*100);
+          const done=pct>=100;
+          return `<div class="${done?'cal-month-savings-done':''}">
+            <div class="cal-month-savings-mini-label">
+              <span>🎯 ${e.name}</span>
+              <span style="color:${done?'#43C98A':'#A29BFE'}">${fmt(e.savedAmt)} / ${fmt(e.amount)}</span>
+            </div>
+            <div class="cal-month-savings-mini-bar">
+              <div class="cal-month-savings-mini-fill" style="width:${pct}%;${done?'background:linear-gradient(90deg,#43C98A,#00B894)':''}"></div>
+            </div>
+          </div>`;
+        }).join('')
+      }</div>`;
+    }
 
     return `
       <div class="cal-month-card ${isNow?'cal-month-now':''}">
@@ -2676,6 +2675,7 @@ function openCalModal(y,m){
   document.getElementById('modal-cal-month-label').textContent=y+'년 '+m+'월';
   document.getElementById('mc-event-name').value='';
   document.getElementById('mc-event-amount').value='';
+  document.getElementById('mc-event-saved').value='';
   // 식비 예산 힌트 표시
   const hint=document.getElementById('cal-food-hint');
   if(hint){
@@ -2693,15 +2693,16 @@ function saveCalEvent(){
   const[y,m]=monthVal.split('-').map(Number);
   const name=document.getElementById('mc-event-name').value.trim();
   const amount=numInputParse(document.getElementById('mc-event-amount').value);
+  const savedAmt=numInputParse(document.getElementById('mc-event-saved').value);
   if(!name)return alert('내용을 입력해주세요');
   if(!S.consumptionCalendar[y])S.consumptionCalendar[y]={};
   if(!S.consumptionCalendar[y][m])S.consumptionCalendar[y][m]=[];
   const editId=document.getElementById('modal-cal-id').value;
   if(editId){
     const ev=S.consumptionCalendar[y][m].find(e=>String(e.id)===String(editId));
-    if(ev){ev.name=name;ev.amount=amount;}
+    if(ev){ev.name=name;ev.amount=amount;ev.savedAmt=savedAmt;}
   } else {
-    S.consumptionCalendar[y][m].push({id:genId(),name,amount});
+    S.consumptionCalendar[y][m].push({id:genId(),name,amount,savedAmt});
   }
   saveState();closeModal();renderCalendar();
 }
@@ -2720,6 +2721,7 @@ function editCalEvent(y,m,id){
   document.getElementById('modal-cal-month-label').textContent=y+'년 '+m+'월';
   document.getElementById('mc-event-name').value=ev.name||'';
   document.getElementById('mc-event-amount').value=ev.amount?(ev.amount).toLocaleString('ko-KR'):'';
+  document.getElementById('mc-event-saved').value=ev.savedAmt?(ev.savedAmt).toLocaleString('ko-KR'):'';
   const hint=document.getElementById('cal-food-hint');
   if(hint)hint.style.display='none';
   openModal('cal');
