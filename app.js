@@ -1365,12 +1365,12 @@ function renderIncome(){
   // Income list
   document.getElementById('income-list').innerHTML=data.income.map(item=>{
     const da=_defaultMode?` data-drag-id="${item.id}" draggable="true" ondragstart="App._dmDragStart(event,'income',${item.id})" ondragover="App._dmDragOver(event,'income')" ondragleave="App._dmDragLeave(event)" ondrop="App._dmDrop(event,'income',${item.id})" ondragend="App._dmDragEnd(event)"`:'';
-    return `<div class="expense-item${_defaultMode?' default-mode-item':''}"${da}>
+    return `<div class="expense-item${_defaultMode?' default-mode-item':' item-hover-edit'}"${da}${_defaultMode?'':` onclick="App.editItem('income',${item.id})"`}>
       ${_defaultMode?`<span class="dm-handle" ontouchstart="App._dmTouchStart(event,'income-list')">⠿</span><label class="dm-chk-label"><input type="checkbox" class="default-chk default-chk-income" value="${item.id}" ${isDefaultIncome(item)?'checked':''}><span class="dm-chk-indicator"></span></label>`:''}
       <div class="item-left"><span class="item-name">${item.name}</span><span class="item-cat">${item.category}</span></div>
       <div class="item-right">
         <span class="item-amount green">${fmt(item.amount)}</span>
-        ${_defaultMode?'':`<div class="item-actions"><button class="icon-btn" onclick="App.editItem('income',${item.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="icon-btn" onclick="App.deleteItem('income',${item.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></div>`}
+        ${_defaultMode?'':`<div class="item-actions"><button class="icon-btn" onclick="event.stopPropagation();App.deleteItem('income',${item.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></div>`}
       </div>
     </div>`;
   }).join('')||(data.income.length===0&&_defaultMode?'<div style="font-size:12px;color:var(--text-sub);padding:8px 0;">수입 항목이 없습니다</div>':'');
@@ -1378,7 +1378,7 @@ function renderIncome(){
   // Fixed list (with isSavings badge)
   document.getElementById('fixed-list').innerHTML=data.fixed.map(item=>{
     const da=_defaultMode?` data-drag-id="${item.id}" draggable="true" ondragstart="App._dmDragStart(event,'fixed',${item.id})" ondragover="App._dmDragOver(event,'fixed')" ondragleave="App._dmDragLeave(event)" ondrop="App._dmDrop(event,'fixed',${item.id})" ondragend="App._dmDragEnd(event)"`:'';
-    return `<div class="expense-item${_defaultMode?' default-mode-item':''}"${da}>
+    return `<div class="expense-item${_defaultMode?' default-mode-item':' item-hover-edit'}"${da}${_defaultMode?'':` onclick="App.editItem('fixed',${item.id})"`}>
       ${_defaultMode?`<span class="dm-handle" ontouchstart="App._dmTouchStart(event,'fixed-list')">⠿</span><label class="dm-chk-label"><input type="checkbox" class="default-chk default-chk-fixed" value="${item.id}" ${isDefaultFixed(item)?'checked':''}><span class="dm-chk-indicator"></span></label>`:''}
       <div class="item-left">
         <span class="item-name">${item.name}${item.isSavings?'<span class="savings-tag">💜저축</span>':''}</span>
@@ -1386,7 +1386,7 @@ function renderIncome(){
       </div>
       <div class="item-right">
         <span class="item-amount ${item.isSavings?'purple':'red'}">${fmt(item.amount)}</span>
-        ${_defaultMode?'':`<div class="item-actions"><button class="icon-btn" onclick="App.editItem('fixed',${item.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="icon-btn" onclick="App.deleteItem('fixed',${item.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></div>`}
+        ${_defaultMode?'':`<div class="item-actions"><button class="icon-btn" onclick="event.stopPropagation();App.deleteItem('fixed',${item.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></div>`}
       </div>
     </div>`;
   }).join('')||(data.fixed.length===0&&_defaultMode?'<div style="font-size:12px;color:var(--text-sub);padding:8px 0;">고정 지출 항목이 없습니다</div>':'');
@@ -1736,12 +1736,11 @@ function renderAssets(){
         <span class="asset-category-badge">${fmt(catTotal)}</span>
       </div>`;
     html+=items.map(a=>`
-      <div class="asset-item">
+      <div class="asset-item item-hover-edit" onclick="App.editItem('asset',${a.id})">
         <div class="asset-name">${a.name}</div>
         <div style="display:flex;align-items:center;gap:12px;">
           <span class="asset-amount">${fmt(a.amount)}</span>
-          <button class="icon-btn" onclick="App.editItem('asset',${a.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-          <button class="icon-btn" onclick="App.deleteItem('asset',${a.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+          <button class="icon-btn" onclick="event.stopPropagation();App.deleteItem('asset',${a.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
         </div>
       </div>`).join('');
     html+='</div>';
@@ -1841,11 +1840,10 @@ function renderCalendar(){
         </div>
         <div class="cal-event-list">
           ${events.length===0?'<div class="cal-empty">일정 없음</div>':events.map(e=>`
-            <div class="cal-event-item">
+            <div class="cal-event-item item-hover-edit" onclick="App.editCalEvent(${y},${m},${e.id})">
               <span class="cal-event-name">${e.name}${e.amount>0?'<br><span class="cal-event-amount">'+fmt(e.amount)+'</span>':''}</span>
               <div style="display:flex;gap:2px;flex-shrink:0;">
-                <button class="cal-event-edit" onclick="App.editCalEvent(${y},${m},${e.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-                <button class="cal-event-delete" onclick="App.deleteCalEvent(${y},${m},${e.id})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                <button class="cal-event-delete" onclick="event.stopPropagation();App.deleteCalEvent(${y},${m},${e.id})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
               </div>
             </div>`).join('')}
           ${mBarHtml}
@@ -1899,7 +1897,7 @@ function renderSavingsGoals(){
     const done=pct>=100;
     const color=g.color||'#A29BFE';
     return `
-      <div class="savings-goal-card ${done?'goal-done':''}">
+      <div class="savings-goal-card ${done?'goal-done':''} item-hover-edit" onclick="App.editSavingsGoal(${g.id})">
         <div class="savings-goal-card-top">
           <div class="savings-goal-card-title">
             <span class="savings-goal-dot" style="background:${color}"></span>
@@ -1907,8 +1905,7 @@ function renderSavingsGoals(){
             ${done?'<span class="goal-done-badge">🎉 달성!</span>':''}
           </div>
           <div class="savings-goal-card-actions">
-            <button class="icon-btn" onclick="App.editSavingsGoal(${g.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-            <button class="icon-btn" onclick="App.deleteSavingsGoal(${g.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+            <button class="icon-btn" onclick="event.stopPropagation();App.deleteSavingsGoal(${g.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
           </div>
         </div>
         <div class="savings-progress-track">
@@ -1922,6 +1919,7 @@ function renderSavingsGoals(){
               oninput="App.numInputFmt(this)"
               onchange="App.updateSavedAmount(${g.id},this.value)"
               onkeydown="if(event.key==='Enter'){App.updateSavedAmount(${g.id},this.value);this.blur();}"
+              onclick="event.stopPropagation()"
               style="border-color:${color}"/>
           </div>
           <div class="savings-goal-meta-right">
@@ -2191,7 +2189,7 @@ function saveFoodField(d,field){
   const dayCells=document.querySelectorAll('.food-day:not(.empty)');
   const dayIdx=d-1; // cells start at 0 but there may be leading empty cells
   // Find by data-day or by scanning
-  document.querySelectorAll('.food-cal-grid .food-day:not(.empty)').forEach((cell,i)=>{
+  document.querySelectorAll('#food-calendar .food-day:not(.empty)').forEach((cell,i)=>{
     const num=cell.querySelector('.food-day-num');
     if(num&&parseInt(num.textContent)===d){
       const days=S.foodCalendar[key]||{};
@@ -3022,12 +3020,12 @@ function renderLedger(){
         </div>
         ${items.map(e=>{
           const cc=getCategoryColor(e.category);
-          const tagPills=(e.tags&&e.tags.length>0)?e.tags.map(t=>{const col=getTagColorForCategory(e.category);return `<span class="ledger-tag-pill" style="--tag-bg:${col.bg};--tag-color:${col.color};" onclick="App.setTagFilter('${t}')">#${t}</span>`;}).join(''):'';
+          const tagPills=(e.tags&&e.tags.length>0)?e.tags.map(t=>{const col=getTagColorForCategory(e.category);return `<span class="ledger-tag-pill" style="--tag-bg:${col.bg};--tag-color:${col.color};" onclick="event.stopPropagation();App.setTagFilter('${t}')">#${t}</span>`;}).join(''):'';
           const creditBadge=e.creditAutoId?`<span class="ledger-credit-auto-badge" style="--cat-strip:${cc.strip};">💳 신용카드 자동</span>`:'';
           const savingsBadge=(e.tags||[]).includes('저축')?`<span class="ledger-savings-badge">♥저축</span>`:'';
           const autoLedgerBadge=e.autoLedgerId?`<span class="ledger-auto-ledger-badge">⚡ 자동화</span>`:'';
           return `
-          <div class="ledger-entry ${e.type}" style="--cat-strip:${cc.strip};--cat-bg:${cc.bg};--cat-color:${cc.color};">
+          <div class="ledger-entry ${e.type} item-hover-edit" style="--cat-strip:${cc.strip};--cat-bg:${cc.bg};--cat-color:${cc.color};" onclick="App.openEditLedgerModal('${key}',${e.id})">
             <div class="ledger-cat-strip"></div>
             <div class="ledger-entry-left">
               <span class="ledger-cat-badge" style="background:${cc.bg};color:${cc.color};">${e.category}</span>
@@ -3041,8 +3039,7 @@ function renderLedger(){
             </div>
             <div class="ledger-entry-right">
               <span class="ledger-amount ${e.type==='income'?'green':'red'}">${e.type==='income'?'+':'−'}${fmt(e.amount)}</span>
-              <button class="icon-btn" onclick="App.openEditLedgerModal('${key}',${e.id})" title="수정" style="font-size:13px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-              <button class="icon-btn" onclick="App.deleteLedgerEntry('${key}',${e.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+              <button class="icon-btn" onclick="event.stopPropagation();App.deleteLedgerEntry('${key}',${e.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
             </div>
           </div>`;}).join('')}
       </div>`;
