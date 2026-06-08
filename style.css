@@ -1525,3 +1525,15 @@ body { background: var(--t-bg) !important; }
 .auto-card .auto-card-right .icon-btn{opacity:0;transition:opacity .13s;}
 .auto-card:hover .auto-card-right .icon-btn{opacity:1;}
 .auto-card:hover .auto-card-right .icon-btn:hover{color:#e74c3c;}
+
+/* 예산현황 카테고리 행 */
+.budget-cat-row{cursor:pointer;}
+.budget-cat-row .icon-btn,.budget-cat-row .budget-link-text-btn{opacity:0;transition:opacity .13s;}
+.budget-cat-row:hover .icon-btn,.budget-cat-row:hover .budget-link-text-btn{opacity:1;}
+.budget-cat-row:hover .icon-btn:hover{color:#e74c3c;}
+.budget-cat-row.item-hover-edit:hover{background:var(--purple-light);}
+
+/* 자금분배 계산기 항목 */
+.fc-item .icon-btn{opacity:0;transition:opacity .13s;}
+.fc-item:hover .icon-btn{opacity:1;}
+.fc-item:hover .icon-btn:hover{color:#e74c3c;}
