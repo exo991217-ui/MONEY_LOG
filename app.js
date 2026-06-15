@@ -3407,7 +3407,8 @@ function openCloseMonthModal(){
   const catMap={};
   effectiveVars.forEach(v=>{catMap[v.category]=(catMap[v.category]||0)+(parseFloat(v.amount)||0);});
   // [수정] 식비 캘린더 금액을 별도로 더하지 않음 — getEffectiveVariable이 이미 가계부 식비 포함
-  const catEntries=Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
+  // [수정] 월 마감 카테고리별 지출: 주거/공과금, 금융 제외
+  const catEntries=Object.entries(catMap).filter(([cat])=>!cat.includes('주거')&&!cat.includes('공과')&&!cat.includes('금융')).sort((a,b)=>b[1]-a[1]);
   const maxAmt=catEntries.length>0?catEntries[0][1]:1;
 
   // [수정] 카테고리별 고유 색상 팔레트 (모달)
@@ -3464,7 +3465,7 @@ function openCloseMonthModal(){
       </div>
     </div>
     <div style="margin-top:16px;">
-      <div class="cm-section-title">📊 카테고리별 지출</div>
+      <div class="cm-section-title">📊 카테고리별 지출 <span style="font-size:10px;font-weight:400;color:var(--text-sub);">*주거/공과금, 금융 제외</span></div>
       ${catRows||'<div style="color:var(--text-sub);font-size:13px;padding:10px 0;">기록된 지출이 없어요</div>'}
     </div>`;
   openModal('closeMonth');
@@ -3490,10 +3491,13 @@ function closeMonth(){
       const catMap={};
       effectiveVars.forEach(v=>{catMap[v.category]=(catMap[v.category]||0)+(parseFloat(v.amount)||0);});
       // [수정] 식비 캘린더 금액을 별도로 더하지 않음 — getEffectiveVariable이 이미 가계부 식비 포함
-      return Object.entries(catMap).sort((a,b)=>b[1]-a[1]).map(([name,amount])=>{
-        const bCat=(S.budgetCategories||[]).find(b=>b.name===name);
-        return{name,amount,budget:bCat?.budget||0};
-      });
+      // [수정] 월 마감 카테고리 스냅샷: 주거/공과금, 금융 제외
+      return Object.entries(catMap)
+        .filter(([name])=>!name.includes('주거')&&!name.includes('공과')&&!name.includes('금융'))
+        .sort((a,b)=>b[1]-a[1]).map(([name,amount])=>{
+          const bCat=(S.budgetCategories||[]).find(b=>b.name===name);
+          return{name,amount,budget:bCat?.budget||0};
+        });
     })(),
     ledgerEntries:entries.map(e=>({...e})),
   };
@@ -3551,7 +3555,7 @@ function renderMonthlyArchive(){
       '경조사':'#FFCA28','🎁 경조사':'#FFCA28',
     };
     const FALLBACK_COLORS=['#A29BFE','#64B5F6','#FF8A65','#4DB6AC','#F48FB1','#FFD54F','#81C784','#80CBC4'];
-    const cats5=(snap.categories||[]).slice(0,5);
+    const cats5=(snap.categories||[]).filter(c=>!c.name.includes('주거')&&!c.name.includes('공과')&&!c.name.includes('금융')).slice(0,5);
     // [수정] 최대 금액 기준으로 바 비율 계산 (상대 비율)
     const maxCatAmt=Math.max(...cats5.map(c=>c.amount),1);
     const catRows=cats5.map((c,i)=>{
@@ -3615,8 +3619,8 @@ function renderMonthlyArchive(){
             <div class="arch-stat-val" style="color:${srColor};font-size:20px;">${sr}%</div>
           </div>
         </div>
-        ${snap.categories&&snap.categories.length>0?`
-        <div class="arch-section-title">📊 카테고리별 지출</div>
+        ${cats5.length>0?`
+        <div class="arch-section-title">📊 카테고리별 지출 <span style="font-size:10px;font-weight:400;color:var(--text-sub);">*주거/공과금, 금융 제외</span></div>
         <div class="arch-cat-list">${catRows}</div>`:''}
         ${top5Expenses.length>0?`
         <div class="arch-section-title">💸 지출 TOP 5 (총 ${totalEntries}건 중)</div>
@@ -3887,16 +3891,23 @@ async function downloadMonthlyReport(){
     const prevSavings=S.monthlyData[prevKey]?getTotalSavings(py,pm):0;
     const netChange=remaining-(prevIncome>0?prevIncome-prevExpense:0);
     const entries=S.ledger[ledgerKey]||[];
+    // [수정] 가계부 실적 기준 수입/지출
+    const ledIn=entries.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+    const ledOut=entries.filter(e=>e.type==='expense'&&!e.creditAutoId).reduce((s,e)=>s+e.amount,0);
+    const ledRemaining=ledIn-ledOut;
+    const ledSavingsRate=ledIn>0?(totalSavings/ledIn*100):0;
     const expEntries=entries.filter(e=>e.type==='expense'&&!e.creditAutoId);
     const daysInMonth=new Date(y,m,0).getDate();
     const zeroDays=daysInMonth-new Set(expEntries.map(e=>e.date)).size;
-    const avgPerDay=expEntries.length>0?Math.round(totalExpense/daysInMonth):0;
-    // Top spending by category — 변동지출 + 식비만 집계 (고정지출 제외)
+    const avgPerDay=expEntries.length>0?Math.round(ledOut/daysInMonth):0;
+    // Top spending by category — 변동지출 + 식비만 집계 (고정지출 제외), 주거/공과금·금융 제외
     const catMap={};
     getEffectiveVariable(y,m).forEach(v=>{
       // 식비는 아래에서 effectiveFoodTotal로 통합 처리
       const catName=v.category;
       if(catName==='식비'||catName==='🍚 식비')return;
+      // [수정] 한달 요약 TOP소비: 주거/공과금, 금융 제외
+      if(catName.includes('주거')||catName.includes('공과')||catName.includes('금융'))return;
       catMap[catName]=(catMap[catName]||0)+(parseFloat(v.amount)||0);
     });
     // 식비: 가계부 기록이 있으면 가계부 기준, 없으면 식비 캘린더 기준
@@ -3929,7 +3940,7 @@ async function downloadMonthlyReport(){
       donutPaths+=`<circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="${c.color}" stroke-width="22" stroke-dasharray="${dash.toFixed(1)} ${gap.toFixed(1)}" stroke-dashoffset="${donutOffset.toFixed(1)}"/>`;
       donutOffset-=dash;
     });
-    const donutSVG=`<svg width="140" height="140" viewBox="0 0 140 140">${donutPaths}<text x="${CX}" y="${CY-6}" text-anchor="middle" font-size="10" font-weight="800" fill="#2D2D3A" font-family="Apple SD Gothic Neo,Noto Sans KR,sans-serif">총 지출</text><text x="${CX}" y="${CY+8}" text-anchor="middle" font-size="9" fill="#9490A8" font-family="Apple SD Gothic Neo,Noto Sans KR,sans-serif">${Math.round(totalExpense).toLocaleString('ko-KR')}원</text></svg>`;
+    const donutSVG=`<svg width="140" height="140" viewBox="0 0 140 140">${donutPaths}<text x="${CX}" y="${CY-6}" text-anchor="middle" font-size="10" font-weight="800" fill="#2D2D3A" font-family="Apple SD Gothic Neo,Noto Sans KR,sans-serif">총 지출</text><text x="${CX}" y="${CY+8}" text-anchor="middle" font-size="9" fill="#9490A8" font-family="Apple SD Gothic Neo,Noto Sans KR,sans-serif">${Math.round(ledOut).toLocaleString('ko-KR')}원</text></svg>`;
     // Tips
     // Goals
     const goals=S.savingsGoals[y]||[];
@@ -3970,11 +3981,11 @@ async function downloadMonthlyReport(){
   <!-- STAT ROW -->
   <div style="display:flex;gap:10px;padding:20px 24px 8px;background:#F7F4FF;">
     ${[
-      {label:'총 수입',value:fmt(totalIncome),color:'#43C98A',change:prevIncome?fmtSigned(totalIncome-prevIncome):'—',up:totalIncome>=prevIncome},
-      {label:'총 지출',value:fmt(totalExpense),color:'#F06292',change:prevExpense?fmtSigned(totalExpense-prevExpense):'—',up:totalExpense<=prevExpense},
+      {label:'총 수입',value:fmt(ledIn),color:'#43C98A',change:'가계부 기준',up:true},
+      {label:'총 지출',value:fmt(ledOut),color:'#F06292',change:'가계부 기준',up:true},
       {label:'총 저축(적금 포함)',value:fmt(totalSavings),color:'#A29BFE',change:prevSavings?fmtSigned(totalSavings-prevSavings):'—',up:totalSavings>=prevSavings},
-      {label:'순자산 변화',value:(remaining>=0?'+':'')+fmt(remaining),color:remaining>=0?'#43C98A':'#F06292',change:'지난달 대비',up:true},
-      {label:'이번 달 잔액',value:fmt(Math.abs(remaining)),color:'#FFB347',change:'저축률',up:true,sub:savingsRate.toFixed(1)+'%'},
+      {label:'순자산 변화',value:(ledRemaining>=0?'+':'')+fmt(Math.abs(ledRemaining)),color:ledRemaining>=0?'#43C98A':'#F06292',change:'지난달 대비',up:true},
+      {label:'이번 달 잔액',value:fmt(Math.abs(ledRemaining)),color:'#FFB347',change:'저축률',up:true,sub:ledSavingsRate.toFixed(1)+'%'},
     ].map(s=>`
       <div style="flex:1;background:white;border-radius:14px;padding:14px 16px;box-shadow:0 2px 12px rgba(162,155,254,.12);border:1.5px solid #EEE9FF;">
         <div style="font-size:11px;color:#9490A8;font-weight:600;margin-bottom:6px;">${s.label}</div>
@@ -4009,7 +4020,7 @@ async function downloadMonthlyReport(){
         ${donutSVG}
         <div style="flex:1;">
           ${donutCats.map((c,i)=>{
-            const pct=totalExpense>0?(c.value/totalExpense*100).toFixed(1):0;
+            const pct=ledOut>0?(c.value/ledOut*100).toFixed(1):0;
             return `<div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;font-size:12px;">
               <div style="width:10px;height:10px;border-radius:50%;background:${c.color};flex-shrink:0;"></div>
               <span style="font-weight:600;">${c.name}</span>
@@ -4068,9 +4079,10 @@ async function downloadMonthlyReport(){
     </div>
     <!-- TOP소비 -->
     <div style="flex:1;background:white;border-radius:16px;padding:18px 20px;border:1.5px solid #EEE9FF;box-shadow:0 2px 12px rgba(162,155,254,.10);">
-      <div style="font-size:13px;font-weight:800;margin-bottom:12px;">이번 달 TOP 소비</div>
+      <div style="font-size:13px;font-weight:800;margin-bottom:4px;">이번 달 TOP 소비</div>
+      <div style="font-size:10px;color:#9490A8;margin-bottom:10px;">*주거/공과금, 금융 제외</div>
       ${top3.map((c,i)=>{
-        const pct=totalExpense>0?(c[1]/totalExpense*100).toFixed(1):0;
+        const pct=ledOut>0?(c[1]/ledOut*100).toFixed(1):0;
         const rankColors=['#A29BFE','#74B9FF','#43C98A'];
         const prevAmt=prevCatMap[c[0]]||0;
         const hasPrev=Object.keys(prevCatMap).length>0&&prevAmt>0;
@@ -4108,8 +4120,11 @@ async function downloadMonthlyReport(){
 
   <!-- TOP5 태그 -->
   ${(()=>{
-    const tagCount={};
-    (S.ledger[ledgerKey]||[]).forEach(e=>(e.tags||[]).forEach(t=>{tagCount[t]=(tagCount[t]||0)+1;}));
+    const tagCount={};const tagAmount={};
+    (S.ledger[ledgerKey]||[]).filter(e=>e.type==='expense').forEach(e=>(e.tags||[]).forEach(t=>{
+      tagCount[t]=(tagCount[t]||0)+1;
+      tagAmount[t]=(tagAmount[t]||0)+e.amount;
+    }));
     const top5=Object.entries(tagCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
     if(top5.length===0)return '';
     return `<div style="padding:10px 24px 16px;background:#F7F4FF;">
@@ -4119,10 +4134,12 @@ async function downloadMonthlyReport(){
           ${top5.map(([t,cnt],i)=>{
             const palBg=['#F0EEFF','#EBF5FF','#E8F5EE','#FFF8EE','#FFF0F5'];
             const palColor=['#6C5CE7','#1565C0','#2E8B57','#D4820A','#C0396C'];
+            const amt=tagAmount[t]||0;
             return `<div style="display:flex;align-items:center;gap:6px;background:${palBg[i]};color:${palColor[i]};border-radius:20px;padding:6px 14px;font-size:13px;font-weight:700;">
               <span style="font-size:12px;background:${palColor[i]};color:white;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-weight:800;">${i+1}</span>
               #${t}
               <span style="font-size:11px;opacity:.7;">${cnt}회</span>
+              <span style="font-size:11px;font-weight:800;color:${palColor[i]};">${amt.toLocaleString('ko-KR')}원</span>
             </div>`;
           }).join('')}
         </div>
