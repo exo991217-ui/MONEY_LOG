@@ -3445,23 +3445,25 @@ function openCloseMonthModal(){
       </div>`;
   }).join('');
 
+  const cmNetChange=ledIn-ledOut;
+  const cmNetColor=cmNetChange>=0?'var(--green)':'var(--red)';
   document.getElementById('cm-summary').innerHTML=`
     <div class="cm-stats-grid">
       <div class="cm-stat-box">
-        <div class="cm-stat-label">💰 예산 수입</div>
-        <div class="cm-stat-val green">${fmt(budIn)}</div>
+        <div class="cm-stat-label">💰 총 수입</div>
+        <div class="cm-stat-val green">${fmt(ledIn)}</div>
       </div>
       <div class="cm-stat-box">
-        <div class="cm-stat-label">💸 예산 지출</div>
-        <div class="cm-stat-val red">${fmt(budOut)}</div>
+        <div class="cm-stat-label">💸 총 지출</div>
+        <div class="cm-stat-val red">${fmt(ledOut)}</div>
       </div>
       <div class="cm-stat-box">
-        <div class="cm-stat-label">📒 가계부 지출</div>
-        <div class="cm-stat-val orange">${fmt(ledOut)}</div>
+        <div class="cm-stat-label">🐷 저축액</div>
+        <div class="cm-stat-val" style="color:#A29BFE;">${fmt(savingsAmt)}</div>
       </div>
-      <div class="cm-stat-box" style="background:${srColor}18;border:1.5px solid ${srColor}44;">
-        <div class="cm-stat-label">🎯 저축률</div>
-        <div class="cm-stat-val" style="color:${srColor};font-size:22px;font-weight:900;">${sr}%</div>
+      <div class="cm-stat-box" style="background:${cmNetColor}18;border:1.5px solid ${cmNetColor}44;">
+        <div class="cm-stat-label">📈 순자산 증감</div>
+        <div class="cm-stat-val" style="color:${cmNetColor};font-size:20px;font-weight:900;">${cmNetChange>=0?'+':''} ${fmt(Math.abs(cmNetChange))}</div>
       </div>
     </div>
     <div style="margin-top:16px;">
@@ -3601,24 +3603,27 @@ function renderMonthlyArchive(){
         </div>
       </div>
       <div class="arch-card-body" id="arch-body-${key}" style="display:none;">
-        <div class="arch-stats-grid">
+        ${(()=>{
+          const archNet=(snap.ledgerIncome||0)-(snap.ledgerExpense||0);
+          const archNetColor=archNet>=0?'var(--green)':'var(--red)';
+          return `<div class="arch-stats-grid">
           <div class="arch-stat-box">
-            <div class="arch-stat-label">💰 예산 수입</div>
-            <div class="arch-stat-val green">${fmt(snap.budgetIncome)}</div>
+            <div class="arch-stat-label">💰 총 수입</div>
+            <div class="arch-stat-val green">${fmt(snap.ledgerIncome||0)}</div>
           </div>
           <div class="arch-stat-box">
-            <div class="arch-stat-label">💸 예산 지출</div>
-            <div class="arch-stat-val red">${fmt(snap.budgetExpense)}</div>
+            <div class="arch-stat-label">💸 총 지출</div>
+            <div class="arch-stat-val red">${fmt(snap.ledgerExpense||0)}</div>
           </div>
           <div class="arch-stat-box">
-            <div class="arch-stat-label">📒 가계부 지출</div>
-            <div class="arch-stat-val orange">${fmt(snap.ledgerExpense)}</div>
+            <div class="arch-stat-label">🐷 저축액</div>
+            <div class="arch-stat-val" style="color:#A29BFE;">${fmt(snap.savings||0)}</div>
           </div>
-          <div class="arch-stat-box" style="background:${srColor}12;border:1.5px solid ${srColor}44;">
-            <div class="arch-stat-label">🎯 저축률</div>
-            <div class="arch-stat-val" style="color:${srColor};font-size:20px;">${sr}%</div>
+          <div class="arch-stat-box" style="background:${archNetColor}18;border:1.5px solid ${archNetColor}44;">
+            <div class="arch-stat-label">📈 순자산 증감</div>
+            <div class="arch-stat-val" style="color:${archNetColor};font-size:20px;font-weight:900;">${archNet>=0?'+':''} ${fmt(Math.abs(archNet))}</div>
           </div>
-        </div>
+        </div>`;})()}
         ${cats5.length>0?`
         <div class="arch-section-title">📊 카테고리별 지출 <span style="font-size:10px;font-weight:400;color:var(--text-sub);">*주거/공과금, 금융 제외</span></div>
         <div class="arch-cat-list">${catRows}</div>`:''}
@@ -3891,9 +3896,9 @@ async function downloadMonthlyReport(){
     const prevSavings=S.monthlyData[prevKey]?getTotalSavings(py,pm):0;
     const netChange=remaining-(prevIncome>0?prevIncome-prevExpense:0);
     const entries=S.ledger[ledgerKey]||[];
-    // [수정] 가계부 실적 기준 수입/지출
+    // [수정] 가계부 실적 기준 수입/지출 (신용카드 자동항목 포함, 대시보드와 동일 기준)
     const ledIn=entries.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
-    const ledOut=entries.filter(e=>e.type==='expense'&&!e.creditAutoId).reduce((s,e)=>s+e.amount,0);
+    const ledOut=entries.filter(e=>e.type==='expense').reduce((s,e)=>s+e.amount,0);
     const ledRemaining=ledIn-ledOut;
     const ledSavingsRate=ledIn>0?(totalSavings/ledIn*100):0;
     const expEntries=entries.filter(e=>e.type==='expense'&&!e.creditAutoId);
