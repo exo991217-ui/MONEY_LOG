@@ -1828,6 +1828,20 @@ function renderCalendar(){
     const mPctColor=mDone?'#43C98A':'#6C5CE7';
     const mBarHtml=mTarget>0?`<div class="cal-month-bar"><div class="cal-month-bar-track"><div class="cal-month-bar-fill" style="width:${mPct.toFixed(2)}%;background:${mBarColor}"></div></div><span class="cal-month-bar-pct" style="color:${mPctColor}">${mPct.toFixed(0)}%</span></div>`:'';
 
+    // 고정 지출 납부일 마커 (자동화 기준)
+    const fixedMarkers=(S.automations||[]).filter(a=>{
+      if(!a.active||a.type!=='expense')return false;
+      const startY=a.startYear||y;const startM=a.startMonth||1;
+      return !(y<startY||(y===startY&&m<startM));
+    }).sort((a,b)=>(a.billingDay||1)-(b.billingDay||1));
+    const fixedMarkersHtml=fixedMarkers.length===0?'':
+      `<div class="cal-fixed-markers">${fixedMarkers.map(a=>`
+        <div class="cal-fixed-marker">
+          <span class="cal-fixed-day">${a.billingDay||1}일</span>
+          <span class="cal-fixed-name">${a.memo||a.name||''}</span>
+          <span class="cal-fixed-amt">${fmt(a.amount)}</span>
+        </div>`).join('')}</div>`;
+
     return `
       <div class="cal-month-card ${isNow?'cal-month-now':''}">
         <div class="cal-month-header">
@@ -1847,6 +1861,7 @@ function renderCalendar(){
             </div>`).join('')}
           ${mBarHtml}
         </div>
+        ${fixedMarkersHtml}
       </div>`;
   }).join('');
   renderSavingsGoals();
@@ -3319,76 +3334,84 @@ function onMemoKeydown(event){
   }
 }
 
-// ===== LEDGER IMPORT =====
-function toggleImportPanel(){
-  const panel=document.getElementById('ledger-import-panel');
+// ===== LEDGER SEARCH =====
+function toggleSearchPanel(){
+  const panel=document.getElementById('ledger-search-panel');
   if(!panel)return;
   const isHidden=panel.style.display==='none';
-  panel.style.display=isHidden?'block':'none';
-  if(isHidden)renderImportPanel();
+  if(isHidden){
+    panel.style.display='block';
+    renderSearchPanel();
+    setTimeout(()=>document.getElementById('ledger-search-input')?.focus(),80);
+  } else {
+    panel.style.display='none';
+  }
 }
 
-function renderImportPanel(){
-  const cm=S.currentMonths.ledger;
-  const data=getMonthData(cm.y,cm.m);
-  const today=new Date();
-  const todayStr=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
-
-  const incomeItems=data.income;
-  const fixedItems=data.fixed;
-  const varItems=getEffectiveVariable(cm.y,cm.m);
-
-  const el=document.getElementById('ledger-import-panel');
+function renderSearchPanel(){
+  const el=document.getElementById('ledger-search-panel');
+  if(!el)return;
   el.innerHTML=`
-    <div class="import-panel-header">📥 가계부로 가져오기 — ${cm.y}년 ${cm.m}월</div>
-    <div class="import-date-row">
-      <label>날짜 선택:</label>
-      <input type="date" id="import-date" class="lq-input lq-date" value="${todayStr}"/>
+    <div class="search-panel-header">🔍 가계부 검색</div>
+    <div class="search-input-row">
+      <input type="text" id="ledger-search-input" class="lq-input" style="flex:1;"
+        placeholder="메모, 태그, 카테고리 검색..."
+        oninput="App.doLedgerSearch(this.value)"
+        onkeydown="if(event.key==='Escape')App.toggleSearchPanel()"/>
+      <button class="btn-cancel" style="margin-left:8px;" onclick="App.toggleSearchPanel()">닫기</button>
     </div>
-    <div class="import-section-title">💰 수입 항목</div>
-    ${incomeItems.length===0?'<div style="font-size:12px;color:var(--text-sub);padding:4px 0;">항목 없음</div>':incomeItems.map(i=>`
-      <label class="import-check-row">
-        <input type="checkbox" class="import-check" data-type="income" data-category="${i.category}" data-memo="${i.name}" data-amount="${i.amount}"/>
-        <span>${i.name} <span style="color:var(--green);font-weight:700;">${fmt(i.amount)}</span></span>
-      </label>`).join('')}
-    <div class="import-section-title">🏠 고정 지출</div>
-    ${fixedItems.length===0?'<div style="font-size:12px;color:var(--text-sub);padding:4px 0;">항목 없음</div>':fixedItems.map(i=>`
-      <label class="import-check-row">
-        <input type="checkbox" class="import-check" data-type="expense" data-category="${i.category}" data-memo="${i.name}" data-amount="${i.amount}"/>
-        <span>${i.name} ${i.isSavings?'<span class="savings-tag">💜저축</span>':''} <span style="color:var(--red);font-weight:700;">${fmt(i.amount)}</span></span>
-      </label>`).join('')}
-    <div class="import-section-title">🛒 변동 지출</div>
-    ${varItems.length===0?'<div style="font-size:12px;color:var(--text-sub);padding:4px 0;">항목 없음</div>':varItems.map(i=>`
-      <label class="import-check-row">
-        <input type="checkbox" class="import-check" data-type="expense" data-category="${i.category}" data-memo="${i.name}" data-amount="${i.amount}"/>
-        <span>${i.name} <span style="color:var(--orange);font-weight:700;">${fmt(i.amount)}</span></span>
-      </label>`).join('')}
-    <div class="import-actions">
-      <button class="btn-save" onclick="App.doImportToLedger()">✅ 선택 항목 가져오기</button>
-      <button class="btn-cancel" onclick="App.toggleImportPanel()">닫기</button>
+    <div id="ledger-search-results" class="search-results-list">
+      <div class="search-placeholder">검색어를 입력하세요</div>
     </div>`;
 }
 
-function doImportToLedger(){
-  const cm=S.currentMonths.ledger;const key=mkey(cm.y,cm.m);
-  const date=document.getElementById('import-date')?.value;
-  if(!date)return alert('날짜를 선택해주세요');
-  const checks=document.querySelectorAll('#ledger-import-panel .import-check:checked');
-  if(checks.length===0)return alert('가져올 항목을 선택해주세요');
-  if(!S.ledger[key])S.ledger[key]=[];
-  checks.forEach(cb=>{
-    S.ledger[key].push({
-      id:genId(),date,
-      type:cb.dataset.type,
-      category:cb.dataset.category,
-      memo:cb.dataset.memo,
-      amount:parseFloat(cb.dataset.amount)||0
+function doLedgerSearch(q){
+  const resultsEl=document.getElementById('ledger-search-results');
+  if(!resultsEl)return;
+  const query=(q||'').trim().toLowerCase();
+  if(!query){
+    resultsEl.innerHTML='<div class="search-placeholder">검색어를 입력하세요</div>';
+    return;
+  }
+  const allEntries=[];
+  Object.entries(S.ledger||{}).forEach(([key,entries])=>{
+    (entries||[]).forEach(e=>{
+      const memo=(e.memo||'').toLowerCase();
+      const cat=(e.category||'').toLowerCase();
+      const tags=(e.tags||[]).join(' ').toLowerCase();
+      if(memo.includes(query)||cat.includes(query)||tags.includes(query)){
+        allEntries.push({...e,_key:key});
+      }
     });
   });
-  saveState();renderLedger();renderDashboard();renderIncome();
-  const panel=document.getElementById('ledger-import-panel');
-  if(panel)panel.style.display='none';
-  alert(checks.length+'개 항목을 가져왔어요! ✅');
+  allEntries.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  if(allEntries.length===0){
+    resultsEl.innerHTML=`<div class="search-placeholder">"${q}"에 대한 결과가 없어요</div>`;
+    return;
+  }
+  const shown=allEntries.slice(0,50);
+  resultsEl.innerHTML=`
+    <div class="search-count">${allEntries.length}건 발견</div>
+    ${shown.map(e=>{
+      const dp=(e.date||'').split('-');
+      const dateStr=dp.length===3?`${dp[0]}.${dp[1]}.${dp[2]}`:(e.date||'');
+      const tags=(e.tags||[]).filter(t=>t).map(t=>`<span class="vpp-tag">${t}</span>`).join('');
+      const isInc=e.type==='income';
+      const color=isInc?'var(--green)':'var(--red)';
+      const sign=isInc?'+':'-';
+      return `<div class="search-result-item">
+        <div class="search-result-left">
+          <span class="search-result-cat">${e.category||''}</span>
+          <span class="search-result-memo">${e.memo||'(메모 없음)'}</span>
+          ${tags}
+        </div>
+        <div class="search-result-right">
+          <span style="color:${color};font-weight:700;font-size:13px;">${sign}${Math.round(e.amount).toLocaleString('ko-KR')}원</span>
+          <span class="search-result-date">${dateStr}</span>
+        </div>
+      </div>`;
+    }).join('')}
+    ${allEntries.length>50?'<div class="search-placeholder" style="padding:6px 0;">상위 50건만 표시됩니다</div>':''}`;
 }
 
 // ===== CLOSE MONTH =====
@@ -4366,29 +4389,26 @@ function showVarPreview(el){
   el.style.setProperty('--va-bg', theme.light);
   el.style.setProperty('--va-border', theme.border);
   el.classList.add('var-active');
-  // 가계부 내역 조회
+  // 가계부 내역 조회 → 태그별 합계
   const key=mkey(cm.y,cm.m);
-  const entries=(S.ledger[key]||[])
-    .filter(e=>e.type==='expense'&&e.category===category)
-    .sort((a,b)=>(b.date||'').localeCompare(a.date||''))
-    .slice(0,5);
-  const listHTML=entries.length===0
+  const entries=(S.ledger[key]||[]).filter(e=>e.type==='expense'&&e.category===category);
+  const tagMap={};
+  entries.forEach(e=>{
+    const tags=(e.tags||[]).filter(t=>t);
+    if(tags.length===0){
+      tagMap['(태그 없음)']=(tagMap['(태그 없음)']||0)+(e.amount||0);
+    } else {
+      tags.forEach(t=>{tagMap[t]=(tagMap[t]||0)+(e.amount||0);});
+    }
+  });
+  const sorted=Object.entries(tagMap).sort((a,b)=>b[1]-a[1]);
+  const listHTML=sorted.length===0
     ?'<div class="vpp-empty">내역 없음</div>'
-    :entries.map(e=>{
-      const dp=(e.date||'').split('-');
-      const dateStr=dp.length===3?dp[1]+'/'+dp[2]:(e.date||'');
-      const tags=(e.tags||[]).filter(t=>t).map(t=>`<span class="vpp-tag">${t}</span>`).join('');
-      return `<div class="vpp-item">
-        <div class="vpp-left">
-          ${tags}
-          <span class="vpp-memo">${e.memo||'(메모 없음)'}</span>
-        </div>
-        <div class="vpp-right">
-          <span class="vpp-amount">-${Math.round(e.amount).toLocaleString('ko-KR')}원</span>
-          <span class="vpp-date">${dateStr}</span>
-        </div>
-      </div>`;
-    }).join('');
+    :sorted.map(([tag,amt])=>`
+      <div class="vpp-item">
+        <div class="vpp-left"><span class="vpp-tag">${tag}</span></div>
+        <div class="vpp-right"><span class="vpp-amount">-${Math.round(amt).toLocaleString('ko-KR')}원</span></div>
+      </div>`).join('');
   const panel=document.createElement('div');
   panel.className='var-inline-panel';
   panel.innerHTML=`
@@ -4422,7 +4442,7 @@ window.App={
   calcInstallment,
   addLedgerEntry,deleteLedgerEntry,setLedgerFilter,setTagFilter,
   onMemoInput,onMemoKeydown,selectMemoTag,hideMemoDropdown,
-  toggleImportPanel,doImportToLedger,
+  toggleSearchPanel,doLedgerSearch,
   openCloseMonthModal,closeMonth,reopenMonth,
   renderMonthlyArchive,deleteArchiveEntry,_toggleArchiveCard,toggleLedgerSubmenu,
   fetchStockPrices,
