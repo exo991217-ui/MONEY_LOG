@@ -3046,13 +3046,16 @@ function renderLedger(){
 }
 
 function addLedgerEntry(){
-  const cm=S.currentMonths.ledger;const key=mkey(cm.y,cm.m);
   const type=document.getElementById('lq-type').value;
   const date=document.getElementById('lq-date').value;
   const category=document.getElementById('lq-category').value;
   const rawMemo=document.getElementById('lq-memo').value.trim();
   const amount=numInputParse(document.getElementById('lq-amount').value);
   if(!date||amount<=0)return;
+  // [수정] 입력한 날짜의 연·월 기준으로 저장 (현재 보고있는 월이 아닌 날짜 기준)
+  const dateParts=date.split('-');
+  const entryY=parseInt(dateParts[0]);const entryM=parseInt(dateParts[1]);
+  const key=(entryY&&entryM)?mkey(entryY,entryM):mkey(S.currentMonths.ledger.y,S.currentMonths.ledger.m);
   const tags=extractTagsFromMemo(rawMemo);
   const memo=cleanMemoText(rawMemo);
   if(!S.ledger[key])S.ledger[key]=[];
