@@ -2049,14 +2049,16 @@ function renderFood(){
       if(cell.type==='empty')return '<div class="food-day empty"></div>';
       const{d,dow,dd,isOpen,autos}=cell;
       const autosHtml=(autos&&autos.length>0)
-        ?autos.map(a=>`<div class="food-auto-marker">💸 ${a.memo||a.name||''}</div>`).join('')
+        ?autos.map(a=>`<span class="food-auto-badge">💸 ${a.memo||a.name||''}</span>`).join('')
         :'';
       return `<div class="food-day${isOpen?' panel-open':''}${autos&&autos.length>0?' has-auto':''}" onclick="App.toggleFoodPanel(${d})" title="클릭하여 편집">
-        <div class="food-day-num ${dow===0?'sun':dow===6?'sat':''}">${d}</div>
+        <div class="food-day-header-row">
+          <div class="food-day-num ${dow===0?'sun':dow===6?'sat':''}">${d}</div>
+          ${autosHtml}
+        </div>
         ${dd.special?`<div class="food-special-tag">${dd.special}</div>`:''}
         ${dd.memo?`<div class="food-memo">${dd.memo}</div>`:''}
         ${dd.amount?`<div class="food-amount">${Number(dd.amount).toLocaleString('ko-KR')}</div>`:''}
-        ${autosHtml}
       </div>`;
     }).join('');
 
@@ -2205,11 +2207,22 @@ function saveFoodField(d,field){
     if(num&&parseInt(num.textContent)===d){
       const days=S.foodCalendar[key]||{};
       const dd2=days[d]||{};
-      // Rebuild inner content
-      const dow=cell.querySelector('.food-day-num').classList.contains('sat')?6:cell.querySelector('.food-day-num').classList.contains('sun')?0:-1;
-      const dowClass=dow===0?'sun':dow===6?'sat':'';
+      // Compute active autos for this day to preserve badges
+      const activeAutos=(S.automations||[]).filter(a=>{
+        if(!a.active||a.type!=='expense')return false;
+        const startY=a.startYear||cm.y;const startM=a.startMonth||1;
+        return !(cm.y<startY||(cm.y===startY&&cm.m<startM));
+      });
+      const dayAutos=activeAutos.filter(a=>(a.billingDay||1)===d);
+      const autosHtml=dayAutos.length>0
+        ?dayAutos.map(a=>`<span class="food-auto-badge">💸 ${a.memo||a.name||''}</span>`).join('')
+        :'';
+      const dowClass=num.classList.contains('sat')?'sat':num.classList.contains('sun')?'sun':'';
       cell.innerHTML=`
-        <div class="food-day-num ${dowClass}">${d}</div>
+        <div class="food-day-header-row">
+          <div class="food-day-num ${dowClass}">${d}</div>
+          ${autosHtml}
+        </div>
         ${dd2.special?`<div class="food-special-tag">${dd2.special}</div>`:''}
         ${dd2.memo?`<div class="food-memo">${dd2.memo}</div>`:''}
         ${dd2.amount?`<div class="food-amount">${Number(dd2.amount).toLocaleString('ko-KR')}</div>`:''}`;
@@ -4465,6 +4478,7 @@ function switchTab(tab){
     if(parentEl)parentEl.classList.add('active');
     const subMenu=document.getElementById('ledger-submenu');
     if(subMenu)subMenu.style.display='block';
+    renderLedger();
   }
   if(tab==='monthly-archive'){
     renderMonthlyArchive();
