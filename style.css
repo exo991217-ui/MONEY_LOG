@@ -1537,3 +1537,27 @@ body { background: var(--t-bg) !important; }
 .fc-item .icon-btn{opacity:0;transition:opacity .13s;}
 .fc-item:hover .icon-btn{opacity:1;}
 .fc-item:hover .icon-btn:hover{color:#e74c3c;}
+
+/* ===== 가계부 검색 ===== */
+.ledger-search-btn{padding:7px 14px;border-radius:20px;border:1.5px solid var(--purple);background:var(--purple-light);color:var(--purple);font-size:12.5px;font-weight:700;cursor:pointer;transition:all .15s}
+.ledger-search-btn:hover{background:var(--purple);color:white}
+.ledger-search-panel{background:white;border:1.5px solid var(--purple);border-radius:var(--radius);padding:18px 20px;margin-bottom:16px;box-shadow:var(--shadow)}
+.search-panel-header{font-size:15px;font-weight:800;color:var(--text-main);margin-bottom:12px}
+.search-input-row{display:flex;align-items:center;margin-bottom:12px}
+.search-results-list{max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:1px}
+.search-result-item{display:flex;justify-content:space-between;align-items:center;padding:8px 6px;border-radius:7px;border-bottom:1px dashed var(--border);font-size:13px}
+.search-result-item:hover{background:var(--purple-light)}
+.search-result-left{display:flex;align-items:center;gap:5px;flex:1;min-width:0;overflow:hidden;flex-wrap:wrap}
+.search-result-cat{font-size:10.5px;color:var(--text-sub);font-weight:600;white-space:nowrap}
+.search-result-memo{font-size:13px;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px}
+.search-result-right{display:flex;flex-direction:column;align-items:flex-end;gap:2px;margin-left:8px;flex-shrink:0}
+.search-result-date{font-size:10.5px;color:var(--text-sub)}
+.search-count{font-size:11px;color:var(--text-sub);padding:2px 0 8px}
+.search-placeholder{color:var(--text-sub);font-size:13px;padding:14px 0;text-align:center}
+
+/* ===== 캘린더 고정 지출 마커 ===== */
+.cal-fixed-markers{border-top:1.5px dashed #EDE9FF;margin-top:8px;padding-top:7px;display:flex;flex-direction:column;gap:3px}
+.cal-fixed-marker{display:flex;align-items:center;gap:4px;font-size:11px;padding:2px 0}
+.cal-fixed-day{background:#F0EBFF;color:#7C5CBF;border-radius:5px;padding:1px 5px;font-weight:700;font-size:10px;white-space:nowrap;flex-shrink:0}
+.cal-fixed-name{color:var(--text-main);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cal-fixed-amt{color:var(--red);font-weight:700;font-size:10.5px;flex-shrink:0}
