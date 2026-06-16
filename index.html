@@ -227,7 +227,10 @@
             <div class="card-title-group">
               <span>📊 예산 현황</span>
             </div>
-            <button class="add-btn" onclick="App.openBudgetModal()">+ 항목 추가</button>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <button class="auto-budget-btn" onclick="App.openBudgetAutoModal()">✨ 자동 설정</button>
+              <button class="add-btn" onclick="App.openBudgetModal()">+ 항목 추가</button>
+            </div>
           </div>
           <div id="budget-cat-list" class="budget-cat-list-wrap"></div>
           <div id="budget-cat-footer" class="budget-cat-footer-wrap"></div>
@@ -729,6 +732,18 @@
   <div class="modal-actions">
     <button class="btn-cancel" onclick="App.closeModal()">취소</button>
     <button class="btn-save" onclick="App.saveBudgetCatSync()">저장</button>
+  </div>
+</div>
+
+<!-- Budget Auto Suggestion Modal -->
+<div class="modal" id="modal-budget-auto">
+  <div class="modal-header">✨ 예산 자동 설정</div>
+  <div id="modal-budget-auto-body"></div>
+  <div class="modal-actions">
+    <button class="btn-cancel" onclick="App.closeModal()">취소</button>
+    <button class="btn-save" onclick="App.applyBudgetSuggestions()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px;"><polyline points="20 6 9 17 4 12"/></svg>이 예산으로 설정
+    </button>
   </div>
 </div>
 
