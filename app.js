@@ -518,12 +518,12 @@ function getActiveBudgetCats(y,m){
   const key=mkey(y,m);
   const monthOverrides=(S.monthBudgets&&S.monthBudgets[key])||{};
   return (S.budgetCategories||[]).map(cat=>{
+    // 월별 override 최우선 (자동 설정 포함)
+    const ov=monthOverrides[cat.id];
+    if(ov!==undefined)return{...cat,budget:ov};
     const sfNum=parseSyncFrom(cat.syncFrom);
     const useGlobal=cat.synced&&(sfNum===0||curNum>=sfNum);
     if(useGlobal)return cat;
-    // use per-month override if exists
-    const ov=monthOverrides[cat.id];
-    if(ov!==undefined)return{...cat,budget:ov};
     return cat;
   });
 }
@@ -1828,20 +1828,6 @@ function renderCalendar(){
     const mPctColor=mDone?'#43C98A':'#6C5CE7';
     const mBarHtml=mTarget>0?`<div class="cal-month-bar"><div class="cal-month-bar-track"><div class="cal-month-bar-fill" style="width:${mPct.toFixed(2)}%;background:${mBarColor}"></div></div><span class="cal-month-bar-pct" style="color:${mPctColor}">${mPct.toFixed(0)}%</span></div>`:'';
 
-    // 고정 지출 납부일 마커 (자동화 기준)
-    const fixedMarkers=(S.automations||[]).filter(a=>{
-      if(!a.active||a.type!=='expense')return false;
-      const startY=a.startYear||y;const startM=a.startMonth||1;
-      return !(y<startY||(y===startY&&m<startM));
-    }).sort((a,b)=>(a.billingDay||1)-(b.billingDay||1));
-    const fixedMarkersHtml=fixedMarkers.length===0?'':
-      `<div class="cal-fixed-markers">${fixedMarkers.map(a=>`
-        <div class="cal-fixed-marker">
-          <span class="cal-fixed-day">${a.billingDay||1}일</span>
-          <span class="cal-fixed-name">${a.memo||a.name||''}</span>
-          <span class="cal-fixed-amt">${fmt(a.amount)}</span>
-        </div>`).join('')}</div>`;
-
     return `
       <div class="cal-month-card ${isNow?'cal-month-now':''}">
         <div class="cal-month-header">
@@ -1861,7 +1847,6 @@ function renderCalendar(){
             </div>`).join('')}
           ${mBarHtml}
         </div>
-        ${fixedMarkersHtml}
       </div>`;
   }).join('');
   renderSavingsGoals();
@@ -2027,12 +2012,20 @@ function renderFood(){
   // 공과금 제외 가계부 지출 항목
   const ledgerEntries=(S.ledger[key]||[]).filter(e=>e.type==='expense'&&!e.creditAutoId&&!(e.category||'').includes('공과금'));
 
+  // 이 달에 해당하는 활성 자동화 고정 지출 목록
+  const activeAutos=(S.automations||[]).filter(a=>{
+    if(!a.active||a.type!=='expense')return false;
+    const startY=a.startYear||cm.y;const startM=a.startMonth||1;
+    return !(cm.y<startY||(cm.y===startY&&cm.m<startM));
+  });
+
   // 모든 셀 목록 (앞 빈칸 + 날짜 + 뒤 빈칸)
   const allCells=[];
   for(let i=0;i<firstDay;i++)allCells.push({type:'empty'});
   for(let d=1;d<=daysInMonth;d++){
     const dow=(firstDay+d-1)%7;
-    allCells.push({type:'day',d,dow,dd:days[d]||{},isOpen:currentFoodPanel===d});
+    const dayAutos=activeAutos.filter(a=>(a.billingDay||1)===d);
+    allCells.push({type:'day',d,dow,dd:days[d]||{},isOpen:currentFoodPanel===d,autos:dayAutos});
   }
   const rem=(firstDay+daysInMonth)%7;
   if(rem>0)for(let i=0;i<7-rem;i++)allCells.push({type:'empty'});
@@ -2054,12 +2047,16 @@ function renderFood(){
 
     const rowHTML=rowCells.map(cell=>{
       if(cell.type==='empty')return '<div class="food-day empty"></div>';
-      const{d,dow,dd,isOpen}=cell;
-      return `<div class="food-day${isOpen?' panel-open':''}" onclick="App.toggleFoodPanel(${d})" title="클릭하여 편집">
+      const{d,dow,dd,isOpen,autos}=cell;
+      const autosHtml=(autos&&autos.length>0)
+        ?autos.map(a=>`<div class="food-auto-marker">💸 ${a.memo||a.name||''}</div>`).join('')
+        :'';
+      return `<div class="food-day${isOpen?' panel-open':''}${autos&&autos.length>0?' has-auto':''}" onclick="App.toggleFoodPanel(${d})" title="클릭하여 편집">
         <div class="food-day-num ${dow===0?'sun':dow===6?'sat':''}">${d}</div>
         ${dd.special?`<div class="food-special-tag">${dd.special}</div>`:''}
         ${dd.memo?`<div class="food-memo">${dd.memo}</div>`:''}
         ${dd.amount?`<div class="food-amount">${Number(dd.amount).toLocaleString('ko-KR')}</div>`:''}
+        ${autosHtml}
       </div>`;
     }).join('');
 
@@ -3414,6 +3411,139 @@ function doLedgerSearch(q){
     ${allEntries.length>50?'<div class="search-placeholder" style="padding:6px 0;">상위 50건만 표시됩니다</div>':''}`;
 }
 
+// ===== BUDGET AUTO SUGGESTION =====
+function openBudgetAutoModal(){
+  const cm=S.currentMonths.income;
+  // 최근 3개월 데이터 수집
+  const months=[];
+  for(let i=1;i<=3;i++){
+    let y=cm.y,m=cm.m-i;
+    while(m<=0){m+=12;y--;}
+    months.push({y,m});
+  }
+  // 월별 카테고리 지출 합산
+  const catTotals={};
+  months.forEach(({y,m})=>{
+    const sums=getLedgerCategorySums(y,m);
+    Object.entries(sums).forEach(([cat,amt])=>{
+      if(!catTotals[cat])catTotals[cat]=[];
+      catTotals[cat].push(amt);
+    });
+  });
+  // 평균 계산
+  const catAvg={};
+  Object.entries(catTotals).forEach(([cat,amts])=>{
+    catAvg[cat]=amts.reduce((s,a)=>s+a,0)/amts.length;
+  });
+
+  const existingCats=S.budgetCategories||[];
+  const coveredLedgerCats=new Set();
+
+  // 기존 예산 카테고리별 제안
+  const existingSuggestions=existingCats.map(cat=>{
+    const linked=cat.linkedCategories||[];
+    let totalAvg=0;
+    if(linked.length>0){
+      linked.forEach(lc=>{coveredLedgerCats.add(lc);totalAvg+=catAvg[lc]||0;});
+    } else {
+      if(catAvg[cat.name]!==undefined){
+        coveredLedgerCats.add(cat.name);
+        totalAvg=catAvg[cat.name];
+      } else {
+        Object.entries(catAvg).forEach(([lcat,avg])=>{
+          if(lcat.includes(cat.name)||cat.name.includes(lcat)){
+            coveredLedgerCats.add(lcat);totalAvg+=avg;
+          }
+        });
+      }
+    }
+    const suggested=totalAvg>0?Math.ceil(totalAvg*1.1/5000)*5000:cat.budget;
+    return{id:cat.id,name:cat.name,current:cat.budget,suggested,avg:Math.round(totalAvg)};
+  });
+
+  // 새 카테고리 제안 (가계부에 있지만 예산에 없는 것, 1만원 이상)
+  const newSuggestions=Object.entries(catAvg)
+    .filter(([cat])=>!coveredLedgerCats.has(cat))
+    .filter(([,avg])=>avg>=10000)
+    .sort((a,b)=>b[1]-a[1])
+    .slice(0,3)
+    .map(([cat,avg])=>({name:cat,suggested:Math.ceil(avg*1.1/5000)*5000,avg:Math.round(avg)}));
+
+  const hasData=months.some(({y,m})=>(S.ledger[mkey(y,m)]||[]).length>0);
+  const monthsLabel=months.map(({m})=>`${m}월`).join(', ');
+  const el=document.getElementById('modal-budget-auto-body');
+  if(!el)return;
+
+  if(!hasData){
+    el.innerHTML=`<div style="text-align:center;padding:20px;color:var(--text-sub);font-size:13px;">최근 3개월 가계부 데이터가 없어요.<br>가계부를 기록한 후 사용해 주세요.</div>`;
+  } else {
+    el.innerHTML=`
+      <div style="font-size:11.5px;color:var(--text-sub);margin-bottom:14px;line-height:1.6;">📊 최근 ${monthsLabel} 평균 지출 기준 (+10% 여유)<br>금액을 직접 수정한 뒤 적용할 수 있어요.</div>
+      <div class="auto-suggest-list">
+        ${existingSuggestions.map((s,i)=>`
+          <div class="auto-suggest-row">
+            <div class="auto-suggest-left">
+              <span class="auto-suggest-name">${s.name}</span>
+              <span class="auto-suggest-avg">${s.avg>0?'평균 '+s.avg.toLocaleString('ko-KR')+'원':'데이터 없음'}</span>
+            </div>
+            <input type="text" inputmode="numeric" class="auto-suggest-input form-input" id="asg-${i}"
+              value="${s.suggested.toLocaleString('ko-KR')}"
+              data-id="${s.id}" data-is-new="false"
+              oninput="App.numInputFmt(this)"/>
+          </div>`).join('')}
+        ${newSuggestions.length>0?`
+          <div class="auto-suggest-divider">✨ 추가 제안 카테고리</div>
+          ${newSuggestions.map((s,i)=>`
+            <div class="auto-suggest-row">
+              <div class="auto-suggest-left">
+                <label class="auto-new-label">
+                  <input type="checkbox" class="auto-new-chk" id="anc-${i}" checked/>
+                  <span class="auto-suggest-name">${s.name}</span>
+                </label>
+                <span class="auto-suggest-avg">평균 ${s.avg.toLocaleString('ko-KR')}원</span>
+              </div>
+              <input type="text" inputmode="numeric" class="auto-suggest-input form-input" id="asg-new-${i}"
+                value="${s.suggested.toLocaleString('ko-KR')}"
+                data-name="${s.name}" data-is-new="true"
+                oninput="App.numInputFmt(this)"/>
+            </div>`).join('')}
+        `:''}
+      </div>`;
+  }
+  openModal('budget-auto');
+}
+
+function applyBudgetSuggestions(){
+  const cm=S.currentMonths.income;
+  const curKey=mkey(cm.y,cm.m);
+  if(!S.budgetCategories)S.budgetCategories=[];
+  if(!S.monthBudgets)S.monthBudgets={};
+  if(!S.monthBudgets[curKey])S.monthBudgets[curKey]={};
+
+  // 기존 카테고리: 이번 달에만 override 적용
+  document.querySelectorAll('.auto-suggest-input[data-is-new="false"]').forEach(inp=>{
+    const id=parseInt(inp.dataset.id);
+    const budget=numInputParse(inp.value);
+    if(!isNaN(budget)&&budget>=0)S.monthBudgets[curKey][id]=budget;
+  });
+
+  // 새 카테고리 추가 (체크된 것만, 이번 달 전용 unsynced)
+  const newInputs=document.querySelectorAll('.auto-suggest-input[data-is-new="true"]');
+  const newChks=document.querySelectorAll('.auto-new-chk');
+  newInputs.forEach((inp,i)=>{
+    if(newChks[i]&&!newChks[i].checked)return;
+    const name=inp.dataset.name;
+    const budget=numInputParse(inp.value);
+    if(!name||isNaN(budget))return;
+    if(S.budgetCategories.some(c=>c.name===name))return;
+    const newId=genId();
+    S.budgetCategories.push({id:newId,name,budget:0,synced:false,syncFrom:'',linkedCategories:[]});
+    S.monthBudgets[curKey][newId]=budget;
+  });
+
+  saveState();closeModal();renderBudget(cm.y,cm.m);
+}
+
 // ===== CLOSE MONTH =====
 function openCloseMonthModal(){
   const cm=S.currentMonths.ledger;const key=mkey(cm.y,cm.m);
@@ -4427,7 +4557,7 @@ function goToLedger(){
 window.App={
   changeMonth,changeCalYear,toggleDashSection,applyMonthTheme,
   openModal,closeModal,openVariableModal,
-  openBudgetModal,saveBudgetCategory,deleteBudgetCategory,
+  openBudgetModal,saveBudgetCategory,deleteBudgetCategory,openBudgetAutoModal,applyBudgetSuggestions,
   openBudgetCatSyncModal,saveBudgetCatSync,
   openIncomeModal,openFixedModal,openDefaultMode,cancelDefaultMode,saveDefaultItems,deleteDefaultItems,saveIncome,saveFixed,saveVariable,saveCredit,openCreditModal,editCredit,saveAsset,saveStock,
   editItem,deleteItem,
