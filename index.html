@@ -458,7 +458,7 @@
       <div class="page-header">
         <div><h1 class="page-title">가계부 📒</h1><p class="page-sub">날마다 수입·지출을 기록하세요</p></div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <button class="ledger-import-btn" onclick="App.toggleImportPanel()">📥 가져오기</button>
+          <button class="ledger-search-btn" onclick="App.toggleSearchPanel()">🔍 검색</button>
           <button class="close-month-btn" onclick="App.openCloseMonthModal()">📋 월 마감</button>
           <div class="month-nav">
             <button class="month-btn" onclick="App.changeMonth(-1,'ledger')">‹</button>
@@ -496,7 +496,7 @@
         <div id="ledger-auto-list"></div>
       </div>
       <!-- Import panel -->
-      <div class="ledger-import-panel" id="ledger-import-panel" style="display:none;"></div>
+      <div class="ledger-search-panel" id="ledger-search-panel" style="display:none;"></div>
       <div class="ledger-quick-add">
         <div class="ledger-quick-title">⚡ 빠른 입력</div>
         <div class="ledger-quick-form">
