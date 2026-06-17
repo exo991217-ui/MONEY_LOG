@@ -1840,7 +1840,7 @@ function renderCalendar(){
         <div class="cal-event-list">
           ${events.length===0?'<div class="cal-empty">일정 없음</div>':events.map(e=>`
             <div class="cal-event-item item-hover-edit" onclick="App.editCalEvent(${y},${m},${e.id})">
-              <span class="cal-event-name">${e.name}${e.amount>0?'<br><span class="cal-event-amount">'+fmt(e.amount)+'</span>':''}</span>
+              <span class="cal-event-name">${e.isPlan?'<span style="font-size:10px;background:#A29BFE;color:white;border-radius:4px;padding:1px 5px;font-weight:700;margin-right:4px;">[계획]</span>':''}${e.name}${e.amount>0?'<br><span class="cal-event-amount">'+fmt(e.amount)+'</span>':''}</span>
               <div style="display:flex;gap:2px;flex-shrink:0;">
                 <button class="cal-event-delete" onclick="event.stopPropagation();App.deleteCalEvent(${y},${m},${e.id})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
               </div>
@@ -1994,7 +1994,17 @@ function renderFood(){
   const cm=S.currentMonths.food;
   const ft=getMonthTheme(cm.m);
   const summaryBar=document.querySelector('.food-summary-bar');
-  if(summaryBar){summaryBar.style.background=ft.light;summaryBar.style.borderColor=ft.border;}
+  if(summaryBar){
+    summaryBar.style.background=ft.light;
+    summaryBar.style.borderColor=ft.border;
+    // 배경색에 어울리는 텍스트 색상 자동 적용
+    const sumLabel=summaryBar.querySelector('.food-sum-label');
+    const sumAmount=document.getElementById('food-total-display');
+    const reflectAmt=document.getElementById('food-reflect-amount');
+    if(sumLabel)sumLabel.style.color=ft.color;
+    if(sumAmount)sumAmount.style.color=ft.color;
+    if(reflectAmt)reflectAmt.style.color=ft.color;
+  }
   document.getElementById('food-month-label').textContent=cm.y+'년 '+cm.m+'월';
   const key=mkey(cm.y,cm.m);
   const directSetting=S.foodDirectSet[key]||{direct:false,amount:0};
@@ -2686,6 +2696,7 @@ function openCalModal(y,m){
   document.getElementById('mc-event-name').value='';
   document.getElementById('mc-event-amount').value='';
   document.getElementById('mc-event-saved').value='';
+  const planChk=document.getElementById('mc-is-plan');if(planChk)planChk.checked=false;
   // 식비 예산 힌트 표시
   const hint=document.getElementById('cal-food-hint');
   if(hint){
@@ -2704,15 +2715,16 @@ function saveCalEvent(){
   const name=document.getElementById('mc-event-name').value.trim();
   const amount=numInputParse(document.getElementById('mc-event-amount').value);
   const savedAmt=numInputParse(document.getElementById('mc-event-saved').value);
+  const isPlan=!!(document.getElementById('mc-is-plan')||{}).checked;
   if(!name)return alert('내용을 입력해주세요');
   if(!S.consumptionCalendar[y])S.consumptionCalendar[y]={};
   if(!S.consumptionCalendar[y][m])S.consumptionCalendar[y][m]=[];
   const editId=document.getElementById('modal-cal-id').value;
   if(editId){
     const ev=S.consumptionCalendar[y][m].find(e=>String(e.id)===String(editId));
-    if(ev){ev.name=name;ev.amount=amount;ev.savedAmt=savedAmt;}
+    if(ev){ev.name=name;ev.amount=amount;ev.savedAmt=savedAmt;ev.isPlan=isPlan;}
   } else {
-    S.consumptionCalendar[y][m].push({id:genId(),name,amount,savedAmt});
+    S.consumptionCalendar[y][m].push({id:genId(),name,amount,savedAmt,isPlan});
   }
   saveState();closeModal();setTimeout(renderCalendar,0);
 }
@@ -2732,6 +2744,7 @@ function editCalEvent(y,m,id){
   document.getElementById('mc-event-name').value=ev.name||'';
   document.getElementById('mc-event-amount').value=ev.amount?(ev.amount).toLocaleString('ko-KR'):'';
   document.getElementById('mc-event-saved').value=ev.savedAmt?(ev.savedAmt).toLocaleString('ko-KR'):'';
+  const planChk=document.getElementById('mc-is-plan');if(planChk)planChk.checked=!!ev.isPlan;
   const hint=document.getElementById('cal-food-hint');
   if(hint)hint.style.display='none';
   openModal('cal');
@@ -4021,6 +4034,47 @@ function closeSidebar(){
   if(overlay)overlay.classList.remove('active');
 }
 
+// ===== LEDGER EXCEL EXPORT =====
+function exportLedgerExcel(){
+  const cm=S.currentMonths.ledger;
+  const key=mkey(cm.y,cm.m);
+  const entries=S.ledger[key]||[];
+  if(entries.length===0){alert('이번 달 가계부에 데이터가 없습니다.');return;}
+
+  // 날짜 기준 정렬
+  const sorted=[...entries].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+
+  // 데이터 행 생성
+  const rows=sorted.map(e=>{
+    const isInc=e.type==='income';
+    return {
+      '날짜': e.date||'',
+      '유형': isInc?'수입':'지출',
+      '카테고리': e.category||'',
+      '내용': e.memo||e.name||'',
+      '태그': (e.tags||[]).join(', '),
+      '수입(원)': isInc?e.amount:0,
+      '지출(원)': !isInc?e.amount:0,
+      '메모': e.note||'',
+    };
+  });
+
+  // 합계 행
+  const totalIn=sorted.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+  const totalOut=sorted.filter(e=>e.type==='expense').reduce((s,e)=>s+e.amount,0);
+  rows.push({});
+  rows.push({'날짜':'합계','유형':'','카테고리':'','내용':'','태그':'','수입(원)':totalIn,'지출(원)':totalOut,'메모':''});
+
+  // SheetJS로 엑셀 생성
+  if(!window.XLSX){alert('엑셀 라이브러리를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');return;}
+  const ws=XLSX.utils.json_to_sheet(rows,{header:['날짜','유형','카테고리','내용','태그','수입(원)','지출(원)','메모']});
+  // 컬럼 너비 설정
+  ws['!cols']=[{wch:12},{wch:6},{wch:14},{wch:24},{wch:16},{wch:12},{wch:12},{wch:20}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,cm.y+'년 '+cm.m+'월');
+  XLSX.writeFile(wb,'가계부_'+cm.y+'년_'+cm.m+'월.xlsx');
+}
+
 // ===== MONTHLY REPORT IMAGE =====
 async function downloadMonthlyReport(){
   const btn=document.querySelector('.report-btn');
@@ -4586,6 +4640,7 @@ window.App={
   addLedgerEntry,deleteLedgerEntry,setLedgerFilter,setTagFilter,
   onMemoInput,onMemoKeydown,selectMemoTag,hideMemoDropdown,
   toggleSearchPanel,doLedgerSearch,
+  exportLedgerExcel,
   openCloseMonthModal,closeMonth,reopenMonth,
   renderMonthlyArchive,deleteArchiveEntry,_toggleArchiveCard,toggleLedgerSubmenu,
   fetchStockPrices,
