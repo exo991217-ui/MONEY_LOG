@@ -1058,21 +1058,18 @@ function renderDashboard(){
   const totalFixed=getTotalFixed(cm.y,cm.m);
   const totalVar=getTotalVariable(cm.y,cm.m);
   const foodTotal=getFoodTotal(cm.y,cm.m);
-  const totalCredit=getCreditMonthTotal(cm.y,cm.m);
-  // Credit excluded from expense
   const totalExpense=totalFixed+totalVar+foodTotal;
   const remaining=totalIncome-totalExpense;
 
   const key=mkey(cm.y,cm.m);
   const entries=S.ledger[key]||[];
 
-  // Banner: ledger-based (includes all expense categories including 신용카드 auto entries)
+  // Banner
   const ledBannerIn=entries.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
   const ledBannerOut=entries.filter(e=>e.type==='expense').reduce((s,e)=>s+e.amount,0);
   const ledgerRemaining=entries.length>0?ledBannerIn-ledBannerOut:remaining;
   const bannerIsLedger=entries.length>0;
 
-  // 잔여 예산: 자금 분배 계산기 현재 보유 금액과 연동
   const fundCalcAmt=S.fundCalc&&S.fundCalc.amount>0?S.fundCalc.amount:null;
   const bannerRemaining=fundCalcAmt!==null?fundCalcAmt:ledgerRemaining;
   const bannerSubText=fundCalcAmt!==null
@@ -1087,6 +1084,20 @@ function renderDashboard(){
   document.getElementById('dash-remaining').textContent=fmt(bannerRemaining);
   document.getElementById('dash-banner-sub').textContent=bannerSubText;
 
+  // 배너 우측: 저축률 표시
+  const savingsLcats=new Set((S.ledgerCategories||[]).filter(c=>c.isSavings).map(c=>c.name));
+  const savingsAmt=entries.filter(e=>
+    e.type==='expense'&&(savingsLcats.has(e.category)||(e.tags||[]).includes('저축'))
+  ).reduce((s,e)=>s+e.amount,0);
+  const srIncome=entries.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
+  const srRate=srIncome>0?(savingsAmt/srIncome*100):0;
+  const srColor=srRate>=30?'#A8FFDB':srRate>=15?'#FFE0A8':'rgba(255,255,255,0.75)';
+  const srPctEl=document.getElementById('dash-banner-sr-pct');
+  const srAmtEl=document.getElementById('dash-banner-sr-amt');
+  if(srPctEl){srPctEl.textContent=srRate.toFixed(1)+'%';srPctEl.style.color=srColor;}
+  if(srAmtEl)srAmtEl.textContent='저축금액 '+fmt(savingsAmt);
+
+  // 4 stat boxes
   const ledIn=entries.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
   const ledOut=entries.filter(e=>e.type==='expense').reduce((s,e)=>s+e.amount,0);
   document.getElementById('dash-led-income').textContent=fmt(ledIn);
@@ -1096,19 +1107,16 @@ function renderDashboard(){
   balEl.style.color=ledIn-ledOut>=0?'var(--green)':'var(--red)';
   document.getElementById('dash-led-count').textContent=entries.length+'건';
 
-  renderSavingsRate();
+  // 변동 지출 합계
+  const varEl=document.getElementById('dash-variable-total');
+  if(varEl)varEl.textContent=fmt(totalVar);
 
-  document.getElementById('dash-income-total').textContent=fmt(totalIncome);
-  document.getElementById('dash-fixed-total').textContent=fmt(totalFixed);
-  document.getElementById('dash-variable-total').textContent=fmt(totalVar);
+  // 자산 합계
   document.getElementById('dash-asset-total').textContent=fmt(getTotalAssets());
   document.getElementById('dash-stock-total').textContent=fmt(getTotalStockValue());
 
-  renderDashExpand('income',getMonthData(cm.y,cm.m).income.map(i=>({name:i.name,cat:i.category,amount:i.amount,color:'green'})));
-  renderDashExpand('fixed',getMonthData(cm.y,cm.m).fixed.map(i=>({name:i.name,cat:i.category,amount:i.amount,color:'red'})));
-  renderDashExpand('variable',getEffectiveVariable(cm.y,cm.m).slice().sort((a,b)=>(parseFloat(b.amount)||0)-(parseFloat(a.amount)||0)).map(i=>({name:i.name,cat:i.category,amount:i.amount,color:'orange'})));
+  // 자산/주식 아코디언
   renderDashAssetExpand();
-
   renderDashExpand('stock',S.stocks.map(st=>{
     const t=st.stockType;
     const val=(t==='foreign'||t==='gold')?(parseFloat(st.currentAmount)||0):(parseFloat(st.currentPrice)||0)*(parseFloat(st.quantity)||0);
@@ -1116,6 +1124,12 @@ function renderDashboard(){
     const label=t==='gold'?'금현물':t==='foreign'?'해외주식':st.ticker;
     return {name:st.name,cat:label,amount:val,color:val>=cost?'red':'blue'};
   }));
+
+  // 변동 지출 도넛 차트
+  renderDashDonut(cm.y,cm.m);
+
+  // 최근 내역 (우측 패널)
+  renderDashRecentEntries(cm.y,cm.m);
 }
 
 function renderDashExpand(section,items){
@@ -1148,6 +1162,177 @@ function toggleDashSection(section){
   const isOpen=expand.classList.contains('open');
   expand.classList.toggle('open',!isOpen);
   if(arrow)arrow.classList.toggle('open',!isOpen);
+}
+
+// ===== DASHBOARD VARIABLE EXPENSE DONUT CHART =====
+const _DONUT_COLORS=['#64B5F6','#FFB347','#CE93D8','#4DB6AC','#4CAF82','#A29BFE','#F06292','#FDCB6E','#90CAF9','#FF8A65'];
+
+function _donutSVG(segments,total){
+  const size=160,cx=80,cy=80,R=72,ri=48;
+  if(total===0){
+    return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+      <circle cx="${cx}" cy="${cy}" r="${(R+ri)/2}" fill="none" stroke="#EEE9FF" stroke-width="${R-ri}"/>
+      <text x="${cx}" y="${cy+5}" text-anchor="middle" font-size="11" fill="#9490A8">데이터 없음</text>
+    </svg>`;
+  }
+  let angle=-Math.PI/2;
+  const paths=segments.map((seg,i)=>{
+    const frac=seg.amount/total;
+    if(frac<=0)return '';
+    const sweep=frac*2*Math.PI;
+    const sA=angle,eA=angle+sweep;
+    angle=eA;
+    const x1=cx+R*Math.cos(sA),y1=cy+R*Math.sin(sA);
+    const x2=cx+R*Math.cos(eA),y2=cy+R*Math.sin(eA);
+    const x3=cx+ri*Math.cos(eA),y3=cy+ri*Math.sin(eA);
+    const x4=cx+ri*Math.cos(sA),y4=cy+ri*Math.sin(sA);
+    const la=sweep>Math.PI?1:0;
+    const col=seg.color||_DONUT_COLORS[i%_DONUT_COLORS.length];
+    const pct=(frac*100).toFixed(1);
+    const safeName=seg.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+    return `<path d="M${x1.toFixed(2)} ${y1.toFixed(2)} A${R} ${R} 0 ${la} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} L${x3.toFixed(2)} ${y3.toFixed(2)} A${ri} ${ri} 0 ${la} 0 ${x4.toFixed(2)} ${y4.toFixed(2)}Z"
+      fill="${col}" stroke="white" stroke-width="1.5"
+      onmouseenter="App.showDonutTip(event,this.dataset.name,${seg.amount},'${pct}')"
+      onmouseleave="App.hideDonutTip()"
+      data-name="${safeName}"
+      style="cursor:pointer;transition:opacity .15s;"
+      onmouseover="this.style.opacity='.75'" onmouseout="this.style.opacity='1'"/>`;
+  });
+  const total10k=(total/10000).toFixed(1);
+  const catCount=segments.filter(s=>s.amount>0).length;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+    ${paths.join('')}
+    <text x="${cx}" y="${cy-8}" text-anchor="middle" font-size="9" fill="#9490A8">총 변동지출</text>
+    <text x="${cx}" y="${cy+6}" text-anchor="middle" font-size="11" font-weight="800" fill="#2D2D3A">${total10k}만원</text>
+    <text x="${cx}" y="${cy+20}" text-anchor="middle" font-size="9" fill="#9490A8">${catCount}개 카테고리</text>
+  </svg>`;
+}
+
+function renderDashDonut(y,m){
+  const svgEl=document.getElementById('dash-donut-svg');
+  const legEl=document.getElementById('dash-donut-legend');
+  if(!svgEl||!legEl)return;
+  const items=getEffectiveVariable(y,m);
+  const catMap={};
+  items.forEach(i=>{
+    const cat=i.category||i.name||'기타';
+    catMap[cat]=(catMap[cat]||0)+(parseFloat(i.amount)||0);
+  });
+  const sorted=Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
+  const total=sorted.reduce((s,[,v])=>s+v,0);
+  const segments=sorted.map(([name,amount],i)=>({name,amount,color:_DONUT_COLORS[i%_DONUT_COLORS.length]}));
+  svgEl.innerHTML=_donutSVG(segments,total);
+  legEl.innerHTML=segments.length===0
+    ?'<div style="color:var(--text-sub);font-size:12px;padding:8px 0;">항목 없음</div>'
+    :segments.map(seg=>`
+      <div class="dash-donut-legend-item">
+        <div class="dash-donut-dot" style="background:${seg.color};"></div>
+        <span class="dash-donut-legend-name">${seg.name}</span>
+        <span class="dash-donut-legend-amt">${fmt(seg.amount)}</span>
+      </div>`).join('');
+}
+
+function showDonutTip(e,name,amount,pct){
+  const tip=document.getElementById('dash-donut-tip');
+  if(!tip)return;
+  tip.innerHTML=`<div class="dash-donut-tip-name">${name}</div><div class="dash-donut-tip-amt">${fmt(Number(amount))} · ${pct}%</div>`;
+  tip.style.display='block';
+  tip.style.left=(e.clientX+16)+'px';
+  tip.style.top=(e.clientY-8)+'px';
+}
+function hideDonutTip(){
+  const tip=document.getElementById('dash-donut-tip');
+  if(tip)tip.style.display='none';
+}
+
+function toggleDashVarSection(){
+  const body=document.getElementById('dash-var-body');
+  const arrow=document.getElementById('dash-var-arrow');
+  const header=document.querySelector('.dash-var-header');
+  if(!body)return;
+  const open=!body.classList.contains('closed');
+  body.classList.toggle('closed',open);
+  if(arrow)arrow.textContent=open?'›':'∨';
+  if(header)header.classList.toggle('open',!open);
+}
+
+// ===== DASHBOARD RECENT ENTRIES (RIGHT PANEL) =====
+const _ENTRY_CAT_COLORS_MAP={
+  '식비':'#FFEBE5','음식':'#FFEBE5','외식':'#FFEBE5',
+  '교통':'#E3F0FF','통신':'#E3F0FF','교통·통신':'#E3F0FF',
+  '쇼핑':'#FFF8E1','생활':'#FFF8E1','생활용품':'#FFF8E1',
+  '문화':'#F3EFFF','취미':'#F3EFFF','문화·취미':'#F3EFFF',
+  '주거':'#E6FBF5','공과금':'#E6FBF5','주거·공과금':'#E6FBF5',
+  '의료':'#FFE4EE','건강':'#FFE4EE',
+  '저축':'#E1F9F7','금융':'#E1F9F7',
+  '수입':'#E7FAF1','급여':'#E7FAF1',
+};
+const _ENTRY_CAT_ICONS_MAP={
+  '식비':'🍚','음식':'🍜','외식':'🍜',
+  '교통':'🚇','통신':'📱','교통·통신':'🚇',
+  '쇼핑':'🛍️','생활':'🏠','생활용품':'🛒',
+  '문화':'🎬','취미':'🎮','문화·취미':'🎬',
+  '주거':'🏠','공과금':'💡','주거·공과금':'🏠',
+  '의료':'💊','건강':'💪',
+  '저축':'🏦','금융':'💳',
+  '수입':'💰','급여':'💴',
+};
+function _entryIconForCat(cat){
+  if(!cat)return '📌';
+  if(_ENTRY_CAT_ICONS_MAP[cat])return _ENTRY_CAT_ICONS_MAP[cat];
+  const found=Object.keys(_ENTRY_CAT_ICONS_MAP).find(k=>cat.includes(k));
+  return found?_ENTRY_CAT_ICONS_MAP[found]:'📌';
+}
+function _entryBgForCat(cat,type){
+  if(type==='income')return '#E7FAF1';
+  if(!cat)return '#EEE9FF';
+  if(_ENTRY_CAT_COLORS_MAP[cat])return _ENTRY_CAT_COLORS_MAP[cat];
+  const found=Object.keys(_ENTRY_CAT_COLORS_MAP).find(k=>cat.includes(k));
+  return found?_ENTRY_CAT_COLORS_MAP[found]:'#EEE9FF';
+}
+function _entryDateLabel(dateStr){
+  if(!dateStr)return '';
+  const today=new Date();
+  const d=new Date(dateStr);
+  const todayMidnight=new Date(today.getFullYear(),today.getMonth(),today.getDate());
+  const dMidnight=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+  const diff=Math.round((todayMidnight-dMidnight)/(1000*60*60*24));
+  if(diff===0)return '오늘';
+  if(diff===1)return '어제';
+  if(diff===2)return '그제';
+  return (d.getMonth()+1)+'월 '+d.getDate()+'일';
+}
+function renderDashRecentEntries(y,m){
+  const el=document.getElementById('dash-recent-list');
+  if(!el)return;
+  const key=mkey(y,m);
+  const all=(S.ledger[key]||[]).slice().sort((a,b)=>{
+    const da=a.date||'',db=b.date||'';
+    return da<db?1:da>db?-1:0;
+  });
+  const entries=all.slice(0,20);
+  if(entries.length===0){
+    el.innerHTML='<div style="color:var(--text-sub);font-size:13px;text-align:center;padding:32px 0;">내역 없음</div>';
+    return;
+  }
+  el.innerHTML=entries.map(e=>{
+    const icon=_entryIconForCat(e.category);
+    const bg=_entryBgForCat(e.category,e.type);
+    const sign=e.type==='income'?'+':'-';
+    const cls=e.type==='income'?'income':'expense';
+    const dateLabel=_entryDateLabel(e.date||'');
+    const memo=e.memo||e.category||'';
+    const shortMemo=memo.length>18?memo.slice(0,17)+'…':memo;
+    const shortCat=e.category||'';
+    return `<div class="dash-entry-card">
+      <div class="dash-entry-icon" style="background:${bg};">${icon}</div>
+      <div class="dash-entry-info">
+        <div class="dash-entry-name">${shortMemo}</div>
+        <div class="dash-entry-meta">${shortCat}${shortCat&&dateLabel?' · ':''}${dateLabel}</div>
+      </div>
+      <div class="dash-entry-amount ${cls}">${sign}${fmt(e.amount)}</div>
+    </div>`;
+  }).join('');
 }
 
 // ===== INCOME / EXPENSE =====
@@ -4622,7 +4807,8 @@ function goToLedger(){
 }
 
 window.App={
-  changeMonth,changeCalYear,toggleDashSection,applyMonthTheme,
+  changeMonth,changeCalYear,toggleDashSection,toggleDashVarSection,applyMonthTheme,
+  showDonutTip,hideDonutTip,switchTab,
   openModal,closeModal,openVariableModal,
   openBudgetModal,saveBudgetCategory,deleteBudgetCategory,openBudgetAutoModal,applyBudgetSuggestions,
   openBudgetCatSyncModal,saveBudgetCatSync,
