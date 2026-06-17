@@ -539,18 +539,18 @@ function renderAll(){
 // ===== MONTHLY THEME COLORS =====
 function getMonthTheme(m){
   const themes=[
-    {gradient:'linear-gradient(135deg,#4FC3F7,#0288D1)',color:'#29B6F6',light:'rgba(79,195,247,0.13)',border:'rgba(79,195,247,0.4)'}, // 1월
-    {gradient:'linear-gradient(135deg,#CE93D8,#8E24AA)',color:'#AB47BC',light:'rgba(206,147,216,0.13)',border:'rgba(206,147,216,0.4)'}, // 2월
-    {gradient:'linear-gradient(135deg,#81C784,#388E3C)',color:'#66BB6A',light:'rgba(129,199,132,0.13)',border:'rgba(129,199,132,0.4)'}, // 3월
-    {gradient:'linear-gradient(135deg,#F48FB1,#C2185B)',color:'#EC407A',light:'rgba(244,143,177,0.13)',border:'rgba(244,143,177,0.4)'}, // 4월
-    {gradient:'linear-gradient(135deg,#A5D6A7,#2E7D32)',color:'#4CAF50',light:'rgba(165,214,167,0.13)',border:'rgba(165,214,167,0.4)'}, // 5월
-    {gradient:'linear-gradient(135deg,#FFD54F,#F57F17)',color:'#FFB300',light:'rgba(255,213,79,0.13)',border:'rgba(255,213,79,0.4)'}, // 6월
-    {gradient:'linear-gradient(135deg,#4DD0E1,#00838F)',color:'#00ACC1',light:'rgba(77,208,225,0.13)',border:'rgba(77,208,225,0.4)'}, // 7월
-    {gradient:'linear-gradient(135deg,#FF8A65,#BF360C)',color:'#FF7043',light:'rgba(255,138,101,0.13)',border:'rgba(255,138,101,0.4)'}, // 8월
-    {gradient:'linear-gradient(135deg,#FFCA28,#E65100)',color:'#FFA000',light:'rgba(255,202,40,0.13)',border:'rgba(255,202,40,0.4)'}, // 9월
-    {gradient:'linear-gradient(135deg,#EF9A9A,#B71C1C)',color:'#EF5350',light:'rgba(239,154,154,0.13)',border:'rgba(239,154,154,0.4)'}, // 10월
-    {gradient:'linear-gradient(135deg,#9575CD,#4527A0)',color:'#7E57C2',light:'rgba(149,117,205,0.13)',border:'rgba(149,117,205,0.4)'}, // 11월
-    {gradient:'linear-gradient(135deg,#EF5350,#880E4F)',color:'#E53935',light:'rgba(239,83,80,0.13)',border:'rgba(239,83,80,0.4)'}, // 12월
+    {gradient:'linear-gradient(135deg,#4FC3F7,#0288D1)',pastel:'linear-gradient(135deg,#DCEFFB,#B3DEFF)',color:'#29B6F6',light:'rgba(79,195,247,0.10)',border:'rgba(79,195,247,0.25)'}, // 1월
+    {gradient:'linear-gradient(135deg,#CE93D8,#8E24AA)',pastel:'linear-gradient(135deg,#F0DAFF,#DDB8F5)',color:'#AB47BC',light:'rgba(206,147,216,0.10)',border:'rgba(206,147,216,0.25)'}, // 2월
+    {gradient:'linear-gradient(135deg,#81C784,#388E3C)',pastel:'linear-gradient(135deg,#D8F5DA,#B8E6BB)',color:'#66BB6A',light:'rgba(129,199,132,0.10)',border:'rgba(129,199,132,0.25)'}, // 3월
+    {gradient:'linear-gradient(135deg,#F48FB1,#C2185B)',pastel:'linear-gradient(135deg,#FFD9E8,#FFB3CC)',color:'#EC407A',light:'rgba(244,143,177,0.10)',border:'rgba(244,143,177,0.25)'}, // 4월
+    {gradient:'linear-gradient(135deg,#A5D6A7,#2E7D32)',pastel:'linear-gradient(135deg,#D8F5DA,#B8E6BB)',color:'#4CAF50',light:'rgba(165,214,167,0.10)',border:'rgba(165,214,167,0.25)'}, // 5월
+    {gradient:'linear-gradient(135deg,#FFD54F,#F57F17)',pastel:'linear-gradient(135deg,#FFF3C4,#FFE0A0)',color:'#FFB300',light:'rgba(255,213,79,0.10)',border:'rgba(255,213,79,0.25)'}, // 6월
+    {gradient:'linear-gradient(135deg,#4DD0E1,#00838F)',pastel:'linear-gradient(135deg,#C9F5FA,#A0E8F0)',color:'#00ACC1',light:'rgba(77,208,225,0.10)',border:'rgba(77,208,225,0.25)'}, // 7월
+    {gradient:'linear-gradient(135deg,#FF8A65,#BF360C)',pastel:'linear-gradient(135deg,#FFD9C4,#FFBEA0)',color:'#FF7043',light:'rgba(255,138,101,0.10)',border:'rgba(255,138,101,0.25)'}, // 8월
+    {gradient:'linear-gradient(135deg,#FFCA28,#E65100)',pastel:'linear-gradient(135deg,#FFF3C4,#FFE0A0)',color:'#FFA000',light:'rgba(255,202,40,0.10)',border:'rgba(255,202,40,0.25)'}, // 9월
+    {gradient:'linear-gradient(135deg,#EF9A9A,#B71C1C)',pastel:'linear-gradient(135deg,#FFD9D9,#FFB3B3)',color:'#EF5350',light:'rgba(239,154,154,0.10)',border:'rgba(239,154,154,0.25)'}, // 10월
+    {gradient:'linear-gradient(135deg,#9575CD,#4527A0)',pastel:'linear-gradient(135deg,#E4D6FF,#CEBEFF)',color:'#7E57C2',light:'rgba(149,117,205,0.10)',border:'rgba(149,117,205,0.25)'}, // 11월
+    {gradient:'linear-gradient(135deg,#EF5350,#880E4F)',pastel:'linear-gradient(135deg,#FFD9D9,#FFB3D4)',color:'#E53935',light:'rgba(239,83,80,0.10)',border:'rgba(239,83,80,0.25)'}, // 12월
   ];
   return themes[Math.max(0,Math.min(11,(m||1)-1))];
 }
@@ -1115,11 +1115,12 @@ function renderDashboard(){
   document.getElementById('dash-asset-total').textContent=fmt(getTotalAssets());
   document.getElementById('dash-stock-total').textContent=fmt(getTotalStockValue());
 
-  // 자산 현황 섹션 배경 월 테마 적용
+  // 자산 현황 섹션: 외곽선 제거, 배경 흰색
   const dashCards=document.querySelector('#tab-dashboard .dash-cards');
   if(dashCards){
-    dashCards.style.background=`linear-gradient(160deg,${monthTheme.light} 0%,white 70px)`;
-    dashCards.style.borderColor=monthTheme.border;
+    dashCards.style.border='none';
+    dashCards.style.background='white';
+    dashCards.style.boxShadow='var(--shadow)';
   }
 
   // 자산/주식 아코디언
@@ -1296,26 +1297,20 @@ function _entryBgForCat(cat,type){
 }
 function _entryDateLabel(dateStr){
   if(!dateStr)return '';
-  const today=new Date();
   const d=new Date(dateStr);
-  const todayMidnight=new Date(today.getFullYear(),today.getMonth(),today.getDate());
-  const dMidnight=new Date(d.getFullYear(),d.getMonth(),d.getDate());
-  const diff=Math.round((todayMidnight-dMidnight)/(1000*60*60*24));
-  if(diff===0)return '오늘';
-  if(diff===1)return '어제';
-  if(diff===2)return '그제';
+  if(isNaN(d.getTime()))return dateStr;
   return (d.getMonth()+1)+'월 '+d.getDate()+'일';
 }
 function renderDashRecentEntries(y,m){
   const el=document.getElementById('dash-recent-list');
   if(!el)return;
 
-  // 월 테마 색상 적용
+  // 월 테마 색상 적용 (외곽선 없음, 더보기 버튼만 파스텔 그라데이션)
   const theme=getMonthTheme(m);
   const rightCol=document.querySelector('#tab-dashboard .dash-right-col');
   if(rightCol){
-    rightCol.style.borderColor=theme.border;
-    rightCol.style.background=`linear-gradient(180deg,${theme.light} 0%,white 60px)`;
+    rightCol.style.border='none';
+    rightCol.style.background='white';
   }
   const header=document.querySelector('#tab-dashboard .dash-recent-header');
   if(header){
@@ -1323,7 +1318,7 @@ function renderDashRecentEntries(y,m){
     header.style.background='transparent';
   }
   const moreBtn=document.querySelector('#tab-dashboard .dash-more-btn');
-  if(moreBtn)moreBtn.style.background=theme.gradient;
+  if(moreBtn)moreBtn.style.background=theme.pastel;
 
   const key=mkey(y,m);
   const all=(S.ledger[key]||[]).slice().sort((a,b)=>{
@@ -1339,11 +1334,11 @@ function renderDashRecentEntries(y,m){
     const d=new Date(e.date);
     const dMs=new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime();
     const diff=Math.round((todayMs-dMs)/(1000*60*60*24));
-    return diff>=0&&diff<=2;
+    return diff>=0&&diff<=6;
   });
 
   if(entries.length===0){
-    el.innerHTML='<div style="color:var(--text-sub);font-size:13px;text-align:center;padding:32px 16px;line-height:1.7;">최근 3일 내역이 없어요 😊<br><span style="font-size:11px;">더 보기로 전체 내역 확인</span></div>';
+    el.innerHTML='<div style="color:var(--text-sub);font-size:13px;text-align:center;padding:32px 16px;line-height:1.7;">최근 7일 내역이 없어요 😊<br><span style="font-size:11px;">더 보기로 전체 내역 확인</span></div>';
     return;
   }
   el.innerHTML=entries.map(e=>{
