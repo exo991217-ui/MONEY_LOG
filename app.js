@@ -1104,7 +1104,6 @@ function renderDashboard(){
   document.getElementById('dash-asset-total').textContent=fmt(getTotalAssets());
   document.getElementById('dash-stock-total').textContent=fmt(getTotalStockValue());
 
-  renderDashPieChart();
   renderDashExpand('income',getMonthData(cm.y,cm.m).income.map(i=>({name:i.name,cat:i.category,amount:i.amount,color:'green'})));
   renderDashExpand('fixed',getMonthData(cm.y,cm.m).fixed.map(i=>({name:i.name,cat:i.category,amount:i.amount,color:'red'})));
   renderDashExpand('variable',getEffectiveVariable(cm.y,cm.m).slice().sort((a,b)=>(parseFloat(b.amount)||0)-(parseFloat(a.amount)||0)).map(i=>({name:i.name,cat:i.category,amount:i.amount,color:'orange'})));
@@ -1117,82 +1116,6 @@ function renderDashboard(){
     const label=t==='gold'?'금현물':t==='foreign'?'해외주식':st.ticker;
     return {name:st.name,cat:label,amount:val,color:val>=cost?'red':'blue'};
   }));
-}
-
-function renderDashPieChart(){
-  const cm=S.currentMonths.dashboard;
-  const key=mkey(cm.y,cm.m);
-  const card=document.getElementById('dash-pie-card');
-  if(!card)return;
-
-  // 데이터 소스: 가계부 엔트리 우선, 없으면 고정+변동 예산 사용
-  const ledgerEntries=(S.ledger[key]||[]).filter(e=>e.type==='expense'&&e.amount>0);
-  const sums={};
-  if(ledgerEntries.length>0){
-    // 가계부 기반
-    ledgerEntries.forEach(e=>{const c=e.category||'기타';sums[c]=(sums[c]||0)+e.amount;});
-  } else {
-    // 고정+변동 예산 기반
-    const md=getMonthData(cm.y,cm.m);
-    (md.fixed||[]).filter(f=>!f.isSavings&&f.amount>0).forEach(f=>{const c=f.category||f.name||'기타';sums[c]=(sums[c]||0)+f.amount;});
-    getEffectiveVariable(cm.y,cm.m).filter(v=>v.amount>0).forEach(v=>{const c=v.category||v.name||'기타';sums[c]=(sums[c]||0)+v.amount;});
-    const foodAmt=getFoodTotal(cm.y,cm.m);
-    if(foodAmt>0)sums['식비']=(sums['식비']||0)+foodAmt;
-  }
-
-  const sorted=Object.entries(sums).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
-  if(sorted.length===0){card.style.display='none';return;}
-  const total=sorted.reduce((s,[,v])=>s+v,0);
-
-  // 상위 5개 + 나머지를 '기타'로
-  const COLORS=['#FF6B6B','#A29BFE','#4ECDC4','#FD9644','#45aaf2','#fd79a8','#26de81','#f7b731'];
-  const TOP=5;
-  let items=sorted.slice(0,TOP);
-  if(sorted.length>TOP){
-    const etcAmt=sorted.slice(TOP).reduce((s,[,v])=>s+v,0);
-    if(etcAmt>0)items.push(['기타',etcAmt]);
-  }
-
-  // SVG 도넛 차트
-  const svg=document.getElementById('dash-pie-svg');
-  if(!svg)return;
-  const cx=55,cy=55,R=48,r=28;
-  const f2=(n)=>n.toFixed(2);
-  const toXY=(angle,rad)=>({x:cx+rad*Math.cos(angle),y:cy+rad*Math.sin(angle)});
-  let paths='';
-
-  if(items.length===1){
-    // 항목이 하나면 원 두 개 (도넛)
-    paths=`<circle cx="${cx}" cy="${cy}" r="${R}" fill="${COLORS[0]}"/><circle cx="${cx}" cy="${cy}" r="${r}" fill="white"/>`;
-  } else {
-    let cum=-Math.PI/2;
-    items.forEach(([,amt],i)=>{
-      const angle=(amt/total)*Math.PI*2;
-      const end=cum+angle-0.001; // 마지막 슬라이스 미세 조정
-      const large=angle>Math.PI?1:0;
-      const o1=toXY(cum,R),o2=toXY(end,R),i1=toXY(end,r),i2=toXY(cum,r);
-      paths+=`<path d="M${f2(o1.x)},${f2(o1.y)} A${R},${R} 0 ${large},1 ${f2(o2.x)},${f2(o2.y)} L${f2(i1.x)},${f2(i1.y)} A${r},${r} 0 ${large},0 ${f2(i2.x)},${f2(i2.y)} Z" fill="${COLORS[i%COLORS.length]}" stroke="white" stroke-width="1.5"/>`;
-      cum=end+0.001;
-    });
-    paths+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="white"/>`;
-  }
-  // 중앙 텍스트 (CSS변수 대신 style 속성 사용)
-  const centerColor=getComputedStyle(document.documentElement).getPropertyValue('--text-sub').trim()||'#999';
-  svg.innerHTML=paths
-    +`<text x="${cx}" y="${cy-3}" text-anchor="middle" font-size="10" style="fill:var(--text-sub,#999)">지출</text>`
-    +`<text x="${cx}" y="${cy+11}" text-anchor="middle" font-size="9" font-weight="600" style="fill:var(--text-main,#333)">${(total/10000).toFixed(0)}만원</text>`;
-
-  // 범례
-  const legend=document.getElementById('dash-pie-legend');
-  if(!legend)return;
-  legend.innerHTML=items.map(([cat,amt],i)=>`
-    <div style="display:flex;align-items:center;gap:6px;min-width:0;">
-      <div style="width:8px;height:8px;border-radius:50%;background:${COLORS[i%COLORS.length]};flex-shrink:0;"></div>
-      <div style="font-size:11px;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;">${cat}</div>
-      <div style="font-size:11px;color:var(--text-sub);flex-shrink:0;">${((amt/total)*100).toFixed(0)}%</div>
-    </div>`).join('');
-
-  card.style.display='block';
 }
 
 function renderDashExpand(section,items){
