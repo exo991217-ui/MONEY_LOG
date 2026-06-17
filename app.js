@@ -1115,6 +1115,13 @@ function renderDashboard(){
   document.getElementById('dash-asset-total').textContent=fmt(getTotalAssets());
   document.getElementById('dash-stock-total').textContent=fmt(getTotalStockValue());
 
+  // 자산 현황 섹션 배경 월 테마 적용
+  const dashCards=document.querySelector('#tab-dashboard .dash-cards');
+  if(dashCards){
+    dashCards.style.background=`linear-gradient(160deg,${monthTheme.light} 0%,white 70px)`;
+    dashCards.style.borderColor=monthTheme.border;
+  }
+
   // 자산/주식 아코디언
   renderDashAssetExpand();
   renderDashExpand('stock',S.stocks.map(st=>{
@@ -1148,10 +1155,9 @@ function renderDashAssetExpand(){
   el.innerHTML=S.assets.length===0
     ?'<div style="color:var(--text-sub);font-size:12px;padding:8px 0;">자산 없음</div>'
     :S.assets.map(a=>`
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;font-size:13px;border-bottom:1px dashed var(--border);">
-        <span>${a.name}</span>
-        <input style="border:1.5px solid var(--border);border-radius:8px;padding:4px 8px;font-size:13px;width:120px;"
-          type="number" value="${a.amount}" onchange="App.updateAssetAmount(${a.id},this.value)"/>
+      <div class="dash-expand-item">
+        <div class="dash-expand-name">${a.name}</div>
+        <div class="dash-expand-amount purple">${fmt(parseFloat(a.amount)||0)}</div>
       </div>`).join('');
 }
 
@@ -1168,11 +1174,11 @@ function toggleDashSection(section){
 const _DONUT_COLORS=['#64B5F6','#FFB347','#CE93D8','#4DB6AC','#4CAF82','#A29BFE','#F06292','#FDCB6E','#90CAF9','#FF8A65'];
 
 function _donutSVG(segments,total){
-  const size=160,cx=80,cy=80,R=72,ri=48;
+  const size=196,cx=98,cy=98,R=88,ri=58;
   if(total===0){
     return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
       <circle cx="${cx}" cy="${cy}" r="${(R+ri)/2}" fill="none" stroke="#EEE9FF" stroke-width="${R-ri}"/>
-      <text x="${cx}" y="${cy+5}" text-anchor="middle" font-size="11" fill="#9490A8">데이터 없음</text>
+      <text x="${cx}" y="${cy+5}" text-anchor="middle" font-size="12" fill="#9490A8">데이터 없음</text>
     </svg>`;
   }
   let angle=-Math.PI/2;
@@ -1191,7 +1197,7 @@ function _donutSVG(segments,total){
     const pct=(frac*100).toFixed(1);
     const safeName=seg.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
     return `<path d="M${x1.toFixed(2)} ${y1.toFixed(2)} A${R} ${R} 0 ${la} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} L${x3.toFixed(2)} ${y3.toFixed(2)} A${ri} ${ri} 0 ${la} 0 ${x4.toFixed(2)} ${y4.toFixed(2)}Z"
-      fill="${col}" stroke="white" stroke-width="1.5"
+      fill="${col}" stroke="white" stroke-width="2"
       onmouseenter="App.showDonutTip(event,this.dataset.name,${seg.amount},'${pct}')"
       onmouseleave="App.hideDonutTip()"
       data-name="${safeName}"
@@ -1199,12 +1205,10 @@ function _donutSVG(segments,total){
       onmouseover="this.style.opacity='.75'" onmouseout="this.style.opacity='1'"/>`;
   });
   const total10k=(total/10000).toFixed(1);
-  const catCount=segments.filter(s=>s.amount>0).length;
   return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
     ${paths.join('')}
-    <text x="${cx}" y="${cy-8}" text-anchor="middle" font-size="9" fill="#9490A8">총 변동지출</text>
-    <text x="${cx}" y="${cy+6}" text-anchor="middle" font-size="11" font-weight="800" fill="#2D2D3A">${total10k}만원</text>
-    <text x="${cx}" y="${cy+20}" text-anchor="middle" font-size="9" fill="#9490A8">${catCount}개 카테고리</text>
+    <text x="${cx}" y="${cy-5}" text-anchor="middle" font-size="10" fill="#9490A8">총 변동지출</text>
+    <text x="${cx}" y="${cy+11}" text-anchor="middle" font-size="13" font-weight="800" fill="#2D2D3A">${total10k}만원</text>
   </svg>`;
 }
 
@@ -1305,14 +1309,41 @@ function _entryDateLabel(dateStr){
 function renderDashRecentEntries(y,m){
   const el=document.getElementById('dash-recent-list');
   if(!el)return;
+
+  // 월 테마 색상 적용
+  const theme=getMonthTheme(m);
+  const rightCol=document.querySelector('#tab-dashboard .dash-right-col');
+  if(rightCol){
+    rightCol.style.borderColor=theme.border;
+    rightCol.style.background=`linear-gradient(180deg,${theme.light} 0%,white 60px)`;
+  }
+  const header=document.querySelector('#tab-dashboard .dash-recent-header');
+  if(header){
+    header.style.borderBottomColor=theme.border;
+    header.style.background='transparent';
+  }
+  const moreBtn=document.querySelector('#tab-dashboard .dash-more-btn');
+  if(moreBtn)moreBtn.style.background=theme.gradient;
+
   const key=mkey(y,m);
   const all=(S.ledger[key]||[]).slice().sort((a,b)=>{
     const da=a.date||'',db=b.date||'';
     return da<db?1:da>db?-1:0;
   });
-  const entries=all.slice(0,20);
+
+  // 오늘 기준 3일 이내 항목만 표시
+  const today=new Date();
+  const todayMs=new Date(today.getFullYear(),today.getMonth(),today.getDate()).getTime();
+  const entries=all.filter(e=>{
+    if(!e.date)return false;
+    const d=new Date(e.date);
+    const dMs=new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime();
+    const diff=Math.round((todayMs-dMs)/(1000*60*60*24));
+    return diff>=0&&diff<=2;
+  });
+
   if(entries.length===0){
-    el.innerHTML='<div style="color:var(--text-sub);font-size:13px;text-align:center;padding:32px 0;">내역 없음</div>';
+    el.innerHTML='<div style="color:var(--text-sub);font-size:13px;text-align:center;padding:32px 16px;line-height:1.7;">최근 3일 내역이 없어요 😊<br><span style="font-size:11px;">더 보기로 전체 내역 확인</span></div>';
     return;
   }
   el.innerHTML=entries.map(e=>{
@@ -1322,7 +1353,7 @@ function renderDashRecentEntries(y,m){
     const cls=e.type==='income'?'income':'expense';
     const dateLabel=_entryDateLabel(e.date||'');
     const memo=e.memo||e.category||'';
-    const shortMemo=memo.length>18?memo.slice(0,17)+'…':memo;
+    const shortMemo=memo.length>20?memo.slice(0,19)+'…':memo;
     const shortCat=e.category||'';
     return `<div class="dash-entry-card">
       <div class="dash-entry-icon" style="background:${bg};">${icon}</div>
