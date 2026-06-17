@@ -10,6 +10,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="firebase-sync.js"></script>
 </head>
 <body>
@@ -462,6 +463,7 @@
         <div><h1 class="page-title">가계부 📒</h1><p class="page-sub">날마다 수입·지출을 기록하세요</p></div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <button class="ledger-search-btn" onclick="App.toggleSearchPanel()">🔍 검색</button>
+          <button class="close-month-btn" onclick="App.exportLedgerExcel()" style="background:var(--green-light);color:var(--green);">📥 내보내기</button>
           <button class="close-month-btn" onclick="App.openCloseMonthModal()">📋 월 마감</button>
           <div class="month-nav">
             <button class="month-btn" onclick="App.changeMonth(-1,'ledger')">‹</button>
@@ -783,6 +785,10 @@
   <div class="form-group" id="mc-saved-group">
     <label>실 저축금액 (원, 선택)</label>
     <input type="text" inputmode="numeric" id="mc-event-saved" class="form-input" placeholder="실제 저축한 금액" oninput="App.numInputFmt(this)"/>
+  </div>
+  <div class="form-group" style="display:flex;align-items:center;gap:10px;background:var(--purple-light);border-radius:10px;padding:10px 14px;">
+    <input type="checkbox" id="mc-is-plan" style="width:16px;height:16px;accent-color:#5E4BC4;cursor:pointer;flex-shrink:0;"/>
+    <label for="mc-is-plan" style="font-size:13px;font-weight:700;color:#5E4BC4;cursor:pointer;margin:0;">[계획] 뱃지로 표시 — 연간 캘린더에 계획 항목으로 등록됩니다</label>
   </div>
   <div class="modal-actions">
     <button class="btn-cancel" onclick="App.closeModal()">취소</button>
