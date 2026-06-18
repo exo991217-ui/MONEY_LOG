@@ -4301,6 +4301,7 @@ function changeMonth(dir,section){
   S.ledgerFilter=null;
   S.ledgerTagFilter=null;
   currentFoodPanel=null;
+  applyMonthTheme(ref.m);
   saveState();renderAll();
 }
 
