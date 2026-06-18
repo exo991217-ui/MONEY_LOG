@@ -336,7 +336,7 @@ function applyMonthTheme(m) {
   // 테마색 그라데이션 배경 — 왼쪽상단 주색 / 중간 테마 미드색 / 오른쪽하단 보조색
   const mid=t.mid||'#F0F0F8';
   document.body.style.background =
-    `linear-gradient(145deg, ${t.t1}48 0%, ${mid}20 44%, ${mid}20 56%, ${t.t2}3C 100%)`;
+    `linear-gradient(145deg, ${t.t1}60 0%, ${mid}30 44%, ${mid}30 56%, ${t.t2}50 100%)`;
   // 사이드바 상단 틴트 + 네비 아이콘 테마색 적용
   const sidebar=document.querySelector('.sidebar');
   if(sidebar){
