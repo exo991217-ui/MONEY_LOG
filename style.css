@@ -1621,6 +1621,10 @@ body{font-family:var(--font);background:linear-gradient(145deg,#5E4BC422 0%,#D1C
 .dash-var-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;cursor:pointer;transition:background .15s;border-bottom:1px solid transparent;}
 .dash-var-header:hover{background:rgba(0,0,0,.015);}
 .dash-var-header.open{border-bottom:1px solid var(--border);}
+.dash-var-mode-btns{display:flex;gap:5px;margin-left:auto;margin-right:10px;}
+.dvm-btn{padding:4px 11px;border-radius:20px;border:1.5px solid var(--border);background:#fff;color:var(--text-sub);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;font-family:inherit;}
+.dvm-btn:hover{border-color:var(--t2,#A29BFE);color:var(--t1,#5E4BC4);}
+.dvm-btn.active{background:linear-gradient(135deg,var(--t1,#5E4BC4),var(--t2,#A29BFE));color:#fff;border-color:transparent;box-shadow:0 2px 8px var(--t1,#5E4BC4)28;}
 .dash-var-title-row{display:flex;align-items:center;gap:8px;}
 .dash-var-icon{font-size:18px;}
 .dash-var-label{font-size:14px;font-weight:700;color:var(--text-main);}
