@@ -1604,9 +1604,56 @@ body{font-family:var(--font);background:linear-gradient(145deg,#5E4BC422 0%,#D1C
 
 /* ===== 월별 캘린더 고정 지출 마커 ===== */
 .food-day.has-auto{background:rgba(240,235,255,0.5)}
-.food-day.today{background:linear-gradient(135deg,#FFFDE7,#FFF9C4) !important;border:2px solid #FFB300 !important;box-shadow:inset 0 0 0 1px rgba(255,179,0,0.3);}
-.food-day.today .food-day-num{color:#E65100 !important;font-weight:900;}
+/* today: 외곽선 없이 월 테마색 배경 (인라인 style로 적용) */
+.food-day.today-theme{box-shadow:0 2px 8px rgba(0,0,0,0.15);}
+.food-day.today-theme .food-day-num{color:white !important;font-weight:900;}
 .food-auto-badge{display:inline-flex;align-items:center;font-size:9px;color:#7C5CBF;background:#F0EBFF;border-radius:4px;padding:1px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100% - 22px);font-weight:600;line-height:1.4}
+
+/* ===== 소비금액 보기 모드 ===== */
+.food-day-spend-mode{cursor:pointer;transition:filter .12s;}
+.food-day-spend-mode:hover{filter:brightness(.93);}
+.food-day-spend-amount{font-size:11.5px;font-weight:800;margin-top:4px;line-height:1.3;word-break:break-all;}
+.food-day-spend-zero{font-size:11px;color:#ccc;margin-top:4px;}
+
+/* ===== 소비금액 보기/숨기기 버튼 ===== */
+.cal-spend-toggle-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:8px 16px;border-radius:20px;
+  border:1.5px solid var(--border);background:white;
+  font-size:13px;font-weight:700;cursor:pointer;
+  transition:all .18s;font-family:var(--font);
+  box-shadow:0 2px 8px rgba(0,0,0,.06);
+  white-space:nowrap;
+}
+.cal-spend-toggle-btn:hover{opacity:.88;}
+
+/* ===== 금액 범례 바 ===== */
+.cal-amount-legend-bar{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:12px 18px;background:white;
+  border-top:1.5px solid var(--border);
+  font-size:12px;
+}
+.cal-legend-title{font-size:11.5px;font-weight:700;color:var(--text-sub);margin-right:4px;white-space:nowrap;}
+.cal-legend-item{display:inline-flex;align-items:center;gap:5px;}
+.cal-legend-swatch{display:inline-block;width:18px;height:14px;border-radius:4px;flex-shrink:0;}
+.cal-legend-label{font-size:11.5px;color:var(--text-sub);font-weight:500;}
+.cal-legend-edit-btn{
+  margin-left:auto;display:inline-flex;align-items:center;gap:4px;
+  padding:4px 10px;border-radius:10px;border:1.5px solid var(--border);
+  background:var(--purple-light);color:#5E4BC4;font-size:11.5px;font-weight:700;
+  cursor:pointer;transition:all .15s;font-family:var(--font);
+}
+.cal-legend-edit-btn:hover{background:#A29BFE;color:white;}
+
+/* ===== 범례 설정 모달 내 행 ===== */
+.legend-edit-row{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;background:#FAFAFF;
+}
+.legend-edit-label-wrap{flex-shrink:0;}
+.legend-edit-range-wrap{flex:1;min-width:180px;}
+.legend-edit-color-wrap{display:flex;align-items:center;gap:6px;flex-shrink:0;}
 
 /* ===== DASHBOARD 2-COLUMN LAYOUT [수정] ===== */
 .dash-layout{display:grid;grid-template-columns:1fr 330px;gap:20px;align-items:start;}
