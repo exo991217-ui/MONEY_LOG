@@ -81,6 +81,15 @@
         <div class="sidebar-storage-fill" id="storage-fill"></div>
       </div>
     </div>
+    <div class="sidebar-theme-ctrl">
+      <div class="sidebar-theme-ctrl-header">
+        <span class="sidebar-storage-label">🎨 테마 진하기</span>
+        <button id="theme-lock-btn" onclick="App.toggleThemeOpacityLock()" class="theme-lock-btn" title="잠금">🔓</button>
+      </div>
+      <input type="range" id="theme-opacity-slider" min="0" max="100" value="50"
+        oninput="App.saveThemeOpacity(this.value)"
+        class="theme-opacity-slider"/>
+    </div>
     <div class="sidebar-footer fb-user-info">
       <img id="fb-sidebar-photo" src="" alt="" style="display:none;width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;">
       <span id="fb-sidebar-name" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">로그인 중...</span>
@@ -462,18 +471,10 @@
       </div>
       <div class="cal-section-label" style="margin-top:32px;">
         <span>캘린더</span>
-        <div style="display:flex;align-items:center;gap:10px;margin-left:auto;flex-wrap:wrap;">
-          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-sub);white-space:nowrap;cursor:pointer;" title="테마 배경 진하기 조절">
-            <span>🎨</span>
-            <input type="range" id="theme-opacity-slider" min="0" max="100" value="50"
-              oninput="App.saveThemeOpacity(this.value)"
-              style="width:72px;accent-color:var(--purple);cursor:pointer;"/>
-          </label>
-          <div class="month-nav">
-            <button class="month-btn" onclick="App.changeMonth(-1,'food')">‹</button>
-            <span class="month-label" id="food-month-label"></span>
-            <button class="month-btn" onclick="App.changeMonth(1,'food')">›</button>
-          </div>
+        <div class="month-nav" style="margin-left:auto;">
+          <button class="month-btn" onclick="App.changeMonth(-1,'food')">‹</button>
+          <span class="month-label" id="food-month-label"></span>
+          <button class="month-btn" onclick="App.changeMonth(1,'food')">›</button>
         </div>
       </div>
       <div class="food-summary-bar">
