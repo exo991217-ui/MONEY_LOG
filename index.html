@@ -462,10 +462,18 @@
       </div>
       <div class="cal-section-label" style="margin-top:32px;">
         <span>캘린더</span>
-        <div class="month-nav" style="margin-left:auto;">
-          <button class="month-btn" onclick="App.changeMonth(-1,'food')">‹</button>
-          <span class="month-label" id="food-month-label"></span>
-          <button class="month-btn" onclick="App.changeMonth(1,'food')">›</button>
+        <div style="display:flex;align-items:center;gap:10px;margin-left:auto;flex-wrap:wrap;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-sub);white-space:nowrap;cursor:pointer;" title="테마 배경 진하기 조절">
+            <span>🎨</span>
+            <input type="range" id="theme-opacity-slider" min="0" max="100" value="50"
+              oninput="App.saveThemeOpacity(this.value)"
+              style="width:72px;accent-color:var(--purple);cursor:pointer;"/>
+          </label>
+          <div class="month-nav">
+            <button class="month-btn" onclick="App.changeMonth(-1,'food')">‹</button>
+            <span class="month-label" id="food-month-label"></span>
+            <button class="month-btn" onclick="App.changeMonth(1,'food')">›</button>
+          </div>
         </div>
       </div>
       <div class="food-summary-bar">
