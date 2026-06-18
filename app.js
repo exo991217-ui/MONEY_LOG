@@ -291,6 +291,8 @@ window.FB_MERGE = function(fbData) {
 
 
 // ===== MONTHLY THEMES =====
+let _dashVarMode = 'current'; // 'current' | 'avg3'
+
 const MONTH_THEMES = {
   1:  { t1:'#1A237E', t2:'#42A5F5', mid:'#90CAF9', bg:'#EEF4FF', border:'#DDEAFF', name:'1월 딥네이비',
         cards:{ income:'#42A5F5', fixed:'#EF7B74', variable:'#FFB347', budget:'#7986CB' } },
@@ -1120,9 +1122,18 @@ function renderDashboard(){
   balEl.style.color=ledIn-ledOut>=0?'var(--green)':'var(--red)';
   document.getElementById('dash-led-count').textContent=entries.length+'건';
 
-  // 변동 지출 합계
+  // 변동 지출 합계 (현재 모드에 맞게 계산)
   const varEl=document.getElementById('dash-variable-total');
-  if(varEl)varEl.textContent=fmt(totalVar);
+  if(varEl){
+    const varItems=_dashVarMode==='avg3'?get3MonthAvgVariable(cm.y,cm.m):getEffectiveVariable(cm.y,cm.m);
+    const varTotal=varItems.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+    varEl.textContent=fmt(varTotal);
+  }
+  // 모드 버튼 상태 동기화
+  const _btnC=document.getElementById('dvm-btn-current');
+  const _btnA=document.getElementById('dvm-btn-avg3');
+  if(_btnC)_btnC.classList.toggle('active',_dashVarMode==='current');
+  if(_btnA)_btnA.classList.toggle('active',_dashVarMode==='avg3');
 
   // 자산 합계
   document.getElementById('dash-asset-total').textContent=fmt(getTotalAssets());
@@ -1269,11 +1280,45 @@ function _donutSVG(segments,total){
   </svg>`;
 }
 
+function get3MonthAvgVariable(y,m){
+  const catTotals={};
+  for(let i=0;i<3;i++){
+    let ty=y,tm=m-i;
+    while(tm<1){tm+=12;ty--;}
+    const items=getEffectiveVariable(ty,tm);
+    const catMap={};
+    items.forEach(item=>{
+      const cat=item.category||item.name||'기타';
+      catMap[cat]=(catMap[cat]||0)+(parseFloat(item.amount)||0);
+    });
+    Object.entries(catMap).forEach(([cat,amt])=>{
+      catTotals[cat]=(catTotals[cat]||0)+amt;
+    });
+  }
+  return Object.entries(catTotals).map(([cat,total])=>({
+    id:'avg3_'+cat,name:cat,category:cat,amount:Math.round(total/3)
+  }));
+}
+
+function setDashVarMode(mode){
+  _dashVarMode=mode;
+  const btnCurrent=document.getElementById('dvm-btn-current');
+  const btnAvg3=document.getElementById('dvm-btn-avg3');
+  if(btnCurrent)btnCurrent.classList.toggle('active',mode==='current');
+  if(btnAvg3)btnAvg3.classList.toggle('active',mode==='avg3');
+  const cm=S.currentMonths.dashboard;
+  const items=mode==='avg3'?get3MonthAvgVariable(cm.y,cm.m):getEffectiveVariable(cm.y,cm.m);
+  const total=items.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+  const varEl=document.getElementById('dash-variable-total');
+  if(varEl)varEl.textContent=fmt(total);
+  renderDashDonut(cm.y,cm.m);
+}
+
 function renderDashDonut(y,m){
   const svgEl=document.getElementById('dash-donut-svg');
   const legEl=document.getElementById('dash-donut-legend');
   if(!svgEl||!legEl)return;
-  const items=getEffectiveVariable(y,m);
+  const items=_dashVarMode==='avg3'?get3MonthAvgVariable(y,m):getEffectiveVariable(y,m);
   const catMap={};
   items.forEach(i=>{
     const cat=i.category||i.name||'기타';
@@ -4912,7 +4957,7 @@ function goToLedger(){
 }
 
 window.App={
-  changeMonth,changeCalYear,toggleDashSection,toggleDashVarSection,applyMonthTheme,
+  changeMonth,changeCalYear,toggleDashSection,toggleDashVarSection,applyMonthTheme,setDashVarMode,
   showDonutTip,hideDonutTip,switchTab,
   openModal,closeModal,openVariableModal,
   openBudgetModal,saveBudgetCategory,deleteBudgetCategory,openBudgetAutoModal,applyBudgetSuggestions,
