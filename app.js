@@ -2472,21 +2472,22 @@ function renderFood(){
       if(cell.type==='empty')return '<div class="food-day empty"></div>';
       const{d,dow,dd,isOpen,autos}=cell;
       const isToday=_isThisMonth&&d===_todayD;
-      const todayInlineStyle=isToday?`background:${ft.t1};`:'';
-      const todayNumInlineStyle=isToday?'color:white;font-weight:900;':'';
+      // 오늘: 파스텔 mid 배경 + 테마 진한색 글자 + 테두리
+      const todayInlineStyle=isToday?`background:${ft.mid};border:2px solid ${ft.t1};`:'';
+      const todayNumInlineStyle=isToday?`color:${ft.t1};font-weight:900;`:'';
       const sunStyle=!isToday&&dow===0?'color:var(--red);':'';
       const satStyle=!isToday&&dow===6?'color:var(--blue);':'';
 
       if(spendMode){
         const daySpend=_getDaySpendAmount(d,ledgerEntries,activeAutos);
         const ls=_getAmountLegendStyle(daySpend,ft);
-        const cellBg=isToday?ft.t1:(ls.bg||'var(--bg)');
-        const cellBorderStyle=ls.border&&!isToday?`border:1.5px solid ${ls.border};`:'';
-        const amtColor=isToday?'rgba(255,255,255,0.9)':(ls.color||'var(--text-sub)');
+        // 오늘: 파스텔 mid, 나머지: 금액 tier 배경 (없으면 var(--card-bg))
+        const cellBg=isToday?ft.mid:(ls.bg||'var(--card-bg)');
+        const amtColor=isToday?ft.t1:(ls.color||'var(--text-sub)');
         const spendStr=daySpend>0
           ?`<div class="food-day-spend-amount" style="color:${amtColor};">₩&nbsp;${daySpend.toLocaleString('ko-KR')}</div>`
           :`<div class="food-day-spend-zero">—</div>`;
-        return `<div class="food-day food-day-spend-mode${isOpen?' panel-open':''}${isToday?' today-theme':''}" style="background:${cellBg};${cellBorderStyle}" onclick="App.toggleFoodPanel(${d})" title="${d}일 클릭하여 편집">
+        return `<div class="food-day food-day-spend-mode${isOpen?' panel-open':''}${isToday?' today-theme':''}" style="background:${cellBg};${isToday?`border:2px solid ${ft.t1};`:''}" onclick="App.toggleFoodPanel(${d})" title="${d}일 클릭하여 편집">
           <div class="food-day-header-row">
             <div class="food-day-num ${dow===0?'sun':dow===6?'sat':''}" style="${todayNumInlineStyle}${sunStyle}${satStyle}">${d}</div>
           </div>
@@ -2516,8 +2517,9 @@ function renderFood(){
       <span class="food-week-label" style="color:${ft.color};">${row+1}주차</span>
       <div class="food-week-totals">
         ${!spendMode&&foodWeekTotal>0?`<span class="food-week-chip food-week-food" style="background:${ft.light};color:${ft.color};">식비 ${fmt(foodWeekTotal)}</span>`:''}
-        ${ledgerWeekTotal>0?`<span class="food-week-chip food-week-ledger">소비 ${fmt(ledgerWeekTotal)}</span>`:''}
-        ${(!spendMode&&foodWeekTotal===0&&ledgerWeekTotal===0)||(spendMode&&ledgerWeekTotal===0)?`<span class="food-week-none">기록 없음</span>`:''}
+        ${spendMode&&ledgerWeekTotal>0?`<span class="food-week-chip food-week-ledger" style="color:${ft.color};">소비 ${fmt(ledgerWeekTotal)}</span>`:''}
+        ${spendMode&&ledgerWeekTotal===0?`<span class="food-week-none">기록 없음</span>`:''}
+        ${!spendMode&&foodWeekTotal===0?`<span class="food-week-none">기록 없음</span>`:''}
       </div>
     </div>`;
   }
@@ -4390,14 +4392,13 @@ function renderMonthlyArchive(){
     return `<div class="arch-card" id="arch-card-${key}">
       <div class="arch-card-header" style="background:linear-gradient(135deg,${theme.t1}18,${theme.t2}22);border-bottom:2px solid ${theme.t2}44;" onclick="App._toggleArchiveCard('${key}')">
         <div class="arch-card-title">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span class="arch-month-badge" style="background:linear-gradient(135deg,${theme.t1},${theme.t2});">${y}년 ${m}월</span>
-            <span class="arch-closed-date">📋 ${closedDate} 마감</span>
-            <span class="arch-sr-badge" style="color:${srColor};background:${srColor}18;">저축률 ${sr}%</span>
+            <span class="arch-closed-date" style="color:${theme.t1};opacity:.7;">📋 ${closedDate} 마감</span>
           </div>
           ${snap.note?`<div class="arch-note-preview" style="color:${theme.t1};">${snap.note}</div>`:''}
         </div>
-        <div class="arch-card-meta">
+        <div class="arch-card-meta" style="align-self:flex-start;padding-top:2px;">
           <span class="arch-expand-arrow" id="arch-arrow-${key}">∨</span>
         </div>
       </div>
