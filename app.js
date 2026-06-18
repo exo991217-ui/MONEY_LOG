@@ -350,6 +350,14 @@ function applyMonthTheme(m) {
   // CSS 변수로 노출 — nav-item.active 스타일은 CSS 변수로만 처리 (인라인 스타일 직접 설정 금지)
   document.documentElement.style.setProperty('--t-active', t.t1);
   document.documentElement.style.setProperty('--t-active-bg', `${t.t1}15`);
+  // 파비콘 & 로그인 화면 로고 서클도 월 테마로 갱신
+  const _faviconSvg=`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' stop-color='${t.t1}'/><stop offset='100%25' stop-color='${t.t2}'/></linearGradient></defs><rect width='100' height='100' rx='22' fill='url(%23g)'/><text y='72' x='50' text-anchor='middle' font-size='62' font-family='Apple SD Gothic Neo,Noto Sans KR,sans-serif' fill='white'>가</text></svg>`;
+  const _faviconEl=document.querySelector("link[rel='icon']");
+  if(_faviconEl)_faviconEl.href='data:image/svg+xml,'+_faviconSvg;
+  // 로그인 화면 로고 서클 (login-screen에도 적용)
+  document.querySelectorAll('.logo-circle').forEach(el=>{
+    el.style.background=`linear-gradient(135deg,${t.t1},${t.t2})`;
+  });
 }
 
 // ===== HELPERS =====
