@@ -65,6 +65,15 @@ const DEFAULT_DATA=()=>{
     {id:10,name:'🎁 경조사',isSavings:false},
     {id:11,name:'📦 기타',isSavings:false},
   ],
+  calSpendMode:false,
+  calAmountLegend:[
+    {min:0,      max:0,      type:'none',       label:'0원'},
+    {min:1,      max:9999,   type:'theme-light', label:'~1만원'},
+    {min:10000,  max:49999,  type:'theme-mid',   label:'1만~5만원'},
+    {min:50000,  max:99999,  bg:'#FFF9C4', color:'#F57F17', label:'5만~10만원'},
+    {min:100000, max:199999, bg:'#C8E6C9', color:'#2E7D32', label:'10만~20만원'},
+    {min:200000, max:99999999,bg:'#FFCDD2',color:'#C62828', label:'20만원+'},
+  ],
 });};
 
 let S=null;
@@ -101,6 +110,8 @@ function loadState(){
       // Migrate per-category sync: add synced/syncFrom/linkedCategories to old categories
       S.budgetCategories=S.budgetCategories.map(c=>({synced:true,syncFrom:'',linkedCategories:[],...c}));
       if(!S.ledgerCategories)S.ledgerCategories=DEFAULT_DATA().ledgerCategories;
+      if(S.calSpendMode===undefined)S.calSpendMode=false;
+      if(!S.calAmountLegend)S.calAmountLegend=DEFAULT_DATA().calAmountLegend;
       // Migrate fundCalc: add assetLinked field
       if(!S.fundCalc)S.fundCalc={amount:0,items:[],assetLinked:false,assetLinkedAt:null,linkedAssetIds:[]};
       if(S.fundCalc.assetLinked===undefined)S.fundCalc.assetLinked=false;
@@ -251,6 +262,8 @@ window.FB_MERGE = function(fbData) {
     if(!S.assetCategories)S.assetCategories=['계좌','적금','주식'];
     if(!S.remainingBudgetSettings)S.remainingBudgetSettings={label:'현재 남은 예산',amount:0};
     if(!S.ledgerCategories)S.ledgerCategories=D.ledgerCategories;
+    if(S.calSpendMode===undefined)S.calSpendMode=false;
+    if(!S.calAmountLegend)S.calAmountLegend=D.calAmountLegend;
     if(S.stockAssetDirect===undefined)S.stockAssetDirect=false;
     if(S.stockAssetAutoId===undefined)S.stockAssetAutoId=null;
     if(!S.calFoodSync)S.calFoodSync={};
@@ -593,6 +606,11 @@ function getMonthTheme(m){
     color:t.t1,
     light:hexToRgba(t.t2,la),
     border:hexToRgba(t.t1,ba),
+    // raw theme values for spend-mode legend and today cell
+    t1:t.t1,
+    t2:t.t2,
+    bg:t.bg,
+    mid:t.mid||t.bg,
   };
 }
 
@@ -2304,24 +2322,41 @@ function renderWeeklySpend(){
   if(!container)return;
   const cm=S.currentMonths.food;
   const key=mkey(cm.y,cm.m);
-  const entries=(S.ledger[key]||[]).filter(e=>
+  const ledgerEntries=(S.ledger[key]||[]).filter(e=>
     e.type==='expense'&&
     !(e.category||'').includes('공과금')
   );
-  if(entries.length===0){
+  // 활성 자동화 (신용카드 자동화 포함) 금액도 합산
+  const activeAutos=(S.automations||[]).filter(a=>{
+    if(!a.active||a.type!=='expense')return false;
+    const startY=a.startYear||cm.y;const startM=a.startMonth||1;
+    return !(cm.y<startY||(cm.y===startY&&cm.m<startM));
+  });
+  const hasAny=ledgerEntries.length>0||activeAutos.length>0;
+  if(!hasAny){
     container.innerHTML='<div class="weekly-spend-empty">이번 달 소비 내역이 없어요<br><span style="font-size:12px;color:var(--text-sub);">가계부에 지출을 입력하면 여기에 자동 표시됩니다</span></div>';
     return;
   }
   const daysInMonth=new Date(cm.y,cm.m,0).getDate();
   const weekTotals={};
-  entries.forEach(e=>{
+  ledgerEntries.forEach(e=>{
     const d=parseInt((e.date||'').split('-')[2])||1;
     const wn=Math.ceil(d/7);
     weekTotals[wn]=(weekTotals[wn]||0)+e.amount;
   });
-  const total=entries.reduce((s,e)=>s+e.amount,0);
+  // 자동화 항목도 billingDay 기준으로 주차별 합산
+  activeAutos.forEach(a=>{
+    const d=parseInt(a.billingDay)||1;
+    const safeD=Math.min(d,daysInMonth);
+    const wn=Math.ceil(safeD/7);
+    weekTotals[wn]=(weekTotals[wn]||0)+(Number(a.amount)||0);
+  });
+  const total=Object.values(weekTotals).reduce((s,v)=>s+v,0);
   const maxWeek=Math.max(...Object.values(weekTotals),1);
-  container.innerHTML=Object.entries(weekTotals).sort((a,b)=>a[0]-b[0]).map(([wn,wTotal])=>{
+  // 주차가 없으면 비어있을 수 있으므로 전체 주차 생성
+  const numWeeks=Math.ceil(daysInMonth/7);
+  const allWeeks=[];for(let w=1;w<=numWeeks;w++)if(weekTotals[w]>0)allWeeks.push([String(w),weekTotals[w]]);
+  container.innerHTML=allWeeks.map(([wn,wTotal])=>{
     const wNum=parseInt(wn);
     const startDay=(wNum-1)*7+1;
     const endDay=Math.min(wNum*7,daysInMonth);
@@ -2335,11 +2370,27 @@ function renderWeeklySpend(){
         <span class="weekly-spend-pct">${pctOfTotal}%</span>
       </div>
     </div>`;
-  }).join('')+`<div class="weekly-spend-total">이번 달 합계 <strong>${fmt(total)}</strong></div>`;
+  }).join('')+`<div class="weekly-spend-total">이번 달 소비 합계 <strong>${fmt(total)}</strong></div>`;
 }
 
 // ===== FOOD CALENDAR — INLINE PANEL =====
 let currentFoodPanel=null;
+
+// 금액에 따른 범례 스타일 반환
+function _getAmountLegendStyle(amount,ft){
+  const legend=S.calAmountLegend||DEFAULT_DATA().calAmountLegend;
+  let matched=legend[0];
+  for(let i=0;i<legend.length;i++){
+    if(amount>=(legend[i].min||0))matched=legend[i];
+  }
+  if(!matched||matched.type==='none'||!amount)return {bg:'',color:'',border:''};
+  if(matched.type==='theme-light')return {bg:ft.bg,color:ft.t1,border:ft.border};
+  if(matched.type==='theme-mid'){
+    // 테마 미드: t1과 bg 사이 중간 느낌
+    return {bg:ft.mid||ft.bg,color:ft.t1,border:ft.border};
+  }
+  return {bg:matched.bg||'',color:matched.color||'',border:''};
+}
 
 function renderFood(){
   const cm=S.currentMonths.food;
@@ -2348,7 +2399,6 @@ function renderFood(){
   if(summaryBar){
     summaryBar.style.background=ft.light;
     summaryBar.style.borderColor=ft.border;
-    // 배경색에 어울리는 텍스트 색상 자동 적용
     const sumLabel=summaryBar.querySelector('.food-sum-label');
     const sumAmount=document.getElementById('food-total-display');
     const reflectAmt=document.getElementById('food-reflect-amount');
@@ -2356,6 +2406,8 @@ function renderFood(){
     if(sumAmount)sumAmount.style.color=ft.color;
     if(reflectAmt)reflectAmt.style.color=ft.color;
   }
+  // 소비금액 보기/숨기기 버튼 상태 업데이트
+  _updateSpendToggleBtn(ft);
   document.getElementById('food-month-label').textContent=cm.y+'년 '+cm.m+'월';
   const key=mkey(cm.y,cm.m);
   const directSetting=S.foodDirectSet[key]||{direct:false,amount:0};
@@ -2370,15 +2422,27 @@ function renderFood(){
   const daysInMonth=new Date(cm.y,cm.m,0).getDate();
   const dowLabels=['일','월','화','수','목','금','토'];
 
-  // 공과금 제외 가계부 지출 항목 (신용카드 자동 내역 포함)
+  // 공과금 제외 가계부 지출 항목
   const ledgerEntries=(S.ledger[key]||[]).filter(e=>e.type==='expense'&&!(e.category||'').includes('공과금'));
 
-  // 이 달에 해당하는 활성 자동화 고정 지출 목록
+  // 이 달에 해당하는 활성 자동화 고정 지출 목록 (신용카드 자동화 포함)
   const activeAutos=(S.automations||[]).filter(a=>{
     if(!a.active||a.type!=='expense')return false;
     const startY=a.startYear||cm.y;const startM=a.startMonth||1;
     return !(cm.y<startY||(cm.y===startY&&cm.m<startM));
   });
+
+  // 날짜별 소비 금액 (가계부 + 자동화) 계산
+  function getDaySpend(d){
+    const ledgerAmt=ledgerEntries.filter(e=>{
+      const ed=parseInt((e.date||'').split('-')[2])||0;
+      return ed===d;
+    }).reduce((s,e)=>s+e.amount,0);
+    const autoAmt=activeAutos.filter(a=>(a.billingDay||1)===d).reduce((s,a)=>s+(Number(a.amount)||0),0);
+    return ledgerAmt+autoAmt;
+  }
+
+  const spendMode=!!S.calSpendMode;
 
   // 모든 셀 목록 (앞 빈칸 + 날짜 + 뒤 빈칸)
   const allCells=[];
@@ -2391,33 +2455,57 @@ function renderFood(){
   const rem=(firstDay+daysInMonth)%7;
   if(rem>0)for(let i=0;i<7-rem;i++)allCells.push({type:'empty'});
 
-  // 주차별 행 + 주간 소비 요약 생성
   const totalRows=allCells.length/7;
   let rowsHTML='';
   const _todayNow=new Date();
   const _isThisMonth=cm.y===_todayNow.getFullYear()&&cm.m===(_todayNow.getMonth()+1);
   const _todayD=_todayNow.getDate();
+
   for(let row=0;row<totalRows;row++){
     const rowCells=allCells.slice(row*7,(row+1)*7);
     const rowDays=rowCells.filter(c=>c.type==='day').map(c=>c.d);
 
     // 식비 캘린더 주합계
     const foodWeekTotal=rowDays.reduce((s,d)=>s+(Number((days[d]||{}).amount)||0),0);
-    // 가계부 주합계 (공과금 제외)
-    const ledgerWeekTotal=ledgerEntries.filter(e=>{
-      const d=parseInt((e.date||'').split('-')[2])||0;
-      return rowDays.includes(d);
-    }).reduce((s,e)=>s+e.amount,0);
+    // 소비 주합계 (가계부 + 자동화) — 이전에 가계부만 합산하던 부분 수정
+    const ledgerWeekTotal=rowDays.reduce((s,d)=>s+getDaySpend(d),0);
+
     const rowHTML=rowCells.map(cell=>{
       if(cell.type==='empty')return '<div class="food-day empty"></div>';
       const{d,dow,dd,isOpen,autos}=cell;
       const isToday=_isThisMonth&&d===_todayD;
+
+      // 오늘 날짜: 해당 월 테마색 배경, 외곽선 없음
+      const todayStyle=isToday
+        ?`background:${ft.t1};`
+        :'';
+      const todayNumStyle=isToday
+        ?`color:white;font-weight:900;`
+        :'';
+
+      if(spendMode){
+        // 소비금액 보기 모드: 날짜 + 소비금액만 표시
+        const daySpend=getDaySpend(d);
+        const ls=daySpend>0?_getAmountLegendStyle(daySpend,ft):{bg:'',color:'',border:''};
+        const cellBg=isToday?ft.t1:(ls.bg||'');
+        const cellColor=isToday?'white':(ls.color||'var(--text-sub)');
+        const cellBorder=ls.border&&!isToday?`border:1.5px solid ${ls.border};`:'';
+        const spendStr=daySpend>0?`<div class="food-day-spend-amount" style="color:${isToday?'rgba(255,255,255,0.95)':ls.color||'var(--text-main)'};">₩ ${daySpend.toLocaleString('ko-KR')}</div>`:'<div class="food-day-spend-zero">₩ 0</div>';
+        return `<div class="food-day food-day-spend-mode${isOpen?' panel-open':''}${isToday?' today-theme':''}" style="background:${cellBg};${cellBorder}" onclick="App.toggleFoodPanel(${d})" title="클릭하여 편집">
+          <div class="food-day-header-row">
+            <div class="food-day-num ${dow===0?'sun':dow===6?'sat':''}" style="${todayNumStyle}${isToday?'':''}${!isToday&&dow===0?'color:var(--red);':''}${!isToday&&dow===6?'color:var(--blue)':''}">${d}</div>
+          </div>
+          ${spendStr}
+        </div>`;
+      }
+
+      // 기본 모드 (식단/메모/일정 보기)
       const autosHtml=(autos&&autos.length>0)
         ?autos.map(a=>`<span class="food-auto-badge">💸 ${a.memo||a.name||''}</span>`).join('')
         :'';
-      return `<div class="food-day${isOpen?' panel-open':''}${autos&&autos.length>0?' has-auto':''}${isToday?' today':''}" onclick="App.toggleFoodPanel(${d})" title="클릭하여 편집">
+      return `<div class="food-day${isOpen?' panel-open':''}${autos&&autos.length>0?' has-auto':''}${isToday?' today-theme':''}" style="${todayStyle}" onclick="App.toggleFoodPanel(${d})" title="클릭하여 편집">
         <div class="food-day-header-row">
-          <div class="food-day-num ${dow===0?'sun':dow===6?'sat':''}">${d}</div>
+          <div class="food-day-num ${dow===0?'sun':dow===6?'sat':''}" style="${todayNumStyle}">${d}</div>
           ${autosHtml}
         </div>
         ${dd.special?`<div class="food-special-tag">${dd.special}</div>`:''}
@@ -2430,30 +2518,158 @@ function renderFood(){
     rowsHTML+=`<div class="food-week-summary" style="border-color:${ft.border};background:${ft.light};">
       <span class="food-week-label" style="color:${ft.color};">${row+1}주차</span>
       <div class="food-week-totals">
-        ${foodWeekTotal>0?`<span class="food-week-chip food-week-food" style="background:${ft.light};color:${ft.color};">식비 ${fmt(foodWeekTotal)}</span>`:''}
+        ${!spendMode&&foodWeekTotal>0?`<span class="food-week-chip food-week-food" style="background:${ft.light};color:${ft.color};">식비 ${fmt(foodWeekTotal)}</span>`:''}
         ${ledgerWeekTotal>0?`<span class="food-week-chip food-week-ledger">소비 ${fmt(ledgerWeekTotal)}</span>`:''}
-        ${foodWeekTotal===0&&ledgerWeekTotal===0?`<span class="food-week-none">기록 없음</span>`:''}
+        ${(spendMode?ledgerWeekTotal:foodWeekTotal+ledgerWeekTotal)===0?`<span class="food-week-none">기록 없음</span>`:''}
       </div>
     </div>`;
   }
+
+  // 범례 HTML 생성
+  const legendHTML=_buildLegendBar(ft);
 
   document.getElementById('food-calendar').innerHTML=`
     <div class="food-cal-header" style="background:${ft.light};">
       ${dowLabels.map((d,i)=>`<div class="food-cal-dow ${i===0?'sun':i===6?'sat':''}">${d}</div>`).join('')}
     </div>
     <div class="food-cal-rows">${rowsHTML}</div>
-    <div style="padding:14px 18px;background:${ft.light};border-top:1.5px solid ${ft.border};font-size:13px;font-weight:700;text-align:right;color:${ft.color};">총 ${fmt(foodTotal)}</div>`;
+    <div style="padding:14px 18px;background:${ft.light};border-top:1.5px solid ${ft.border};font-size:13px;font-weight:700;text-align:right;color:${ft.color};">총 ${fmt(foodTotal)}</div>
+    ${legendHTML}`;
 
   // 테마 진하기 슬라이더 값·잠금 상태 동기화
   syncThemeSlider();
 
-  // Re-render panel if one was open
   if(currentFoodPanel!==null){
     renderFoodPanel(currentFoodPanel);
   } else {
     const existing=document.getElementById('food-inline-panel');
     if(existing)existing.remove();
   }
+}
+
+// 소비금액 보기/숨기기 토글
+function toggleCalSpendMode(){
+  S.calSpendMode=!S.calSpendMode;
+  saveState();
+  renderFood();
+}
+
+// 토글 버튼 상태 업데이트
+function _updateSpendToggleBtn(ft){
+  const btn=document.getElementById('cal-spend-toggle-btn');
+  if(!btn)return;
+  const isSpend=!!S.calSpendMode;
+  const t=ft||getMonthTheme((S.currentMonths.food||{m:new Date().getMonth()+1}).m);
+  if(isSpend){
+    btn.style.background=`linear-gradient(135deg,${t.t1},${t.t2})`;
+    btn.style.color='white';
+    btn.style.borderColor='transparent';
+    btn.innerHTML=`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg> 소비 금액 숨기기`;
+  }else{
+    btn.style.background='white';
+    btn.style.color=t.t1;
+    btn.style.borderColor=t.border||'#EEE9FF';
+    btn.innerHTML=`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> 소비 금액 보기`;
+  }
+}
+
+// 범례 바 HTML 빌드
+function _buildLegendBar(ft){
+  const legend=S.calAmountLegend||DEFAULT_DATA().calAmountLegend;
+  const items=legend.map((tier,i)=>{
+    let swatch='';
+    if(tier.type==='none'||(!tier.bg&&!tier.type)){
+      swatch=`<span class="cal-legend-swatch" style="background:white;border:1.5px solid #DDD;"></span>`;
+    } else if(tier.type==='theme-light'){
+      swatch=`<span class="cal-legend-swatch" style="background:${ft.bg};border:1.5px solid ${ft.border};"></span>`;
+    } else if(tier.type==='theme-mid'){
+      swatch=`<span class="cal-legend-swatch" style="background:${ft.mid||ft.bg};border:1.5px solid ${ft.border};"></span>`;
+    } else {
+      swatch=`<span class="cal-legend-swatch" style="background:${tier.bg};border:1.5px solid ${tier.color||tier.bg};"></span>`;
+    }
+    return `<span class="cal-legend-item">${swatch}<span class="cal-legend-label">${tier.label}</span></span>`;
+  }).join('');
+  return `<div class="cal-amount-legend-bar">
+    <span class="cal-legend-title">금액 범례</span>
+    ${items}
+    <button class="cal-legend-edit-btn" onclick="App.openLegendSettings()" title="범례 수정">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      수정
+    </button>
+  </div>`;
+}
+
+// 범례 설정 모달 열기
+function openLegendSettings(){
+  const legend=S.calAmountLegend||DEFAULT_DATA().calAmountLegend;
+  const ft=getMonthTheme(S.currentMonths.food.m);
+  const rows=legend.map((tier,i)=>{
+    const isTheme=tier.type==='theme-light'||tier.type==='theme-mid';
+    const bgVal=isTheme?(tier.type==='theme-light'?ft.bg:ft.mid||ft.bg):(tier.bg||'#ffffff');
+    const colorVal=isTheme?ft.t1:(tier.color||'#333333');
+    return `<div class="legend-edit-row" data-idx="${i}">
+      <div class="legend-edit-label-wrap">
+        <input class="legend-edit-label form-input" style="width:100px;" value="${tier.label}" placeholder="라벨"/>
+      </div>
+      <div class="legend-edit-range-wrap" style="display:flex;gap:6px;align-items:center;flex:1;">
+        <input class="legend-edit-min form-input" type="number" style="width:90px;" value="${tier.min||0}" placeholder="최소금액"/>
+        <span style="font-size:12px;color:#999;">~</span>
+        <input class="legend-edit-max form-input" type="number" style="width:90px;" value="${tier.max>=99999999?'':tier.max}" placeholder="최대(비우면 무제한)"/>
+      </div>
+      <div class="legend-edit-color-wrap" style="display:flex;gap:6px;align-items:center;">
+        ${isTheme
+          ?`<span style="font-size:11px;color:${ft.t1};font-weight:700;background:${ft.bg};border:1.5px solid ${ft.border};border-radius:8px;padding:3px 8px;">월 테마색</span>`
+          :`<label style="font-size:11px;color:var(--text-sub);">배경</label><input type="color" class="legend-edit-bg" value="${tier.bg||'#ffffff'}" style="width:34px;height:28px;border-radius:6px;border:1.5px solid var(--border);cursor:pointer;padding:2px;"/>
+           <label style="font-size:11px;color:var(--text-sub);">글자</label><input type="color" class="legend-edit-color" value="${tier.color||'#333333'}" style="width:34px;height:28px;border-radius:6px;border:1.5px solid var(--border);cursor:pointer;padding:2px;"/>`
+        }
+      </div>
+    </div>`;
+  }).join('');
+
+  const modal=document.getElementById('modal-overlay');
+  if(!modal)return;
+  modal.style.display='flex';
+  modal.innerHTML=`<div class="modal active" style="max-width:560px;width:95%;padding:28px 26px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+      <div style="font-size:16px;font-weight:800;color:var(--text-main);">📊 금액 범례 수정</div>
+      <button onclick="App.closeModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text-sub);padding:4px 8px;border-radius:8px;">✕</button>
+    </div>
+    <div style="font-size:12px;color:var(--text-sub);margin-bottom:16px;line-height:1.6;">
+      각 구간의 라벨, 최소/최대 금액, 배경·글자 색상을 수정하세요.<br>
+      <span style="color:#A29BFE;font-weight:600;">월 테마색</span>은 매월 자동으로 변경됩니다.
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;max-height:380px;overflow-y:auto;padding-right:4px;" id="legend-edit-rows">
+      ${rows}
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px;border-top:1.5px solid var(--border);padding-top:16px;">
+      <button class="backup-btn" onclick="App.closeModal()">취소</button>
+      <button class="add-btn primary btn-save" onclick="App.saveLegendSettings()">저장</button>
+    </div>
+  </div>`;
+}
+
+// 범례 설정 저장
+function saveLegendSettings(){
+  const rows=document.querySelectorAll('#legend-edit-rows .legend-edit-row');
+  const legend=S.calAmountLegend||DEFAULT_DATA().calAmountLegend;
+  rows.forEach((row,i)=>{
+    const tier=legend[i];
+    if(!tier)return;
+    const label=row.querySelector('.legend-edit-label');
+    const minEl=row.querySelector('.legend-edit-min');
+    const maxEl=row.querySelector('.legend-edit-max');
+    const bgEl=row.querySelector('.legend-edit-bg');
+    const colorEl=row.querySelector('.legend-edit-color');
+    if(label)tier.label=label.value||tier.label;
+    if(minEl)tier.min=parseInt(minEl.value)||0;
+    if(maxEl)tier.max=maxEl.value===''?99999999:(parseInt(maxEl.value)||tier.max);
+    if(bgEl)tier.bg=bgEl.value;
+    if(colorEl)tier.color=colorEl.value;
+  });
+  S.calAmountLegend=legend;
+  saveState();
+  closeModal();
+  renderFood();
 }
 
 function toggleFoodPanel(d){
@@ -5032,6 +5248,7 @@ window.App={
   openCalModal,saveCalEvent,deleteCalEvent,editCalEvent,
   openSavingsModal,editSavingsGoal,saveSavingsGoal,deleteSavingsGoal,updateSavedAmount,pickSavingsColor,
   toggleFoodPanel,closeFoodPanel,saveFoodField,toggleFoodDirect,saveFoodDirect,
+  toggleCalSpendMode,openLegendSettings,saveLegendSettings,
   saveThemeOpacity,toggleThemeOpacityLock,syncThemeSlider,
   toggleCardSettings,addCardSetting,deleteCardSetting,updateCardName,addRate,deleteRate,updateRate,
   calcInstallment,
