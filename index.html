@@ -479,12 +479,12 @@
       </div>
       <div class="food-summary-bar">
         <div>
-          <div class="food-sum-label">이번 달 식비 합계</div>
+          <div class="food-sum-label">이번 달 소비 합계</div>
           <div class="food-sum-amount" id="food-total-display">0원</div>
         </div>
         <div class="food-sum-right">
           <div class="food-reflect-label">📊 예산현황 식비에 연동</div>
-          <div class="food-reflect-current">현재 식비: <span id="food-reflect-amount" style="font-weight:800;color:var(--green);">0원</span></div>
+          <div class="food-reflect-current">현재 소비: <span id="food-reflect-amount" style="font-weight:800;color:var(--green);">0원</span></div>
           <label class="food-direct-label">
             <input type="checkbox" id="food-direct-check" onchange="App.toggleFoodDirect(this.checked)"/>
             <span>직접 설정</span>
@@ -495,6 +495,12 @@
               onchange="App.saveFoodDirect(this.value)"
               onkeydown="if(event.key==='Enter'){App.saveFoodDirect(this.value);this.blur();}"/>
           </div>
+        </div>
+        <div style="display:flex;align-items:center;margin-left:auto;padding-left:16px;">
+          <button id="cal-spend-toggle-btn" class="cal-spend-toggle-btn" onclick="App.toggleCalSpendMode()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            소비 금액 보기
+          </button>
         </div>
       </div>
       <div class="food-calendar" id="food-calendar"></div>
