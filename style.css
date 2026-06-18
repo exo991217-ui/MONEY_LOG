@@ -14,7 +14,7 @@
   --radius:18px;--radius-sm:10px;
   --font:'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif
 }
-body{font-family:var(--font);background:linear-gradient(145deg,#5E4BC460 0%,#D1C4E930 44%,#D1C4E930 56%,#A29BFE50 100%);color:var(--text-main);min-height:100vh;overflow:hidden;transition:background .5s ease}
+body{font-family:var(--font);background:linear-gradient(145deg,#5E4BC422 0%,#D1C4E910 44%,#D1C4E910 56%,#A29BFE18 100%);color:var(--text-main);min-height:100vh;overflow:hidden;transition:background .5s ease}
 #app{display:flex;height:100vh}
 
 /* ===== SIDEBAR ===== */
