@@ -333,8 +333,15 @@ function applyMonthTheme(m) {
     root.setProperty('--card-var-strip', t.cards.variable);
     root.setProperty('--card-budget-strip', t.cards.budget);
   }
-  // bg도 함께 변경
-  document.body.style.background = t.bg;
+  // 테마색 은은한 그라데이션 배경 적용
+  // t1(주색) 10% → bg 중간 → t2(보조색) 8% 로 대각선 그라데이션
+  document.body.style.background =
+    `linear-gradient(145deg, ${t.t1}1A 0%, ${t.bg} 28%, ${t.bg} 72%, ${t.t2}14 100%)`;
+  // 사이드바 상단에도 미세한 테마 틴트
+  const sidebar=document.querySelector('.sidebar');
+  if(sidebar){
+    sidebar.style.background=`linear-gradient(180deg, ${t.t1}0D 0%, #ffffff 18%)`;
+  }
 }
 
 // ===== HELPERS =====
