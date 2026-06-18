@@ -1275,7 +1275,7 @@ function renderDashDonut(y,m){
     return;
   }
   const maxAmt=segments[0]?segments[0].amount:1;
-  legEl.innerHTML=segments.map(seg=>{
+  const innerHtml=segments.map(seg=>{
     const barW=maxAmt>0?Math.max(6,Math.round(seg.amount/maxAmt*100)):6;
     const svgIcon=_getCatSVG(seg.name);
     const displayName=_stripCatEmoji(seg.name);
@@ -1290,6 +1290,8 @@ function renderDashDonut(y,m){
       </div>
     </div>`;
   }).join('');
+  // 스크롤 래퍼를 별도로 두어 overflow-y가 수평 클리핑 유발하는 문제 방지
+  legEl.innerHTML=`<div class="ddl-scroll-inner">${innerHtml}</div>`;
 }
 
 function showDonutTip(e,name,amount,pct){
@@ -1384,8 +1386,12 @@ function renderDashRecentEntries(y,m){
     return (b.id||0)-(a.id||0);
   });
 
-  // [수정] 날짜 필터 제거 → 해당 월의 모든 항목을 최신순으로 표시 (최대 10개)
-  const entries=all.slice(0,10);
+  // 오늘 기준 과거 7일(당일 포함) 항목만 표시
+  const today=new Date();
+  const cutoff=new Date(today);cutoff.setDate(today.getDate()-6);
+  const cutoffStr=cutoff.toISOString().slice(0,10);
+  const todayStr=today.toISOString().slice(0,10);
+  const entries=all.filter(e=>e.date&&e.date>=cutoffStr&&e.date<=todayStr);
 
   if(entries.length===0){
     el.innerHTML='<div style="color:var(--text-sub);font-size:13px;text-align:center;padding:32px 16px;line-height:1.7;">이 달 내역이 없어요 😊<br><span style="font-size:11px;">더 보기로 전체 내역 확인</span></div>';
@@ -3319,7 +3325,7 @@ function renderLedger(){
         ${items.map(e=>{
           const cc=getCategoryColor(e.category);
           const tagPills=(e.tags&&e.tags.length>0)?e.tags.map(t=>{const col=getTagColorForCategory(e.category);return `<span class="ledger-tag-pill" style="--tag-bg:${col.bg};--tag-color:${col.color};" onclick="event.stopPropagation();App.setTagFilter('${t}')">#${t}</span>`;}).join(''):'';
-          const creditBadge=e.creditAutoId?`<span class="ledger-credit-auto-badge" style="--cat-strip:${cc.strip};"><span class="badge-svg-icon" style="color:${cc.strip};">${_SVG_ICONS.creditcard}</span>신용카드 자동</span>`:'';
+          const creditBadge=e.creditAutoId?`<span class="ledger-credit-auto-badge" style="--cat-strip:${cc.strip};"><span class="badge-svg-icon" style="color:rgba(255,255,255,0.92);">${_SVG_ICONS.creditcard}</span>신용카드 자동</span>`:'';
           const savingsBadge=(e.tags||[]).includes('저축')?`<span class="ledger-savings-badge"><span class="badge-svg-icon" style="color:#E8627A;">${_SVG_ICONS.heart}</span>저축</span>`:'';
           const autoLedgerBadge=e.autoLedgerId?`<span class="ledger-auto-ledger-badge"><span class="badge-svg-icon" style="color:#F9A825;">${_SVG_ICONS.lightning}</span>자동화</span>`:'';
           return `
