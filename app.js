@@ -292,29 +292,29 @@ window.FB_MERGE = function(fbData) {
 
 // ===== MONTHLY THEMES =====
 const MONTH_THEMES = {
-  1:  { t1:'#1A237E', t2:'#42A5F5', bg:'#EEF4FF', border:'#DDEAFF', name:'1월 딥네이비',
+  1:  { t1:'#1A237E', t2:'#42A5F5', mid:'#90CAF9', bg:'#EEF4FF', border:'#DDEAFF', name:'1월 딥네이비',
         cards:{ income:'#42A5F5', fixed:'#EF7B74', variable:'#FFB347', budget:'#7986CB' } },
-  2:  { t1:'#AD1457', t2:'#F48FB1', bg:'#FFF0F5', border:'#FFD6E7', name:'2월 로즈핑크',
+  2:  { t1:'#AD1457', t2:'#F48FB1', mid:'#F8BBD0', bg:'#FFF0F5', border:'#FFD6E7', name:'2월 로즈핑크',
         cards:{ income:'#F48FB1', fixed:'#BA68C8', variable:'#FFB74D', budget:'#4DB6AC' } },
-  3:  { t1:'#1B5E20', t2:'#66BB6A', bg:'#F0FFF4', border:'#C8EDD9', name:'3월 민트그린',
+  3:  { t1:'#1B5E20', t2:'#66BB6A', mid:'#C8E6C9', bg:'#F0FFF4', border:'#C8EDD9', name:'3월 민트그린',
         cards:{ income:'#66BB6A', fixed:'#EF7B74', variable:'#FFA726', budget:'#42A5F5' } },
-  4:  { t1:'#6A1B9A', t2:'#CE93D8', bg:'#F9F0FF', border:'#E8D5F5', name:'4월 라벤더',
+  4:  { t1:'#6A1B9A', t2:'#CE93D8', mid:'#E1BEE7', bg:'#F9F0FF', border:'#E8D5F5', name:'4월 라벤더',
         cards:{ income:'#CE93D8', fixed:'#F48FB1', variable:'#FFCC80', budget:'#80DEEA' } },
-  5:  { t1:'#5E4BC4', t2:'#A29BFE', bg:'#F7F4FF', border:'#EEE9FF', name:'5월 퍼플',
+  5:  { t1:'#5E4BC4', t2:'#A29BFE', mid:'#D1C4E9', bg:'#F7F4FF', border:'#EEE9FF', name:'5월 퍼플',
         cards:{ income:'#A29BFE', fixed:'#F06292', variable:'#FDCB6E', budget:'#74B9FF' } },
-  6:  { t1:'#0277BD', t2:'#4FC3F7', bg:'#EFF8FF', border:'#C9E8FF', name:'6월 오션블루',
+  6:  { t1:'#0277BD', t2:'#4FC3F7', mid:'#B3E5FC', bg:'#EFF8FF', border:'#C9E8FF', name:'6월 오션블루',
         cards:{ income:'#4FC3F7', fixed:'#EF7B74', variable:'#FFA726', budget:'#80CBC4' } },
-  7:  { t1:'#BF360C', t2:'#FF7043', bg:'#FFF4F0', border:'#FFD4C4', name:'7월 코랄핑크',
+  7:  { t1:'#BF360C', t2:'#FF7043', mid:'#FFCCBC', bg:'#FFF4F0', border:'#FFD4C4', name:'7월 코랄핑크',
         cards:{ income:'#FF7043', fixed:'#CE93D8', variable:'#FFCA28', budget:'#7CB88A' } },
-  8:  { t1:'#212121', t2:'#757575', bg:'#F4F4F4', border:'#E0E0E0', name:'8월 다크블랙',
+  8:  { t1:'#212121', t2:'#757575', mid:'#ECEFF1', bg:'#F4F4F4', border:'#E0E0E0', name:'8월 다크블랙',
         cards:{ income:'#90A4AE', fixed:'#EF9A9A', variable:'#FFF176', budget:'#80DEEA' } },
-  9:  { t1:'#E65100', t2:'#FFA726', bg:'#FFF8EE', border:'#FFE0C0', name:'9월 앰버오렌지',
+  9:  { t1:'#E65100', t2:'#FFA726', mid:'#FFE0B2', bg:'#FFF8EE', border:'#FFE0C0', name:'9월 앰버오렌지',
         cards:{ income:'#FFA726', fixed:'#EC407A', variable:'#FFEE58', budget:'#4DB6AC' } },
-  10: { t1:'#B71C1C', t2:'#EF9A9A', bg:'#FFF5F5', border:'#FFD0D0', name:'10월 버건디레드',
+  10: { t1:'#B71C1C', t2:'#EF9A9A', mid:'#FFCDD2', bg:'#FFF5F5', border:'#FFD0D0', name:'10월 버건디레드',
         cards:{ income:'#EF9A9A', fixed:'#CE93D8', variable:'#FFCC80', budget:'#80CBC4' } },
-  11: { t1:'#4E342E', t2:'#A1887F', bg:'#FDF5F0', border:'#EDD9C8', name:'11월 웜브라운',
+  11: { t1:'#4E342E', t2:'#A1887F', mid:'#D7CCC8', bg:'#FDF5F0', border:'#EDD9C8', name:'11월 웜브라운',
         cards:{ income:'#A1887F', fixed:'#CE93D8', variable:'#FFCC80', budget:'#A5D6A7' } },
-  12: { t1:'#1B5E20', t2:'#00BCD4', bg:'#F0FBF5', border:'#C5EDD6', name:'12월 에메랄드',
+  12: { t1:'#1B5E20', t2:'#00BCD4', mid:'#B2DFDB', bg:'#F0FBF5', border:'#C5EDD6', name:'12월 에메랄드',
         cards:{ income:'#00BCD4', fixed:'#F06292', variable:'#FFCA28', budget:'#90CAF9' } },
 };
 
@@ -333,14 +333,27 @@ function applyMonthTheme(m) {
     root.setProperty('--card-var-strip', t.cards.variable);
     root.setProperty('--card-budget-strip', t.cards.budget);
   }
-  // 테마색 그라데이션 배경 — 왼쪽상단 주색 / 중간 배색 / 오른쪽하단 보조색
+  // 테마색 그라데이션 배경 — 왼쪽상단 주색 / 중간 테마 미드색 / 오른쪽하단 보조색
+  const mid=t.mid||'#F0F0F8';
   document.body.style.background =
-    `linear-gradient(145deg, ${t.t1}40 0%, ${t.bg} 32%, ${t.bg} 68%, ${t.t2}33 100%)`;
-  // 사이드바 상단 틴트
+    `linear-gradient(145deg, ${t.t1}50 0%, ${mid}28 44%, ${mid}28 56%, ${t.t2}44 100%)`;
+  // 사이드바 상단 틴트 + 네비 아이콘 테마색 적용
   const sidebar=document.querySelector('.sidebar');
   if(sidebar){
-    sidebar.style.background=`linear-gradient(180deg, ${t.t1}22 0%, #ffffff 26%)`;
+    sidebar.style.background=`linear-gradient(180deg, ${t.t1}28 0%, #ffffff 30%)`;
   }
+  // 사이드바 월 레이블 색상
+  const monthLabel=document.querySelector('.month-label');
+  if(monthLabel) monthLabel.style.color=t.t1;
+  // 활성 네비 아이템 테마색 적용
+  const activeNav=document.querySelector('.nav-item.active');
+  if(activeNav){
+    activeNav.style.color=t.t1;
+    activeNav.style.background=`${t.t1}15`;
+  }
+  // CSS 변수로도 노출 (nav-item.active 의 CSS :root 오버라이드)
+  document.documentElement.style.setProperty('--t-active', t.t1);
+  document.documentElement.style.setProperty('--t-active-bg', `${t.t1}15`);
 }
 
 // ===== HELPERS =====
