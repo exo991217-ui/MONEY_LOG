@@ -306,8 +306,8 @@ const MONTH_THEMES = {
         cards:{ income:'#4FC3F7', fixed:'#EF7B74', variable:'#FFA726', budget:'#80CBC4' } },
   7:  { t1:'#BF360C', t2:'#FF7043', mid:'#FFCCBC', bg:'#FFF4F0', border:'#FFD4C4', name:'7월 코랄핑크',
         cards:{ income:'#FF7043', fixed:'#CE93D8', variable:'#FFCA28', budget:'#7CB88A' } },
-  8:  { t1:'#212121', t2:'#757575', mid:'#ECEFF1', bg:'#F4F4F4', border:'#E0E0E0', name:'8월 다크블랙',
-        cards:{ income:'#90A4AE', fixed:'#EF9A9A', variable:'#FFF176', budget:'#80DEEA' } },
+  8:  { t1:'#546E7A', t2:'#90A4AE', mid:'#ECEFF1', bg:'#F4F7F8', border:'#D8E4E8', name:'8월 스틸블루',
+        cards:{ income:'#90A4AE', fixed:'#EF9A9A', variable:'#80CBC4', budget:'#80DEEA' } },
   9:  { t1:'#E65100', t2:'#FFA726', mid:'#FFE0B2', bg:'#FFF8EE', border:'#FFE0C0', name:'9월 앰버오렌지',
         cards:{ income:'#FFA726', fixed:'#EC407A', variable:'#FFEE58', budget:'#4DB6AC' } },
   10: { t1:'#B71C1C', t2:'#EF9A9A', mid:'#FFCDD2', bg:'#FFF5F5', border:'#FFD0D0', name:'10월 버건디레드',
@@ -333,25 +333,19 @@ function applyMonthTheme(m) {
     root.setProperty('--card-var-strip', t.cards.variable);
     root.setProperty('--card-budget-strip', t.cards.budget);
   }
-  // 테마색 그라데이션 배경 — 왼쪽상단 주색 / 중간 테마 미드색 / 오른쪽하단 보조색
+  // 테마색 그라데이션 배경 — 왼쪽상단 주색 / 중간 테마 미드색 / 오른쪽하단 보조색 (연한 opacity)
   const mid=t.mid||'#F0F0F8';
   document.body.style.background =
-    `linear-gradient(145deg, ${t.t1}60 0%, ${mid}30 44%, ${mid}30 56%, ${t.t2}50 100%)`;
-  // 사이드바 상단 틴트 + 네비 아이콘 테마색 적용
+    `linear-gradient(145deg, ${t.t1}25 0%, ${mid}10 44%, ${mid}10 56%, ${t.t2}18 100%)`;
+  // 사이드바 상단 틴트
   const sidebar=document.querySelector('.sidebar');
   if(sidebar){
-    sidebar.style.background=`linear-gradient(180deg, ${t.t1}28 0%, #ffffff 30%)`;
+    sidebar.style.background=`linear-gradient(180deg, ${t.t1}18 0%, #ffffff 28%)`;
   }
   // 사이드바 월 레이블 색상
   const monthLabel=document.querySelector('.month-label');
   if(monthLabel) monthLabel.style.color=t.t1;
-  // 활성 네비 아이템 테마색 적용
-  const activeNav=document.querySelector('.nav-item.active');
-  if(activeNav){
-    activeNav.style.color=t.t1;
-    activeNav.style.background=`${t.t1}15`;
-  }
-  // CSS 변수로도 노출 (nav-item.active 의 CSS :root 오버라이드)
+  // CSS 변수로 노출 — nav-item.active 스타일은 CSS 변수로만 처리 (인라인 스타일 직접 설정 금지)
   document.documentElement.style.setProperty('--t-active', t.t1);
   document.documentElement.style.setProperty('--t-active-bg', `${t.t1}15`);
 }
@@ -4809,7 +4803,11 @@ function deleteMonthData(key){
 // ===== TAB SWITCHING =====
 function switchTab(tab){
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>{
+    n.classList.remove('active');
+    n.style.removeProperty('color');
+    n.style.removeProperty('background');
+  });
   const tabEl=document.getElementById('tab-'+tab);
   if(tabEl)tabEl.classList.add('active');
   const navEl=document.querySelector('[data-tab="'+tab+'"]');
