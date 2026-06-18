@@ -14,7 +14,7 @@
   --radius:18px;--radius-sm:10px;
   --font:'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif
 }
-body{font-family:var(--font);background:linear-gradient(145deg,#A29BFE40 0%,var(--bg) 32%,var(--bg) 68%,#74B9FF33 100%);color:var(--text-main);min-height:100vh;overflow:hidden;transition:background .5s ease}
+body{font-family:var(--font);background:linear-gradient(145deg,#5E4BC448 0%,#D1C4E920 44%,#D1C4E920 56%,#A29BFE3C 100%);color:var(--text-main);min-height:100vh;overflow:hidden;transition:background .5s ease}
 #app{display:flex;height:100vh}
 
 /* ===== SIDEBAR ===== */
@@ -1588,9 +1588,10 @@ body { background: var(--t-bg) !important; }
 
 /* ===== DASHBOARD 2-COLUMN LAYOUT [수정] ===== */
 .dash-layout{display:grid;grid-template-columns:1fr 330px;gap:20px;align-items:start;}
-.dash-main-col{min-width:0;overflow:hidden;}
+.dash-main-col{min-width:0;}
 .dash-right-col{
   position:sticky;top:20px;
+  width:330px;min-width:330px;
   background:white;border-radius:var(--radius);border:1.5px solid var(--border);
   box-shadow:var(--shadow);display:flex;flex-direction:column;
   max-height:calc(100vh - 110px);overflow:hidden;
