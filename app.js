@@ -1173,6 +1173,24 @@ function toggleDashSection(section){
 
 // ===== DASHBOARD VARIABLE EXPENSE DONUT CHART =====
 const _DONUT_COLORS=['#64B5F6','#FFB347','#CE93D8','#4DB6AC','#4CAF82','#A29BFE','#F06292','#FDCB6E','#90CAF9','#FF8A65'];
+const _DONUT_CAT_ICONS={
+  '식비':'🍚','음식':'🍜','외식':'🍜',
+  '교통':'🚗','통신':'📱','교통·통신':'🚗','교통·차량':'🚗',
+  '쇼핑':'🛍️','생활':'🏠','생활용품':'🛒',
+  '문화':'🎬','취미':'🎮','문화·취미':'🎬','문화/여가':'🎬',
+  '주거':'🏠','공과금':'💡','주거·공과금':'🏠','주거·공과':'🏠','주거·공과금':'🏠',
+  '의료':'💊','건강':'💪',
+  '저축':'🏦','금융':'💳','저축/투자':'🏦',
+  '수입':'💰','급여':'💴',
+  '경조사':'🎁','여행':'✈️','패션':'👕','미용':'💄','패션·미용':'👕',
+  '기타':'📦',
+};
+function _categoryIcon(name){
+  if(!name)return'📌';
+  if(_DONUT_CAT_ICONS[name])return _DONUT_CAT_ICONS[name];
+  const found=Object.keys(_DONUT_CAT_ICONS).find(k=>name.includes(k));
+  return found?_DONUT_CAT_ICONS[found]:'📌';
+}
 
 function _donutSVG(segments,total){
   const size=196,cx=98,cy=98,R=88,ri=58;
@@ -1227,14 +1245,27 @@ function renderDashDonut(y,m){
   const total=sorted.reduce((s,[,v])=>s+v,0);
   const segments=sorted.map(([name,amount],i)=>({name,amount,color:_DONUT_COLORS[i%_DONUT_COLORS.length]}));
   svgEl.innerHTML=_donutSVG(segments,total);
-  legEl.innerHTML=segments.length===0
-    ?'<div style="color:var(--text-sub);font-size:12px;padding:8px 0;">항목 없음</div>'
-    :segments.map(seg=>`
-      <div class="dash-donut-legend-item">
-        <div class="dash-donut-dot" style="background:${seg.color};"></div>
-        <span class="dash-donut-legend-name">${seg.name}</span>
-        <span class="dash-donut-legend-amt">${fmt(seg.amount)}</span>
-      </div>`).join('');
+  if(segments.length===0){
+    legEl.innerHTML='<div style="color:var(--text-sub);font-size:12px;padding:8px 0;">항목 없음</div>';
+    return;
+  }
+  const maxAmt=segments[0]?segments[0].amount:1;
+  legEl.innerHTML=segments.map(seg=>{
+    const pct=total>0?(seg.amount/total*100).toFixed(1):'0.0';
+    const barW=maxAmt>0?Math.max(4,Math.round(seg.amount/maxAmt*100)):4;
+    const icon=_categoryIcon(seg.name);
+    return `<div class="dash-donut-legend-item2">
+      <div class="ddl2-top">
+        <span class="ddl2-icon">${icon}</span>
+        <span class="ddl2-name">${seg.name}</span>
+        <span class="ddl2-pct">${pct}%</span>
+      </div>
+      <div class="ddl2-bar-wrap">
+        <div class="ddl2-bar-fill" style="width:${barW}%;background:${seg.color};"></div>
+      </div>
+      <div class="ddl2-amt">${fmt(seg.amount)}</div>
+    </div>`;
+  }).join('');
 }
 
 function showDonutTip(e,name,amount,pct){
@@ -1323,7 +1354,9 @@ function renderDashRecentEntries(y,m){
   const key=mkey(y,m);
   const all=(S.ledger[key]||[]).slice().sort((a,b)=>{
     const da=a.date||'',db=b.date||'';
-    return da<db?1:da>db?-1:0;
+    if(da!==db)return da<db?1:-1;
+    // 같은 날짜 내 정렬: 가계부 탭과 동일하게 id 내림차순 (최근 추가 순)
+    return (b.id||0)-(a.id||0);
   });
 
   // 오늘 기준 3일 이내 항목만 표시
@@ -4737,6 +4770,10 @@ function switchTab(tab){
   if(tabEl)tabEl.classList.add('active');
   const navEl=document.querySelector('[data-tab="'+tab+'"]');
   if(navEl)navEl.classList.add('active');
+  // 대시보드 탭 전환 시 즉시 재렌더링 (최근 지출 포함)
+  if(tab==='dashboard'){
+    renderDashboard();
+  }
   // 가계부 서브메뉴 활성화 (월 마감은 독립 탭으로 분리)
   if(tab==='ledger'){
     const parentEl=document.querySelector('.nav-item-group[data-group="ledger"]');
