@@ -842,13 +842,12 @@ body{font-family:var(--font);background:linear-gradient(145deg,#5E4BC460 0%,#D1C
 
 /* 테마 적용 요소들 */
 .logo-circle { background: linear-gradient(135deg, var(--t1), var(--t2)) !important; }
-.nav-item.active { background: linear-gradient(135deg, color-mix(in srgb, var(--t1) 15%, transparent), color-mix(in srgb, var(--t2) 15%, transparent)) !important; color: var(--t1) !important; }
+.nav-item.active { background: var(--t-active-bg, linear-gradient(135deg,#A29BFE22,#74B9FF22)) !important; color: var(--t-active, var(--t1)) !important; }
 .add-btn.primary { background: linear-gradient(135deg, var(--t1), var(--t2)) !important; }
 .report-btn { background: linear-gradient(135deg, var(--t1), var(--t2)) !important; }
 .remaining-budget-card { background: linear-gradient(135deg, var(--t1) 0%, var(--t2) 100%) !important; }
 .budget-cat-bar-fill { background: var(--t1); }
 .savings-add-main-btn { background: linear-gradient(135deg, var(--t1), var(--t2)) !important; }
-body { background: var(--t-bg) !important; }
 
 /* ===== FIREBASE LOGIN OVERLAY ===== */
 #fb-login-overlay {
