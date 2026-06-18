@@ -177,6 +177,10 @@
                 <span class="dash-var-label">변동 지출</span>
                 <span class="dash-var-total" id="dash-variable-total">0원</span>
               </div>
+              <div class="dash-var-mode-btns" onclick="event.stopPropagation()">
+                <button class="dvm-btn active" id="dvm-btn-current" onclick="App.setDashVarMode('current')">이번달</button>
+                <button class="dvm-btn" id="dvm-btn-avg3" onclick="App.setDashVarMode('avg3')">3개월 평균</button>
+              </div>
               <span class="expand-arrow" id="dash-var-arrow">∨</span>
             </div>
             <div class="dash-var-body" id="dash-var-body">
