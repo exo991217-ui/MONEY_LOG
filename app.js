@@ -17,6 +17,7 @@ const DEFAULT_DATA=()=>{
   const _n=new Date();const _y=_n.getFullYear();const _m=_n.getMonth()+1;
   return ({
   themeOpacity:50,
+  themeOpacityLocked:false,
   monthlyData:{},creditCards:[],assets:[],
   stocks:[
     {id:1,name:'삼성전자우',ticker:'005935',sector:'반도체',buyPrice:109472,currentPrice:109472,targetPrice:0,quantity:1,stockType:'domestic'},
@@ -123,6 +124,7 @@ function loadState(){
       if(S.ledgerTagFilter===undefined)S.ledgerTagFilter=null;
       if(!S.currentMonths.ledger)S.currentMonths.ledger={...S.currentMonths.dashboard};
       if(S.themeOpacity===undefined)S.themeOpacity=50;
+      if(S.themeOpacityLocked===undefined)S.themeOpacityLocked=false;
       // 가계부 카테고리 기본값 재설정 (v1: 식비/생활/주거/교통/문화/저축투자/기타)
       if(!S._lcat_reset_v1){
         S.ledgerCategories=[
@@ -283,6 +285,7 @@ window.FB_MERGE = function(fbData) {
     if(S.ledgerFilter===undefined)S.ledgerFilter=null;
     if(!S.currentMonths.ledger)S.currentMonths.ledger={...S.currentMonths.dashboard};
     if(S.themeOpacity===undefined)S.themeOpacity=50;
+    if(S.themeOpacityLocked===undefined)S.themeOpacityLocked=false;
     S.budgetCategories=S.budgetCategories.map(c=>({synced:true,syncFrom:'',linkedCategories:[],...c}));
     // Migrate fundCalc: add assetLinked field
     if(!S.fundCalc)S.fundCalc={amount:0,items:[],assetLinked:false,assetLinkedAt:null,linkedAssetIds:[]};
@@ -561,6 +564,7 @@ function getActiveBudgetCats(y,m){
 
 function renderAll(){
   applyMonthTheme(S.currentMonths.dashboard.m);
+  syncThemeSlider();
   renderDashboard();renderIncome();renderCredit();renderAssets();
   renderCalendar();renderInstallment();
   renderLedger();renderLcatPanel();
@@ -568,25 +572,28 @@ function renderAll(){
 
 // ===== BUDGET CATEGORIES =====
 // ===== MONTHLY THEME COLORS =====
+// hex 색상을 rgba로 변환하는 헬퍼
+function hexToRgba(hex,alpha){
+  const h=hex.replace('#','');
+  const r=parseInt(h.slice(0,2),16);
+  const g=parseInt(h.slice(2,4),16);
+  const b=parseInt(h.slice(4,6),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// 식비 캘린더 테마 — MONTH_THEMES와 동일한 월별 색상 사용
 function getMonthTheme(m){
+  const t=MONTH_THEMES[m]||MONTH_THEMES[5];
   const _opa=S&&S.themeOpacity!==undefined?S.themeOpacity:50;
-  const la=(0.20*_opa/100).toFixed(3);
-  const ba=(0.50*_opa/100).toFixed(3);
-  const themes=[
-    {gradient:'linear-gradient(135deg,#4FC3F7,#0288D1)',pastel:'linear-gradient(135deg,#DCEFFB,#B3DEFF)',color:'#29B6F6',light:`rgba(79,195,247,${la})`,border:`rgba(79,195,247,${ba})`}, // 1월
-    {gradient:'linear-gradient(135deg,#CE93D8,#8E24AA)',pastel:'linear-gradient(135deg,#F0DAFF,#DDB8F5)',color:'#AB47BC',light:`rgba(206,147,216,${la})`,border:`rgba(206,147,216,${ba})`}, // 2월
-    {gradient:'linear-gradient(135deg,#81C784,#388E3C)',pastel:'linear-gradient(135deg,#D8F5DA,#B8E6BB)',color:'#66BB6A',light:`rgba(129,199,132,${la})`,border:`rgba(129,199,132,${ba})`}, // 3월
-    {gradient:'linear-gradient(135deg,#F48FB1,#C2185B)',pastel:'linear-gradient(135deg,#FFD9E8,#FFB3CC)',color:'#EC407A',light:`rgba(244,143,177,${la})`,border:`rgba(244,143,177,${ba})`}, // 4월
-    {gradient:'linear-gradient(135deg,#A5D6A7,#2E7D32)',pastel:'linear-gradient(135deg,#D8F5DA,#B8E6BB)',color:'#4CAF50',light:`rgba(165,214,167,${la})`,border:`rgba(165,214,167,${ba})`}, // 5월
-    {gradient:'linear-gradient(135deg,#FFD54F,#F57F17)',pastel:'linear-gradient(135deg,#FFF3C4,#FFE0A0)',color:'#FFB300',light:`rgba(255,213,79,${la})`,border:`rgba(255,213,79,${ba})`}, // 6월
-    {gradient:'linear-gradient(135deg,#4DD0E1,#00838F)',pastel:'linear-gradient(135deg,#C9F5FA,#A0E8F0)',color:'#00ACC1',light:`rgba(77,208,225,${la})`,border:`rgba(77,208,225,${ba})`}, // 7월
-    {gradient:'linear-gradient(135deg,#FF8A65,#BF360C)',pastel:'linear-gradient(135deg,#FFD9C4,#FFBEA0)',color:'#FF7043',light:`rgba(255,138,101,${la})`,border:`rgba(255,138,101,${ba})`}, // 8월
-    {gradient:'linear-gradient(135deg,#FFCA28,#E65100)',pastel:'linear-gradient(135deg,#FFF3C4,#FFE0A0)',color:'#FFA000',light:`rgba(255,202,40,${la})`,border:`rgba(255,202,40,${ba})`}, // 9월
-    {gradient:'linear-gradient(135deg,#EF9A9A,#B71C1C)',pastel:'linear-gradient(135deg,#FFD9D9,#FFB3B3)',color:'#EF5350',light:`rgba(239,154,154,${la})`,border:`rgba(239,154,154,${ba})`}, // 10월
-    {gradient:'linear-gradient(135deg,#9575CD,#4527A0)',pastel:'linear-gradient(135deg,#E4D6FF,#CEBEFF)',color:'#7E57C2',light:`rgba(149,117,205,${la})`,border:`rgba(149,117,205,${ba})`}, // 11월
-    {gradient:'linear-gradient(135deg,#EF5350,#880E4F)',pastel:'linear-gradient(135deg,#FFD9D9,#FFB3D4)',color:'#E53935',light:`rgba(239,83,80,${la})`,border:`rgba(239,83,80,${ba})`}, // 12월
-  ];
-  return themes[Math.max(0,Math.min(11,(m||1)-1))];
+  const la=parseFloat((0.20*_opa/100).toFixed(3));
+  const ba=parseFloat((0.50*_opa/100).toFixed(3));
+  return {
+    gradient:`linear-gradient(135deg,${t.t1},${t.t2})`,
+    pastel:`linear-gradient(135deg,${t.bg},${t.bg})`,
+    color:t.t1,
+    light:hexToRgba(t.t2,la),
+    border:hexToRgba(t.t1,ba),
+  };
 }
 
 function renderBudget(y,m){
@@ -2437,9 +2444,8 @@ function renderFood(){
     <div class="food-cal-rows">${rowsHTML}</div>
     <div style="padding:14px 18px;background:${ft.light};border-top:1.5px solid ${ft.border};font-size:13px;font-weight:700;text-align:right;color:${ft.color};">총 ${fmt(foodTotal)}</div>`;
 
-  // 테마 진하기 슬라이더 값 동기화
-  const _slider=document.getElementById('theme-opacity-slider');
-  if(_slider)_slider.value=S.themeOpacity!==undefined?S.themeOpacity:50;
+  // 테마 진하기 슬라이더 값·잠금 상태 동기화
+  syncThemeSlider();
 
   // Re-render panel if one was open
   if(currentFoodPanel!==null){
@@ -3171,10 +3177,33 @@ function saveFoodDirect(val){
 }
 
 function saveThemeOpacity(val){
+  if(S.themeOpacityLocked)return;
   S.themeOpacity=Math.max(0,Math.min(100,parseInt(val)||50));
   saveState();
   applyMonthTheme(S.currentMonths.dashboard.m);
   renderFood();
+}
+
+function toggleThemeOpacityLock(){
+  S.themeOpacityLocked=!S.themeOpacityLocked;
+  saveState();
+  syncThemeSlider();
+}
+
+function syncThemeSlider(){
+  const slider=document.getElementById('theme-opacity-slider');
+  const lockBtn=document.getElementById('theme-lock-btn');
+  const locked=!!S.themeOpacityLocked;
+  if(slider){
+    slider.value=S.themeOpacity!==undefined?S.themeOpacity:50;
+    slider.disabled=locked;
+    slider.style.opacity=locked?'0.45':'1';
+    slider.style.cursor=locked?'not-allowed':'pointer';
+  }
+  if(lockBtn){
+    lockBtn.textContent=locked?'🔒':'🔓';
+    lockBtn.title=locked?'잠금 해제':'잠금';
+  }
 }
 
 // Card settings
@@ -5002,7 +5031,8 @@ window.App={
   openEditLedgerModal,saveLedgerEdit,onLedgerEditTypeChange,
   openCalModal,saveCalEvent,deleteCalEvent,editCalEvent,
   openSavingsModal,editSavingsGoal,saveSavingsGoal,deleteSavingsGoal,updateSavedAmount,pickSavingsColor,
-  toggleFoodPanel,closeFoodPanel,saveFoodField,toggleFoodDirect,saveFoodDirect,saveThemeOpacity,
+  toggleFoodPanel,closeFoodPanel,saveFoodField,toggleFoodDirect,saveFoodDirect,
+  saveThemeOpacity,toggleThemeOpacityLock,syncThemeSlider,
   toggleCardSettings,addCardSetting,deleteCardSetting,updateCardName,addRate,deleteRate,updateRate,
   calcInstallment,
   addLedgerEntry,deleteLedgerEntry,setLedgerFilter,setTagFilter,
