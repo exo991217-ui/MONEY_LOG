@@ -1612,9 +1612,9 @@ body{font-family:var(--font);background:linear-gradient(145deg,#5E4BC422 0%,#D1C
 /* has-auto: 배경 없이 작은 점 표시만 (purple bg 제거) */
 .food-day.has-auto{background:transparent;}
 .food-auto-dot{font-size:8px;color:#A29BFE;margin-left:2px;line-height:1;vertical-align:middle;cursor:default;}
-/* today: 외곽선 없이 월 테마색 배경 (인라인 style로 적용) */
-.food-day.today-theme{box-shadow:0 2px 10px rgba(0,0,0,0.18);}
-.food-day.today-theme .food-day-num{color:white !important;font-weight:900;}
+/* today: 파스텔 mid 배경 + 테마 진한색 테두리 (인라인 style로 배경·테두리 적용) */
+.food-day.today-theme{box-shadow:0 2px 8px rgba(0,0,0,0.10);}
+/* 숫자 색상은 인라인 style로 ft.t1 적용 — !important 불필요 */
 .food-auto-badge{display:inline-flex;align-items:center;font-size:9px;color:#7C5CBF;background:#F0EBFF;border-radius:4px;padding:1px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100% - 22px);font-weight:600;line-height:1.4}
 
 /* ===== 소비금액 보기 모드 배너 ===== */
