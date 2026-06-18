@@ -14,7 +14,7 @@
   --radius:18px;--radius-sm:10px;
   --font:'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif
 }
-body{font-family:var(--font);background:var(--bg);color:var(--text-main);min-height:100vh;overflow:hidden}
+body{font-family:var(--font);background:linear-gradient(145deg,#A29BFE1A 0%,var(--bg) 28%,var(--bg) 72%,#74B9FF14 100%);color:var(--text-main);min-height:100vh;overflow:hidden}
 #app{display:flex;height:100vh}
 
 /* ===== SIDEBAR ===== */
