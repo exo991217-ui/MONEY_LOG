@@ -16,6 +16,7 @@ const DEFAULT_MONTH=()=>({
 const DEFAULT_DATA=()=>{
   const _n=new Date();const _y=_n.getFullYear();const _m=_n.getMonth()+1;
   return ({
+  themeOpacity:50,
   monthlyData:{},creditCards:[],assets:[],
   stocks:[
     {id:1,name:'삼성전자우',ticker:'005935',sector:'반도체',buyPrice:109472,currentPrice:109472,targetPrice:0,quantity:1,stockType:'domestic'},
@@ -121,6 +122,7 @@ function loadState(){
       if(S.ledgerFilter===undefined)S.ledgerFilter=null;
       if(S.ledgerTagFilter===undefined)S.ledgerTagFilter=null;
       if(!S.currentMonths.ledger)S.currentMonths.ledger={...S.currentMonths.dashboard};
+      if(S.themeOpacity===undefined)S.themeOpacity=50;
       // 가계부 카테고리 기본값 재설정 (v1: 식비/생활/주거/교통/문화/저축투자/기타)
       if(!S._lcat_reset_v1){
         S.ledgerCategories=[
@@ -280,6 +282,7 @@ window.FB_MERGE = function(fbData) {
     }
     if(S.ledgerFilter===undefined)S.ledgerFilter=null;
     if(!S.currentMonths.ledger)S.currentMonths.ledger={...S.currentMonths.dashboard};
+    if(S.themeOpacity===undefined)S.themeOpacity=50;
     S.budgetCategories=S.budgetCategories.map(c=>({synced:true,syncFrom:'',linkedCategories:[],...c}));
     // Migrate fundCalc: add assetLinked field
     if(!S.fundCalc)S.fundCalc={amount:0,items:[],assetLinked:false,assetLinkedAt:null,linkedAssetIds:[]};
@@ -335,14 +338,19 @@ function applyMonthTheme(m) {
     root.setProperty('--card-var-strip', t.cards.variable);
     root.setProperty('--card-budget-strip', t.cards.budget);
   }
-  // 테마색 그라데이션 배경 — 왼쪽상단 주색 / 중간 테마 미드색 / 오른쪽하단 보조색 (연한 opacity)
+  // 테마색 그라데이션 배경 — 왼쪽상단 주색 / 중간 테마 미드색 / 오른쪽하단 보조색 (opacity 슬라이더 반영)
   const mid=t.mid||'#F0F0F8';
+  const _opa=S&&S.themeOpacity!==undefined?S.themeOpacity:50;
+  const _t1h=Math.round(0x50*_opa/100).toString(16).padStart(2,'0');
+  const _mh =Math.round(0x26*_opa/100).toString(16).padStart(2,'0');
+  const _t2h=Math.round(0x45*_opa/100).toString(16).padStart(2,'0');
+  const _sbh=Math.round(0x28*_opa/100).toString(16).padStart(2,'0');
   document.body.style.background =
-    `linear-gradient(145deg, ${t.t1}25 0%, ${mid}10 44%, ${mid}10 56%, ${t.t2}18 100%)`;
+    `linear-gradient(145deg, ${t.t1}${_t1h} 0%, ${mid}${_mh} 44%, ${mid}${_mh} 56%, ${t.t2}${_t2h} 100%)`;
   // 사이드바 상단 틴트
   const sidebar=document.querySelector('.sidebar');
   if(sidebar){
-    sidebar.style.background=`linear-gradient(180deg, ${t.t1}18 0%, #ffffff 28%)`;
+    sidebar.style.background=`linear-gradient(180deg, ${t.t1}${_sbh} 0%, #ffffff 28%)`;
   }
   // 사이드바 월 레이블 색상
   const monthLabel=document.querySelector('.month-label');
@@ -561,19 +569,22 @@ function renderAll(){
 // ===== BUDGET CATEGORIES =====
 // ===== MONTHLY THEME COLORS =====
 function getMonthTheme(m){
+  const _opa=S&&S.themeOpacity!==undefined?S.themeOpacity:50;
+  const la=(0.20*_opa/100).toFixed(3);
+  const ba=(0.50*_opa/100).toFixed(3);
   const themes=[
-    {gradient:'linear-gradient(135deg,#4FC3F7,#0288D1)',pastel:'linear-gradient(135deg,#DCEFFB,#B3DEFF)',color:'#29B6F6',light:'rgba(79,195,247,0.10)',border:'rgba(79,195,247,0.25)'}, // 1월
-    {gradient:'linear-gradient(135deg,#CE93D8,#8E24AA)',pastel:'linear-gradient(135deg,#F0DAFF,#DDB8F5)',color:'#AB47BC',light:'rgba(206,147,216,0.10)',border:'rgba(206,147,216,0.25)'}, // 2월
-    {gradient:'linear-gradient(135deg,#81C784,#388E3C)',pastel:'linear-gradient(135deg,#D8F5DA,#B8E6BB)',color:'#66BB6A',light:'rgba(129,199,132,0.10)',border:'rgba(129,199,132,0.25)'}, // 3월
-    {gradient:'linear-gradient(135deg,#F48FB1,#C2185B)',pastel:'linear-gradient(135deg,#FFD9E8,#FFB3CC)',color:'#EC407A',light:'rgba(244,143,177,0.10)',border:'rgba(244,143,177,0.25)'}, // 4월
-    {gradient:'linear-gradient(135deg,#A5D6A7,#2E7D32)',pastel:'linear-gradient(135deg,#D8F5DA,#B8E6BB)',color:'#4CAF50',light:'rgba(165,214,167,0.10)',border:'rgba(165,214,167,0.25)'}, // 5월
-    {gradient:'linear-gradient(135deg,#FFD54F,#F57F17)',pastel:'linear-gradient(135deg,#FFF3C4,#FFE0A0)',color:'#FFB300',light:'rgba(255,213,79,0.10)',border:'rgba(255,213,79,0.25)'}, // 6월
-    {gradient:'linear-gradient(135deg,#4DD0E1,#00838F)',pastel:'linear-gradient(135deg,#C9F5FA,#A0E8F0)',color:'#00ACC1',light:'rgba(77,208,225,0.10)',border:'rgba(77,208,225,0.25)'}, // 7월
-    {gradient:'linear-gradient(135deg,#FF8A65,#BF360C)',pastel:'linear-gradient(135deg,#FFD9C4,#FFBEA0)',color:'#FF7043',light:'rgba(255,138,101,0.10)',border:'rgba(255,138,101,0.25)'}, // 8월
-    {gradient:'linear-gradient(135deg,#FFCA28,#E65100)',pastel:'linear-gradient(135deg,#FFF3C4,#FFE0A0)',color:'#FFA000',light:'rgba(255,202,40,0.10)',border:'rgba(255,202,40,0.25)'}, // 9월
-    {gradient:'linear-gradient(135deg,#EF9A9A,#B71C1C)',pastel:'linear-gradient(135deg,#FFD9D9,#FFB3B3)',color:'#EF5350',light:'rgba(239,154,154,0.10)',border:'rgba(239,154,154,0.25)'}, // 10월
-    {gradient:'linear-gradient(135deg,#9575CD,#4527A0)',pastel:'linear-gradient(135deg,#E4D6FF,#CEBEFF)',color:'#7E57C2',light:'rgba(149,117,205,0.10)',border:'rgba(149,117,205,0.25)'}, // 11월
-    {gradient:'linear-gradient(135deg,#EF5350,#880E4F)',pastel:'linear-gradient(135deg,#FFD9D9,#FFB3D4)',color:'#E53935',light:'rgba(239,83,80,0.10)',border:'rgba(239,83,80,0.25)'}, // 12월
+    {gradient:'linear-gradient(135deg,#4FC3F7,#0288D1)',pastel:'linear-gradient(135deg,#DCEFFB,#B3DEFF)',color:'#29B6F6',light:`rgba(79,195,247,${la})`,border:`rgba(79,195,247,${ba})`}, // 1월
+    {gradient:'linear-gradient(135deg,#CE93D8,#8E24AA)',pastel:'linear-gradient(135deg,#F0DAFF,#DDB8F5)',color:'#AB47BC',light:`rgba(206,147,216,${la})`,border:`rgba(206,147,216,${ba})`}, // 2월
+    {gradient:'linear-gradient(135deg,#81C784,#388E3C)',pastel:'linear-gradient(135deg,#D8F5DA,#B8E6BB)',color:'#66BB6A',light:`rgba(129,199,132,${la})`,border:`rgba(129,199,132,${ba})`}, // 3월
+    {gradient:'linear-gradient(135deg,#F48FB1,#C2185B)',pastel:'linear-gradient(135deg,#FFD9E8,#FFB3CC)',color:'#EC407A',light:`rgba(244,143,177,${la})`,border:`rgba(244,143,177,${ba})`}, // 4월
+    {gradient:'linear-gradient(135deg,#A5D6A7,#2E7D32)',pastel:'linear-gradient(135deg,#D8F5DA,#B8E6BB)',color:'#4CAF50',light:`rgba(165,214,167,${la})`,border:`rgba(165,214,167,${ba})`}, // 5월
+    {gradient:'linear-gradient(135deg,#FFD54F,#F57F17)',pastel:'linear-gradient(135deg,#FFF3C4,#FFE0A0)',color:'#FFB300',light:`rgba(255,213,79,${la})`,border:`rgba(255,213,79,${ba})`}, // 6월
+    {gradient:'linear-gradient(135deg,#4DD0E1,#00838F)',pastel:'linear-gradient(135deg,#C9F5FA,#A0E8F0)',color:'#00ACC1',light:`rgba(77,208,225,${la})`,border:`rgba(77,208,225,${ba})`}, // 7월
+    {gradient:'linear-gradient(135deg,#FF8A65,#BF360C)',pastel:'linear-gradient(135deg,#FFD9C4,#FFBEA0)',color:'#FF7043',light:`rgba(255,138,101,${la})`,border:`rgba(255,138,101,${ba})`}, // 8월
+    {gradient:'linear-gradient(135deg,#FFCA28,#E65100)',pastel:'linear-gradient(135deg,#FFF3C4,#FFE0A0)',color:'#FFA000',light:`rgba(255,202,40,${la})`,border:`rgba(255,202,40,${ba})`}, // 9월
+    {gradient:'linear-gradient(135deg,#EF9A9A,#B71C1C)',pastel:'linear-gradient(135deg,#FFD9D9,#FFB3B3)',color:'#EF5350',light:`rgba(239,154,154,${la})`,border:`rgba(239,154,154,${ba})`}, // 10월
+    {gradient:'linear-gradient(135deg,#9575CD,#4527A0)',pastel:'linear-gradient(135deg,#E4D6FF,#CEBEFF)',color:'#7E57C2',light:`rgba(149,117,205,${la})`,border:`rgba(149,117,205,${ba})`}, // 11월
+    {gradient:'linear-gradient(135deg,#EF5350,#880E4F)',pastel:'linear-gradient(135deg,#FFD9D9,#FFB3D4)',color:'#E53935',light:`rgba(239,83,80,${la})`,border:`rgba(239,83,80,${ba})`}, // 12월
   ];
   return themes[Math.max(0,Math.min(11,(m||1)-1))];
 }
@@ -2288,7 +2299,6 @@ function renderWeeklySpend(){
   const key=mkey(cm.y,cm.m);
   const entries=(S.ledger[key]||[]).filter(e=>
     e.type==='expense'&&
-    !e.creditAutoId&&
     !(e.category||'').includes('공과금')
   );
   if(entries.length===0){
@@ -2353,8 +2363,8 @@ function renderFood(){
   const daysInMonth=new Date(cm.y,cm.m,0).getDate();
   const dowLabels=['일','월','화','수','목','금','토'];
 
-  // 공과금 제외 가계부 지출 항목
-  const ledgerEntries=(S.ledger[key]||[]).filter(e=>e.type==='expense'&&!e.creditAutoId&&!(e.category||'').includes('공과금'));
+  // 공과금 제외 가계부 지출 항목 (신용카드 자동 내역 포함)
+  const ledgerEntries=(S.ledger[key]||[]).filter(e=>e.type==='expense'&&!(e.category||'').includes('공과금'));
 
   // 이 달에 해당하는 활성 자동화 고정 지출 목록
   const activeAutos=(S.automations||[]).filter(a=>{
@@ -2377,6 +2387,9 @@ function renderFood(){
   // 주차별 행 + 주간 소비 요약 생성
   const totalRows=allCells.length/7;
   let rowsHTML='';
+  const _todayNow=new Date();
+  const _isThisMonth=cm.y===_todayNow.getFullYear()&&cm.m===(_todayNow.getMonth()+1);
+  const _todayD=_todayNow.getDate();
   for(let row=0;row<totalRows;row++){
     const rowCells=allCells.slice(row*7,(row+1)*7);
     const rowDays=rowCells.filter(c=>c.type==='day').map(c=>c.d);
@@ -2388,14 +2401,14 @@ function renderFood(){
       const d=parseInt((e.date||'').split('-')[2])||0;
       return rowDays.includes(d);
     }).reduce((s,e)=>s+e.amount,0);
-
     const rowHTML=rowCells.map(cell=>{
       if(cell.type==='empty')return '<div class="food-day empty"></div>';
       const{d,dow,dd,isOpen,autos}=cell;
+      const isToday=_isThisMonth&&d===_todayD;
       const autosHtml=(autos&&autos.length>0)
         ?autos.map(a=>`<span class="food-auto-badge">💸 ${a.memo||a.name||''}</span>`).join('')
         :'';
-      return `<div class="food-day${isOpen?' panel-open':''}${autos&&autos.length>0?' has-auto':''}" onclick="App.toggleFoodPanel(${d})" title="클릭하여 편집">
+      return `<div class="food-day${isOpen?' panel-open':''}${autos&&autos.length>0?' has-auto':''}${isToday?' today':''}" onclick="App.toggleFoodPanel(${d})" title="클릭하여 편집">
         <div class="food-day-header-row">
           <div class="food-day-num ${dow===0?'sun':dow===6?'sat':''}">${d}</div>
           ${autosHtml}
@@ -2407,7 +2420,7 @@ function renderFood(){
     }).join('');
 
     rowsHTML+=`<div class="food-cal-week-row">${rowHTML}</div>`;
-    rowsHTML+=`<div class="food-week-summary" style="border-color:${ft.border};">
+    rowsHTML+=`<div class="food-week-summary" style="border-color:${ft.border};background:${ft.light};">
       <span class="food-week-label" style="color:${ft.color};">${row+1}주차</span>
       <div class="food-week-totals">
         ${foodWeekTotal>0?`<span class="food-week-chip food-week-food" style="background:${ft.light};color:${ft.color};">식비 ${fmt(foodWeekTotal)}</span>`:''}
@@ -2423,6 +2436,10 @@ function renderFood(){
     </div>
     <div class="food-cal-rows">${rowsHTML}</div>
     <div style="padding:14px 18px;background:${ft.light};border-top:1.5px solid ${ft.border};font-size:13px;font-weight:700;text-align:right;color:${ft.color};">총 ${fmt(foodTotal)}</div>`;
+
+  // 테마 진하기 슬라이더 값 동기화
+  const _slider=document.getElementById('theme-opacity-slider');
+  if(_slider)_slider.value=S.themeOpacity!==undefined?S.themeOpacity:50;
 
   // Re-render panel if one was open
   if(currentFoodPanel!==null){
@@ -3151,6 +3168,13 @@ function saveFoodDirect(val){
   if(!S.foodDirectSet[key])S.foodDirectSet[key]={direct:true,amount:0};
   S.foodDirectSet[key].amount=numInputParse(val);
   saveState();renderFood();renderIncome();renderDashboard();
+}
+
+function saveThemeOpacity(val){
+  S.themeOpacity=Math.max(0,Math.min(100,parseInt(val)||50));
+  saveState();
+  applyMonthTheme(S.currentMonths.dashboard.m);
+  renderFood();
 }
 
 // Card settings
@@ -4978,7 +5002,7 @@ window.App={
   openEditLedgerModal,saveLedgerEdit,onLedgerEditTypeChange,
   openCalModal,saveCalEvent,deleteCalEvent,editCalEvent,
   openSavingsModal,editSavingsGoal,saveSavingsGoal,deleteSavingsGoal,updateSavedAmount,pickSavingsColor,
-  toggleFoodPanel,closeFoodPanel,saveFoodField,toggleFoodDirect,saveFoodDirect,
+  toggleFoodPanel,closeFoodPanel,saveFoodField,toggleFoodDirect,saveFoodDirect,saveThemeOpacity,
   toggleCardSettings,addCardSetting,deleteCardSetting,updateCardName,addRate,deleteRate,updateRate,
   calcInstallment,
   addLedgerEntry,deleteLedgerEntry,setLedgerFilter,setTagFilter,
