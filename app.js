@@ -1173,24 +1173,49 @@ function toggleDashSection(section){
 
 // ===== DASHBOARD VARIABLE EXPENSE DONUT CHART =====
 const _DONUT_COLORS=['#64B5F6','#FFB347','#CE93D8','#4DB6AC','#4CAF82','#A29BFE','#F06292','#FDCB6E','#90CAF9','#FF8A65'];
-const _DONUT_CAT_ICONS={
-  '식비':'🍚','음식':'🍜','외식':'🍜',
-  '교통':'🚗','통신':'📱','교통·통신':'🚗','교통·차량':'🚗',
-  '쇼핑':'🛍️','생활':'🏠','생활용품':'🛒',
-  '문화':'🎬','취미':'🎮','문화·취미':'🎬','문화/여가':'🎬',
-  '주거':'🏠','공과금':'💡','주거·공과금':'🏠','주거·공과':'🏠','주거·공과금':'🏠',
-  '의료':'💊','건강':'💪',
-  '저축':'🏦','금융':'💳','저축/투자':'🏦',
-  '수입':'💰','급여':'💴',
-  '경조사':'🎁','여행':'✈️','패션':'👕','미용':'💄','패션·미용':'👕',
-  '기타':'📦',
-};
-function _categoryIcon(name){
-  if(!name)return'📌';
-  if(_DONUT_CAT_ICONS[name])return _DONUT_CAT_ICONS[name];
-  const found=Object.keys(_DONUT_CAT_ICONS).find(k=>name.includes(k));
-  return found?_DONUT_CAT_ICONS[found]:'📌';
+// ===== SVG 카테고리 아이콘 시스템 (filled/solid) =====
+function _stripCatEmoji(name){
+  if(!name)return'';
+  // 앞의 이모지 + 공백 제거 (예: "🍚 식비" → "식비")
+  return name.replace(/^[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FEFF}\u{1F000}-\u{1F02F}✈♥⚡💳📱🏠🏦💡💊💪💰💴🎁👕💄🛍🛒🎬🎮🚗🍚🍜📦📌]+\s*/u,'').trim();
 }
+const _SVG_ICONS={
+  food:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M11 9H9V2H7v7H5V2H3v7c0 2.12 1.66 3.84 3.75 3.97V22h2.5v-9.03C11.34 12.84 13 11.12 13 9V2h-2v7zm5-3v8h2.5v8H21V2c-2.76 0-5 2.24-5 4z"/></svg>`,
+  car:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>`,
+  phone:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"/></svg>`,
+  bag:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M18 6h-2c0-2.21-1.79-4-4-4S8 3.79 8 6H6c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6-2c1.1 0 2 .9 2 2h-4c0-1.1.9-2 2-2zm0 10c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>`,
+  home:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>`,
+  culture:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M18 3v2h-2V3H8v2H6V3H4v18h2v-2h2v2h8v-2h2v2h2V3h-2zM8 17H6v-2h2v2zm0-4H6v-2h2v2zm0-4H6V7h2v2zm10 8h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V7h2v2z"/></svg>`,
+  health:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`,
+  wallet:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1h-9c-1.11 0-2 .9-2 2v8c0 1.1.89 2 2 2h9zm-9-2h10V8H12v8zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>`,
+  money:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>`,
+  gift:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M20 6h-2.18c.07-.31.18-.62.18-.93A3.07 3.07 0 0 0 14.93 2c-1.6 0-2.48 1.33-3.48 2.88C10.46 3.33 9.58 2 7.97 2A3.07 3.07 0 0 0 4.9 5.07c0 .31.11.62.18.93H3c-1.1 0-2 .9-2 2v2c0 1.1.9 2 2 2v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/></svg>`,
+  plane:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>`,
+  fashion:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M12 3c-1.2 5.4-4 6.93-4 9.5 0 2.49 1.79 4.5 4 4.5s4-2.01 4-4.5c0-2.57-2.8-4.1-4-9.5z"/></svg>`,
+  box:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M20.54 5.23l-1.39-1.68C18.88 3.21 18.47 3 18 3H6c-.47 0-.88.21-1.16.55L3.46 5.23C3.17 5.57 3 6.02 3 6.5V19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6.5c0-.48-.17-.93-.46-1.27zM12 17.5L6.5 12H10v-2h4v2h3.5L12 17.5zM5.12 5l.81-1h12l.94 1H5.12z"/></svg>`,
+  pin:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>`,
+  lightning:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>`,
+  creditcard:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>`,
+  heart:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`,
+};
+function _getCatSVG(name){
+  const n=(name||'').toLowerCase();
+  if(n.includes('식비')||n.includes('음식')||n.includes('외식')||n.includes('🍚')||n.includes('🍜'))return _SVG_ICONS.food;
+  if(n.includes('교통')||n.includes('차량')||n.includes('🚗'))return _SVG_ICONS.car;
+  if(n.includes('통신')||n.includes('📱'))return _SVG_ICONS.phone;
+  if(n.includes('쇼핑')||n.includes('생활용품')||n.includes('🛍')||n.includes('🛒'))return _SVG_ICONS.bag;
+  if(n.includes('주거')||n.includes('공과')||n.includes('생활')||n.includes('🏠'))return _SVG_ICONS.home;
+  if(n.includes('문화')||n.includes('취미')||n.includes('여가')||n.includes('🎬')||n.includes('🎮'))return _SVG_ICONS.culture;
+  if(n.includes('의료')||n.includes('건강')||n.includes('💊')||n.includes('💪'))return _SVG_ICONS.health;
+  if(n.includes('저축')||n.includes('금융')||n.includes('투자')||n.includes('🏦')||n.includes('💳'))return _SVG_ICONS.wallet;
+  if(n.includes('수입')||n.includes('급여')||n.includes('💰')||n.includes('💴'))return _SVG_ICONS.money;
+  if(n.includes('경조사')||n.includes('🎁'))return _SVG_ICONS.gift;
+  if(n.includes('여행')||n.includes('✈'))return _SVG_ICONS.plane;
+  if(n.includes('패션')||n.includes('미용')||n.includes('👕')||n.includes('💄'))return _SVG_ICONS.fashion;
+  if(n.includes('기타')||n.includes('📦'))return _SVG_ICONS.box;
+  return _SVG_ICONS.pin;
+}
+function _categoryIcon(name){return _getCatSVG(name);}
 
 function _donutSVG(segments,total){
   const size=196,cx=98,cy=98,R=88,ri=58;
@@ -1251,19 +1276,18 @@ function renderDashDonut(y,m){
   }
   const maxAmt=segments[0]?segments[0].amount:1;
   legEl.innerHTML=segments.map(seg=>{
-    const pct=total>0?(seg.amount/total*100).toFixed(1):'0.0';
-    const barW=maxAmt>0?Math.max(4,Math.round(seg.amount/maxAmt*100)):4;
-    const icon=_categoryIcon(seg.name);
+    const barW=maxAmt>0?Math.max(6,Math.round(seg.amount/maxAmt*100)):6;
+    const svgIcon=_getCatSVG(seg.name);
+    const displayName=_stripCatEmoji(seg.name);
     return `<div class="dash-donut-legend-item2">
-      <div class="ddl2-top">
-        <span class="ddl2-icon">${icon}</span>
-        <span class="ddl2-name">${seg.name}</span>
-        <span class="ddl2-pct">${pct}%</span>
+      <div class="ddl2-header">
+        <span class="ddl2-icon" style="color:${seg.color};">${svgIcon}</span>
+        <span class="ddl2-name">${displayName}</span>
+        <span class="ddl2-amt">${fmt(seg.amount)}</span>
       </div>
       <div class="ddl2-bar-wrap">
-        <div class="ddl2-bar-fill" style="width:${barW}%;background:${seg.color};"></div>
+        <div class="ddl2-bar-fill" style="width:${barW}%;background:linear-gradient(90deg,${seg.color},${seg.color}33);"></div>
       </div>
-      <div class="ddl2-amt">${fmt(seg.amount)}</div>
     </div>`;
   }).join('');
 }
@@ -1293,38 +1317,39 @@ function toggleDashVarSection(){
 }
 
 // ===== DASHBOARD RECENT ENTRIES (RIGHT PANEL) =====
-const _ENTRY_CAT_COLORS_MAP={
+const _ENTRY_CAT_BG_MAP={
   '식비':'#FFEBE5','음식':'#FFEBE5','외식':'#FFEBE5',
-  '교통':'#E3F0FF','통신':'#E3F0FF','교통·통신':'#E3F0FF',
+  '교통':'#E3F0FF','통신':'#E3F0FF','교통·통신':'#E3F0FF','차량':'#E3F0FF',
   '쇼핑':'#FFF8E1','생활':'#FFF8E1','생활용품':'#FFF8E1',
-  '문화':'#F3EFFF','취미':'#F3EFFF','문화·취미':'#F3EFFF',
+  '문화':'#F3EFFF','취미':'#F3EFFF','문화·취미':'#F3EFFF','여가':'#F3EFFF',
   '주거':'#E6FBF5','공과금':'#E6FBF5','주거·공과금':'#E6FBF5',
   '의료':'#FFE4EE','건강':'#FFE4EE',
-  '저축':'#E1F9F7','금융':'#E1F9F7',
+  '저축':'#E1F9F7','금융':'#E1F9F7','투자':'#E1F9F7',
   '수입':'#E7FAF1','급여':'#E7FAF1',
+  '경조사':'#FFF0D4','여행':'#E8F4FF','패션':'#FFE8F0','미용':'#FFE8F0',
 };
-const _ENTRY_CAT_ICONS_MAP={
-  '식비':'🍚','음식':'🍜','외식':'🍜',
-  '교통':'🚇','통신':'📱','교통·통신':'🚇',
-  '쇼핑':'🛍️','생활':'🏠','생활용품':'🛒',
-  '문화':'🎬','취미':'🎮','문화·취미':'🎬',
-  '주거':'🏠','공과금':'💡','주거·공과금':'🏠',
-  '의료':'💊','건강':'💪',
-  '저축':'🏦','금융':'💳',
-  '수입':'💰','급여':'💴',
-};
-function _entryIconForCat(cat){
-  if(!cat)return '📌';
-  if(_ENTRY_CAT_ICONS_MAP[cat])return _ENTRY_CAT_ICONS_MAP[cat];
-  const found=Object.keys(_ENTRY_CAT_ICONS_MAP).find(k=>cat.includes(k));
-  return found?_ENTRY_CAT_ICONS_MAP[found]:'📌';
-}
+function _entryIconForCat(cat){return _getCatSVG(cat);}
 function _entryBgForCat(cat,type){
   if(type==='income')return '#E7FAF1';
   if(!cat)return '#EEE9FF';
-  if(_ENTRY_CAT_COLORS_MAP[cat])return _ENTRY_CAT_COLORS_MAP[cat];
-  const found=Object.keys(_ENTRY_CAT_COLORS_MAP).find(k=>cat.includes(k));
-  return found?_ENTRY_CAT_COLORS_MAP[found]:'#EEE9FF';
+  const n=(cat||'').toLowerCase();
+  const found=Object.keys(_ENTRY_CAT_BG_MAP).find(k=>n.includes(k.toLowerCase())||cat.includes(k));
+  return found?_ENTRY_CAT_BG_MAP[found]:'#EEE9FF';
+}
+function _entryColorForCat(cat,type){
+  if(type==='income')return '#1AAD6E';
+  const n=(cat||'').toLowerCase();
+  if(n.includes('식비')||n.includes('음식')||n.includes('외식'))return '#E64A19';
+  if(n.includes('교통')||n.includes('차량'))return '#1976D2';
+  if(n.includes('쇼핑')||n.includes('생활용품'))return '#F9A825';
+  if(n.includes('문화')||n.includes('취미')||n.includes('여가'))return '#7B1FA2';
+  if(n.includes('주거')||n.includes('공과'))return '#00796B';
+  if(n.includes('의료')||n.includes('건강'))return '#C2185B';
+  if(n.includes('저축')||n.includes('금융')||n.includes('투자'))return '#00838F';
+  if(n.includes('여행')||n.includes('✈'))return '#1565C0';
+  if(n.includes('패션')||n.includes('미용'))return '#AD1457';
+  if(n.includes('경조사'))return '#E65100';
+  return '#6B5CE7';
 }
 function _entryDateLabel(dateStr){
   if(!dateStr)return '';
@@ -1359,35 +1384,28 @@ function renderDashRecentEntries(y,m){
     return (b.id||0)-(a.id||0);
   });
 
-  // 오늘 기준 3일 이내 항목만 표시
-  const today=new Date();
-  const todayMs=new Date(today.getFullYear(),today.getMonth(),today.getDate()).getTime();
-  const entries=all.filter(e=>{
-    if(!e.date)return false;
-    const d=new Date(e.date);
-    const dMs=new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime();
-    const diff=Math.round((todayMs-dMs)/(1000*60*60*24));
-    return diff>=0&&diff<=6;
-  });
+  // [수정] 날짜 필터 제거 → 해당 월의 모든 항목을 최신순으로 표시 (최대 10개)
+  const entries=all.slice(0,10);
 
   if(entries.length===0){
-    el.innerHTML='<div style="color:var(--text-sub);font-size:13px;text-align:center;padding:32px 16px;line-height:1.7;">최근 7일 내역이 없어요 😊<br><span style="font-size:11px;">더 보기로 전체 내역 확인</span></div>';
+    el.innerHTML='<div style="color:var(--text-sub);font-size:13px;text-align:center;padding:32px 16px;line-height:1.7;">이 달 내역이 없어요 😊<br><span style="font-size:11px;">더 보기로 전체 내역 확인</span></div>';
     return;
   }
   el.innerHTML=entries.map(e=>{
-    const icon=_entryIconForCat(e.category);
+    const svgIcon=_entryIconForCat(e.category);
     const bg=_entryBgForCat(e.category,e.type);
+    const iconColor=_entryColorForCat(e.category,e.type);
     const sign=e.type==='income'?'+':'-';
     const cls=e.type==='income'?'income':'expense';
     const dateLabel=_entryDateLabel(e.date||'');
     const memo=e.memo||e.category||'';
     const shortMemo=memo.length>20?memo.slice(0,19)+'…':memo;
-    const shortCat=e.category||'';
+    const displayCat=_stripCatEmoji(e.category||'');
     return `<div class="dash-entry-card">
-      <div class="dash-entry-icon" style="background:${bg};">${icon}</div>
+      <div class="dash-entry-icon" style="background:${bg};color:${iconColor};">${svgIcon}</div>
       <div class="dash-entry-info">
         <div class="dash-entry-name">${shortMemo}</div>
-        <div class="dash-entry-meta">${shortCat}${shortCat&&dateLabel?' · ':''}${dateLabel}</div>
+        <div class="dash-entry-meta">${displayCat}${displayCat&&dateLabel?' · ':''}${dateLabel}</div>
       </div>
       <div class="dash-entry-amount ${cls}">${sign}${fmt(e.amount)}</div>
     </div>`;
@@ -3301,9 +3319,9 @@ function renderLedger(){
         ${items.map(e=>{
           const cc=getCategoryColor(e.category);
           const tagPills=(e.tags&&e.tags.length>0)?e.tags.map(t=>{const col=getTagColorForCategory(e.category);return `<span class="ledger-tag-pill" style="--tag-bg:${col.bg};--tag-color:${col.color};" onclick="event.stopPropagation();App.setTagFilter('${t}')">#${t}</span>`;}).join(''):'';
-          const creditBadge=e.creditAutoId?`<span class="ledger-credit-auto-badge" style="--cat-strip:${cc.strip};">💳 신용카드 자동</span>`:'';
-          const savingsBadge=(e.tags||[]).includes('저축')?`<span class="ledger-savings-badge">♥저축</span>`:'';
-          const autoLedgerBadge=e.autoLedgerId?`<span class="ledger-auto-ledger-badge">⚡ 자동화</span>`:'';
+          const creditBadge=e.creditAutoId?`<span class="ledger-credit-auto-badge" style="--cat-strip:${cc.strip};"><span class="badge-svg-icon" style="color:${cc.strip};">${_SVG_ICONS.creditcard}</span>신용카드 자동</span>`:'';
+          const savingsBadge=(e.tags||[]).includes('저축')?`<span class="ledger-savings-badge"><span class="badge-svg-icon" style="color:#E8627A;">${_SVG_ICONS.heart}</span>저축</span>`:'';
+          const autoLedgerBadge=e.autoLedgerId?`<span class="ledger-auto-ledger-badge"><span class="badge-svg-icon" style="color:#F9A825;">${_SVG_ICONS.lightning}</span>자동화</span>`:'';
           return `
           <div class="ledger-entry ${e.type} item-hover-edit" style="--cat-strip:${cc.strip};--cat-bg:${cc.bg};--cat-color:${cc.color};" onclick="App.openEditLedgerModal('${key}',${e.id})">
             <div class="ledger-cat-strip"></div>
@@ -4093,7 +4111,7 @@ function renderAutoList(){
   let summaryParts=[];
   if(totalOut>0)summaryParts.push(`<span style="color:var(--red);">지출 <strong>${fmt(totalOut)}</strong></span>`);
   if(totalIn>0)summaryParts.push(`<span style="color:var(--green);">수입 <strong>${fmt(totalIn)}</strong></span>`);
-  const summary=summaryParts.length>0?`<div class="auto-summary-bar">⚡ 활성 자동화 월 합계: ${summaryParts.join(' · ')}</div>`:'';
+  const summary=summaryParts.length>0?`<div class="auto-summary-bar"><span class="badge-svg-icon" style="color:#F9A825;vertical-align:middle;">${_SVG_ICONS.lightning}</span> 활성 자동화 월 합계: ${summaryParts.join(' · ')}</div>`:'';
   el.innerHTML=summary+automations.map(a=>`
     <div class="auto-card ${a.active===false?'auto-inactive':''}">
       <div class="auto-card-left">
