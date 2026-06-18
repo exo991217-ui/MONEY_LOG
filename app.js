@@ -2378,18 +2378,26 @@ let currentFoodPanel=null;
 
 // 금액에 따른 범례 스타일 반환
 function _getAmountLegendStyle(amount,ft){
-  const legend=S.calAmountLegend||DEFAULT_DATA().calAmountLegend;
-  let matched=legend[0];
+  if(!amount||amount<=0)return {bg:'',color:'',border:''};
+  const legend=(S&&S.calAmountLegend)||DEFAULT_DATA().calAmountLegend;
+  let matched=null;
   for(let i=0;i<legend.length;i++){
     if(amount>=(legend[i].min||0))matched=legend[i];
   }
-  if(!matched||matched.type==='none'||!amount)return {bg:'',color:'',border:''};
+  if(!matched||matched.type==='none')return {bg:'',color:'',border:''};
   if(matched.type==='theme-light')return {bg:ft.bg,color:ft.t1,border:ft.border};
-  if(matched.type==='theme-mid'){
-    // 테마 미드: t1과 bg 사이 중간 느낌
-    return {bg:ft.mid||ft.bg,color:ft.t1,border:ft.border};
-  }
+  if(matched.type==='theme-mid')return {bg:ft.mid||ft.bg,color:ft.t1,border:ft.border};
   return {bg:matched.bg||'',color:matched.color||'',border:''};
+}
+
+// 날짜별 소비 금액 계산 (가계부 지출 + 자동화) — renderFood 외부에서도 사용 가능
+function _getDaySpendAmount(d, ledgerEntries, activeAutos){
+  const ledgerAmt=ledgerEntries.filter(e=>{
+    const ed=parseInt((e.date||'').split('-')[2])||0;
+    return ed===d;
+  }).reduce((s,e)=>s+(e.amount||0),0);
+  const autoAmt=activeAutos.filter(a=>(parseInt(a.billingDay)||1)===d).reduce((s,a)=>s+(Number(a.amount)||0),0);
+  return ledgerAmt+autoAmt;
 }
 
 function renderFood(){
@@ -2432,17 +2440,7 @@ function renderFood(){
     return !(cm.y<startY||(cm.y===startY&&cm.m<startM));
   });
 
-  // 날짜별 소비 금액 (가계부 + 자동화) 계산
-  function getDaySpend(d){
-    const ledgerAmt=ledgerEntries.filter(e=>{
-      const ed=parseInt((e.date||'').split('-')[2])||0;
-      return ed===d;
-    }).reduce((s,e)=>s+e.amount,0);
-    const autoAmt=activeAutos.filter(a=>(a.billingDay||1)===d).reduce((s,a)=>s+(Number(a.amount)||0),0);
-    return ledgerAmt+autoAmt;
-  }
-
-  const spendMode=!!S.calSpendMode;
+  const spendMode=S.calSpendMode===true;
 
   // 모든 셀 목록 (앞 빈칸 + 날짜 + 뒤 빈칸)
   const allCells=[];
@@ -2467,46 +2465,45 @@ function renderFood(){
 
     // 식비 캘린더 주합계
     const foodWeekTotal=rowDays.reduce((s,d)=>s+(Number((days[d]||{}).amount)||0),0);
-    // 소비 주합계 (가계부 + 자동화) — 이전에 가계부만 합산하던 부분 수정
-    const ledgerWeekTotal=rowDays.reduce((s,d)=>s+getDaySpend(d),0);
+    // 소비 주합계 (가계부 + 자동화)
+    const ledgerWeekTotal=rowDays.reduce((s,d)=>s+_getDaySpendAmount(d,ledgerEntries,activeAutos),0);
 
     const rowHTML=rowCells.map(cell=>{
       if(cell.type==='empty')return '<div class="food-day empty"></div>';
       const{d,dow,dd,isOpen,autos}=cell;
       const isToday=_isThisMonth&&d===_todayD;
-
-      // 오늘 날짜: 해당 월 테마색 배경, 외곽선 없음
-      const todayStyle=isToday
-        ?`background:${ft.t1};`
-        :'';
-      const todayNumStyle=isToday
-        ?`color:white;font-weight:900;`
-        :'';
+      const todayInlineStyle=isToday?`background:${ft.t1};`:'';
+      const todayNumInlineStyle=isToday?'color:white;font-weight:900;':'';
+      const sunStyle=!isToday&&dow===0?'color:var(--red);':'';
+      const satStyle=!isToday&&dow===6?'color:var(--blue);':'';
 
       if(spendMode){
-        // 소비금액 보기 모드: 날짜 + 소비금액만 표시
-        const daySpend=getDaySpend(d);
-        const ls=daySpend>0?_getAmountLegendStyle(daySpend,ft):{bg:'',color:'',border:''};
-        const cellBg=isToday?ft.t1:(ls.bg||'');
-        const cellColor=isToday?'white':(ls.color||'var(--text-sub)');
-        const cellBorder=ls.border&&!isToday?`border:1.5px solid ${ls.border};`:'';
-        const spendStr=daySpend>0?`<div class="food-day-spend-amount" style="color:${isToday?'rgba(255,255,255,0.95)':ls.color||'var(--text-main)'};">₩ ${daySpend.toLocaleString('ko-KR')}</div>`:'<div class="food-day-spend-zero">₩ 0</div>';
-        return `<div class="food-day food-day-spend-mode${isOpen?' panel-open':''}${isToday?' today-theme':''}" style="background:${cellBg};${cellBorder}" onclick="App.toggleFoodPanel(${d})" title="클릭하여 편집">
+        const daySpend=_getDaySpendAmount(d,ledgerEntries,activeAutos);
+        const ls=_getAmountLegendStyle(daySpend,ft);
+        const cellBg=isToday?ft.t1:(ls.bg||'var(--bg)');
+        const cellBorderStyle=ls.border&&!isToday?`border:1.5px solid ${ls.border};`:'';
+        const amtColor=isToday?'rgba(255,255,255,0.9)':(ls.color||'var(--text-sub)');
+        const spendStr=daySpend>0
+          ?`<div class="food-day-spend-amount" style="color:${amtColor};">₩&nbsp;${daySpend.toLocaleString('ko-KR')}</div>`
+          :`<div class="food-day-spend-zero">—</div>`;
+        return `<div class="food-day food-day-spend-mode${isOpen?' panel-open':''}${isToday?' today-theme':''}" style="background:${cellBg};${cellBorderStyle}" onclick="App.toggleFoodPanel(${d})" title="${d}일 클릭하여 편집">
           <div class="food-day-header-row">
-            <div class="food-day-num ${dow===0?'sun':dow===6?'sat':''}" style="${todayNumStyle}${isToday?'':''}${!isToday&&dow===0?'color:var(--red);':''}${!isToday&&dow===6?'color:var(--blue)':''}">${d}</div>
+            <div class="food-day-num ${dow===0?'sun':dow===6?'sat':''}" style="${todayNumInlineStyle}${sunStyle}${satStyle}">${d}</div>
           </div>
           ${spendStr}
         </div>`;
       }
 
       // 기본 모드 (식단/메모/일정 보기)
-      const autosHtml=(autos&&autos.length>0)
+      const hasAutoThisDay=autos&&autos.length>0;
+      const autosDot=hasAutoThisDay?`<span class="food-auto-dot" title="${autos.map(a=>a.memo||a.name||'자동화').join(', ')}">●</span>`:'';
+      const autosHtml=hasAutoThisDay
         ?autos.map(a=>`<span class="food-auto-badge">💸 ${a.memo||a.name||''}</span>`).join('')
         :'';
-      return `<div class="food-day${isOpen?' panel-open':''}${autos&&autos.length>0?' has-auto':''}${isToday?' today-theme':''}" style="${todayStyle}" onclick="App.toggleFoodPanel(${d})" title="클릭하여 편집">
+      return `<div class="food-day${isOpen?' panel-open':''}${isToday?' today-theme':''}" style="${todayInlineStyle}" onclick="App.toggleFoodPanel(${d})" title="${d}일 클릭하여 편집">
         <div class="food-day-header-row">
-          <div class="food-day-num ${dow===0?'sun':dow===6?'sat':''}" style="${todayNumStyle}">${d}</div>
-          ${autosHtml}
+          <div class="food-day-num ${dow===0?'sun':dow===6?'sat':''}" style="${todayNumInlineStyle}">${d}</div>
+          ${autosDot}${autosHtml}
         </div>
         ${dd.special?`<div class="food-special-tag">${dd.special}</div>`:''}
         ${dd.memo?`<div class="food-memo">${dd.memo}</div>`:''}
@@ -2520,15 +2517,25 @@ function renderFood(){
       <div class="food-week-totals">
         ${!spendMode&&foodWeekTotal>0?`<span class="food-week-chip food-week-food" style="background:${ft.light};color:${ft.color};">식비 ${fmt(foodWeekTotal)}</span>`:''}
         ${ledgerWeekTotal>0?`<span class="food-week-chip food-week-ledger">소비 ${fmt(ledgerWeekTotal)}</span>`:''}
-        ${(spendMode?ledgerWeekTotal:foodWeekTotal+ledgerWeekTotal)===0?`<span class="food-week-none">기록 없음</span>`:''}
+        ${(!spendMode&&foodWeekTotal===0&&ledgerWeekTotal===0)||(spendMode&&ledgerWeekTotal===0)?`<span class="food-week-none">기록 없음</span>`:''}
       </div>
     </div>`;
   }
 
   // 범례 HTML 생성
-  const legendHTML=_buildLegendBar(ft);
+  let legendHTML='';
+  try{legendHTML=_buildLegendBar(ft);}catch(e){legendHTML='';}
+
+  // 소비 모드 배너
+  const spendBanner=spendMode
+    ?`<div class="cal-spend-mode-banner" style="background:linear-gradient(135deg,${ft.t1}18,${ft.t2}22);border-bottom:2px solid ${ft.t1}44;color:${ft.t1};">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        소비 금액 보기 모드 — 날짜별 지출액(가계부+자동화)이 표시됩니다
+      </div>`
+    :'';
 
   document.getElementById('food-calendar').innerHTML=`
+    ${spendBanner}
     <div class="food-cal-header" style="background:${ft.light};">
       ${dowLabels.map((d,i)=>`<div class="food-cal-dow ${i===0?'sun':i===6?'sat':''}">${d}</div>`).join('')}
     </div>
@@ -4358,7 +4365,10 @@ function renderMonthlyArchive(){
       </div>`;
     }).join('');
     const top5Expenses=(snap.ledgerEntries||[])
-      .filter(e=>e.type==='expense'&&!e.creditAutoId)
+      .filter(e=>e.type==='expense'&&!e.creditAutoId
+        &&!(e.category||'').includes('주거')
+        &&!(e.category||'').includes('공과')
+        &&!(e.category||'').includes('금융'))
       .sort((a,b)=>b.amount-a.amount)
       .slice(0,5);
     const ledRows=top5Expenses.map((e,i)=>{
@@ -4373,16 +4383,21 @@ function renderMonthlyArchive(){
         <span class="arch-led-amount" style="color:var(--red);">-${fmt(e.amount)}</span>
       </div>`;
     }).join('');
-    const totalEntries=(snap.ledgerEntries||[]).filter(e=>e.type==='expense'&&!e.creditAutoId).length;
+    const totalEntries=(snap.ledgerEntries||[]).filter(e=>e.type==='expense'&&!e.creditAutoId
+      &&!(e.category||'').includes('주거')
+      &&!(e.category||'').includes('공과')
+      &&!(e.category||'').includes('금융')).length;
     return `<div class="arch-card" id="arch-card-${key}">
       <div class="arch-card-header" style="background:linear-gradient(135deg,${theme.t1}18,${theme.t2}22);border-bottom:2px solid ${theme.t2}44;" onclick="App._toggleArchiveCard('${key}')">
         <div class="arch-card-title">
-          <span class="arch-month-badge" style="background:linear-gradient(135deg,${theme.t1},${theme.t2});">${y}년 ${m}월</span>
-          ${snap.note?`<span class="arch-note-preview">"${snap.note}"</span>`:''}
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span class="arch-month-badge" style="background:linear-gradient(135deg,${theme.t1},${theme.t2});">${y}년 ${m}월</span>
+            <span class="arch-closed-date">📋 ${closedDate} 마감</span>
+            <span class="arch-sr-badge" style="color:${srColor};background:${srColor}18;">저축률 ${sr}%</span>
+          </div>
+          ${snap.note?`<div class="arch-note-preview" style="color:${theme.t1};">${snap.note}</div>`:''}
         </div>
         <div class="arch-card-meta">
-          <span class="arch-closed-date">📋 ${closedDate} 마감</span>
-          <span class="arch-sr-badge" style="color:${srColor};background:${srColor}18;">저축률 ${sr}%</span>
           <span class="arch-expand-arrow" id="arch-arrow-${key}">∨</span>
         </div>
       </div>
