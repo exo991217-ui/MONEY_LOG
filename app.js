@@ -68,7 +68,7 @@ const DEFAULT_DATA=()=>{
   calSpendMode:false,
   calAmountLegend:[
     {min:0,      max:0,      type:'none',       label:'0원'},
-    {min:1,      max:9999,   type:'theme-light', label:'~1만원'},
+    {min:1,      max:9999,   type:'theme-ultralight', label:'~1만원'},
     {min:10000,  max:49999,  type:'theme-mid',   label:'1만~5만원'},
     {min:50000,  max:99999,  bg:'#FFF9C4', color:'#F57F17', label:'5만~10만원'},
     {min:100000, max:199999, bg:'#C8E6C9', color:'#2E7D32', label:'10만~20만원'},
@@ -112,6 +112,8 @@ function loadState(){
       if(!S.ledgerCategories)S.ledgerCategories=DEFAULT_DATA().ledgerCategories;
       if(S.calSpendMode===undefined)S.calSpendMode=false;
       if(!S.calAmountLegend)S.calAmountLegend=DEFAULT_DATA().calAmountLegend;
+      // Migrate 1원~1만원 tier to theme-ultralight
+      if(!S._callegend_ultra_v1){if(S.calAmountLegend&&S.calAmountLegend[1]&&S.calAmountLegend[1].type==='theme-light')S.calAmountLegend[1].type='theme-ultralight';S._callegend_ultra_v1=true;}
       // Migrate fundCalc: add assetLinked field
       if(!S.fundCalc)S.fundCalc={amount:0,items:[],assetLinked:false,assetLinkedAt:null,linkedAssetIds:[]};
       if(S.fundCalc.assetLinked===undefined)S.fundCalc.assetLinked=false;
@@ -264,6 +266,8 @@ window.FB_MERGE = function(fbData) {
     if(!S.ledgerCategories)S.ledgerCategories=D.ledgerCategories;
     if(S.calSpendMode===undefined)S.calSpendMode=false;
     if(!S.calAmountLegend)S.calAmountLegend=D.calAmountLegend;
+    // Migrate 1원~1만원 tier to theme-ultralight
+    if(!S._callegend_ultra_v1){if(S.calAmountLegend&&S.calAmountLegend[1]&&S.calAmountLegend[1].type==='theme-light')S.calAmountLegend[1].type='theme-ultralight';S._callegend_ultra_v1=true;}
     if(S.stockAssetDirect===undefined)S.stockAssetDirect=false;
     if(S.stockAssetAutoId===undefined)S.stockAssetAutoId=null;
     if(!S.calFoodSync)S.calFoodSync={};
@@ -2385,6 +2389,7 @@ function _getAmountLegendStyle(amount,ft){
     if(amount>=(legend[i].min||0))matched=legend[i];
   }
   if(!matched||matched.type==='none')return {bg:'',color:'',border:''};
+  if(matched.type==='theme-ultralight')return {bg:ft.t1+'11',color:ft.t1,border:ft.t1+'22'};
   if(matched.type==='theme-light')return {bg:ft.bg,color:ft.t1,border:ft.border};
   if(matched.type==='theme-mid')return {bg:ft.mid||ft.bg,color:ft.t1,border:ft.border};
   return {bg:matched.bg||'',color:matched.color||'',border:''};
@@ -2524,9 +2529,9 @@ function renderFood(){
     </div>`;
   }
 
-  // 범례 HTML 생성
+  // 범례 HTML 생성 (소비금액 표시 모드일 때만)
   let legendHTML='';
-  try{legendHTML=_buildLegendBar(ft);}catch(e){legendHTML='';}
+  if(spendMode){try{legendHTML=_buildLegendBar(ft);}catch(e){legendHTML='';}}
 
   // 소비 모드 배너
   const spendBanner=spendMode
@@ -2589,6 +2594,8 @@ function _buildLegendBar(ft){
     let swatch='';
     if(tier.type==='none'||(!tier.bg&&!tier.type)){
       swatch=`<span class="cal-legend-swatch" style="background:white;border:1.5px solid #DDD;"></span>`;
+    } else if(tier.type==='theme-ultralight'){
+      swatch=`<span class="cal-legend-swatch" style="background:${ft.t1}11;border:1.5px solid ${ft.t1}22;"></span>`;
     } else if(tier.type==='theme-light'){
       swatch=`<span class="cal-legend-swatch" style="background:${ft.bg};border:1.5px solid ${ft.border};"></span>`;
     } else if(tier.type==='theme-mid'){
@@ -2612,49 +2619,124 @@ function _buildLegendBar(ft){
 function openLegendSettings(){
   const legend=S.calAmountLegend||DEFAULT_DATA().calAmountLegend;
   const ft=getMonthTheme(S.currentMonths.food.m);
+
+  const TYPE_OPTIONS=[
+    {value:'none',        label:'없음'},
+    {value:'theme-ultralight', label:'초연(테마)'},
+    {value:'theme-light', label:'라이트(테마)'},
+    {value:'theme-mid',   label:'미드(테마)'},
+    {value:'custom',      label:'직접 지정'},
+  ];
+
   const rows=legend.map((tier,i)=>{
-    const isTheme=tier.type==='theme-light'||tier.type==='theme-mid';
-    const bgVal=isTheme?(tier.type==='theme-light'?ft.bg:ft.mid||ft.bg):(tier.bg||'#ffffff');
-    const colorVal=isTheme?ft.t1:(tier.color||'#333333');
-    return `<div class="legend-edit-row" data-idx="${i}">
-      <div class="legend-edit-label-wrap">
-        <input class="legend-edit-label form-input" style="width:100px;" value="${tier.label}" placeholder="라벨"/>
+    const isTheme=tier.type==='theme-ultralight'||tier.type==='theme-light'||tier.type==='theme-mid';
+    const curType=(!tier.type||tier.type==='')?(tier.bg?'custom':'none'):tier.type;
+    const effectiveType=isTheme?curType:'custom'===curType?'custom':curType;
+    const typeOpts=TYPE_OPTIONS.map(o=>`<option value="${o.value}"${(curType===o.value||(curType!='none'&&!isTheme&&curType!='theme-ultralight'&&curType!='theme-light'&&curType!='theme-mid'&&o.value==='custom'))?'selected':''}>${o.label}</option>`).join('');
+    const showCustom=!isTheme&&curType!='none';
+    return `<div class="legend-edit-row" data-idx="${i}" style="display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:10px;border:1.5px solid var(--border);background:var(--bg);">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <input class="legend-edit-label form-input" style="width:96px;flex-shrink:0;" value="${tier.label.replace(/"/g,'&quot;')}" placeholder="라벨" oninput="App._refreshLegendPreview()"/>
+        <input class="legend-edit-min form-input" type="number" style="width:82px;flex-shrink:0;" value="${tier.min||0}" placeholder="최소" oninput="App._refreshLegendPreview()"/>
+        <span style="font-size:12px;color:#999;flex-shrink:0;">~</span>
+        <input class="legend-edit-max form-input" type="number" style="width:82px;flex-shrink:0;" value="${tier.max>=99999999?'':tier.max}" placeholder="무제한" oninput="App._refreshLegendPreview()"/>
       </div>
-      <div class="legend-edit-range-wrap" style="display:flex;gap:6px;align-items:center;flex:1;">
-        <input class="legend-edit-min form-input" type="number" style="width:90px;" value="${tier.min||0}" placeholder="최소금액"/>
-        <span style="font-size:12px;color:#999;">~</span>
-        <input class="legend-edit-max form-input" type="number" style="width:90px;" value="${tier.max>=99999999?'':tier.max}" placeholder="최대(비우면 무제한)"/>
-      </div>
-      <div class="legend-edit-color-wrap" style="display:flex;gap:6px;align-items:center;">
-        ${isTheme
-          ?`<span style="font-size:11px;color:${ft.t1};font-weight:700;background:${ft.bg};border:1.5px solid ${ft.border};border-radius:8px;padding:3px 8px;">월 테마색</span>`
-          :`<label style="font-size:11px;color:var(--text-sub);">배경</label><input type="color" class="legend-edit-bg" value="${tier.bg||'#ffffff'}" style="width:34px;height:28px;border-radius:6px;border:1.5px solid var(--border);cursor:pointer;padding:2px;"/>
-           <label style="font-size:11px;color:var(--text-sub);">글자</label><input type="color" class="legend-edit-color" value="${tier.color||'#333333'}" style="width:34px;height:28px;border-radius:6px;border:1.5px solid var(--border);cursor:pointer;padding:2px;"/>`
-        }
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <select class="legend-edit-type form-input" style="font-size:12px;padding:4px 8px;flex-shrink:0;" onchange="App._onLegendTypeChange(this,${i})">
+          ${typeOpts}
+        </select>
+        <div class="legend-custom-colors" style="display:${showCustom?'flex':'none'};gap:6px;align-items:center;">
+          <label style="font-size:11px;color:var(--text-sub);">배경</label>
+          <input type="color" class="legend-edit-bg" value="${tier.bg||'#ffffff'}" style="width:34px;height:28px;border-radius:6px;border:1.5px solid var(--border);cursor:pointer;padding:2px;" oninput="App._refreshLegendPreview()"/>
+          <label style="font-size:11px;color:var(--text-sub);">글자</label>
+          <input type="color" class="legend-edit-color" value="${tier.color||'#333333'}" style="width:34px;height:28px;border-radius:6px;border:1.5px solid var(--border);cursor:pointer;padding:2px;" oninput="App._refreshLegendPreview()"/>
+        </div>
+        <div class="legend-theme-preview" style="display:${isTheme?'flex':'none'};align-items:center;gap:4px;">
+          <span style="font-size:11px;color:${ft.t1};font-weight:700;background:${ft.bg};border:1.5px solid ${ft.border};border-radius:8px;padding:3px 8px;">월 테마 자동 적용</span>
+        </div>
       </div>
     </div>`;
   }).join('');
 
   const modal=document.getElementById('modal-overlay');
   if(!modal)return;
+  modal.classList.add('active');
   modal.style.display='flex';
-  modal.innerHTML=`<div class="modal active" style="max-width:560px;width:95%;padding:28px 26px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+  modal.style.alignItems='center';
+  modal.style.justifyContent='center';
+  modal.innerHTML=`<div class="modal active" style="max-width:580px;width:96%;padding:26px 24px;position:relative;top:auto;left:auto;transform:none;" onclick="event.stopPropagation()">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
       <div style="font-size:16px;font-weight:800;color:var(--text-main);">📊 금액 범례 수정</div>
       <button onclick="App.closeModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text-sub);padding:4px 8px;border-radius:8px;">✕</button>
     </div>
-    <div style="font-size:12px;color:var(--text-sub);margin-bottom:16px;line-height:1.6;">
-      각 구간의 라벨, 최소/최대 금액, 배경·글자 색상을 수정하세요.<br>
-      <span style="color:#A29BFE;font-weight:600;">월 테마색</span>은 매월 자동으로 변경됩니다.
+    <div style="font-size:12px;color:var(--text-sub);margin-bottom:12px;line-height:1.6;">
+      구간별 라벨·금액범위·색상 타입을 설정하세요. <span style="color:#A29BFE;font-weight:600;">테마색</span>은 매월 자동 변경됩니다.
     </div>
-    <div style="display:flex;flex-direction:column;gap:10px;max-height:380px;overflow-y:auto;padding-right:4px;" id="legend-edit-rows">
+    <div style="display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto;padding-right:4px;" id="legend-edit-rows">
       ${rows}
     </div>
-    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px;border-top:1.5px solid var(--border);padding-top:16px;">
+    <div style="margin-top:14px;padding:10px 14px;border-radius:10px;background:var(--bg);border:1.5px solid var(--border);">
+      <div style="font-size:11px;color:var(--text-sub);font-weight:600;margin-bottom:6px;">미리보기</div>
+      <div id="legend-live-preview"></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;border-top:1.5px solid var(--border);padding-top:14px;">
       <button class="backup-btn" onclick="App.closeModal()">취소</button>
       <button class="add-btn primary btn-save" onclick="App.saveLegendSettings()">저장</button>
     </div>
   </div>`;
+
+  // 초기 미리보기 렌더
+  _refreshLegendPreview();
+}
+
+// 범례 타입 변경 시 색상 피커 토글 + 미리보기 업데이트
+function _onLegendTypeChange(sel, idx){
+  const row=sel.closest('.legend-edit-row');
+  const customDiv=row.querySelector('.legend-custom-colors');
+  const themeDiv=row.querySelector('.legend-theme-preview');
+  const isTheme=sel.value==='theme-ultralight'||sel.value==='theme-light'||sel.value==='theme-mid';
+  const isNone=sel.value==='none';
+  customDiv.style.display=(!isTheme&&!isNone)?'flex':'none';
+  themeDiv.style.display=isTheme?'flex':'none';
+  _refreshLegendPreview();
+}
+
+// 실시간 미리보기 업데이트
+function _refreshLegendPreview(){
+  const previewEl=document.getElementById('legend-live-preview');
+  if(!previewEl)return;
+  const ft=getMonthTheme(S.currentMonths.food.m);
+  const rows=document.querySelectorAll('#legend-edit-rows .legend-edit-row');
+  const tempLegend=[];
+  rows.forEach((row,i)=>{
+    const label=(row.querySelector('.legend-edit-label')||{}).value||'';
+    const minV=parseInt((row.querySelector('.legend-edit-min')||{}).value)||0;
+    const maxRaw=(row.querySelector('.legend-edit-max')||{}).value;
+    const maxV=maxRaw===''?99999999:(parseInt(maxRaw)||99999999);
+    const typeEl=row.querySelector('.legend-edit-type');
+    const type=typeEl?typeEl.value:'none';
+    const bg=(row.querySelector('.legend-edit-bg')||{}).value||'#ffffff';
+    const color=(row.querySelector('.legend-edit-color')||{}).value||'#333333';
+    tempLegend.push({min:minV,max:maxV,type,label,bg,color});
+  });
+  if(!tempLegend.length){previewEl.innerHTML='';return;}
+
+  const items=tempLegend.map(tier=>{
+    let swatch='';
+    if(tier.type==='none'){
+      swatch=`<span class="cal-legend-swatch" style="background:white;border:1.5px solid #DDD;"></span>`;
+    } else if(tier.type==='theme-ultralight'){
+      swatch=`<span class="cal-legend-swatch" style="background:${ft.t1}11;border:1.5px solid ${ft.t1}22;"></span>`;
+    } else if(tier.type==='theme-light'){
+      swatch=`<span class="cal-legend-swatch" style="background:${ft.bg};border:1.5px solid ${ft.border};"></span>`;
+    } else if(tier.type==='theme-mid'){
+      swatch=`<span class="cal-legend-swatch" style="background:${ft.mid||ft.bg};border:1.5px solid ${ft.border};"></span>`;
+    } else {
+      swatch=`<span class="cal-legend-swatch" style="background:${tier.bg};border:1.5px solid ${tier.color};"></span>`;
+    }
+    return `<span class="cal-legend-item">${swatch}<span class="cal-legend-label">${tier.label}</span></span>`;
+  }).join('');
+  previewEl.innerHTML=`<div class="cal-legend-bar" style="flex-wrap:wrap;gap:6px;">${items}</div>`;
 }
 
 // 범례 설정 저장
@@ -2664,16 +2746,27 @@ function saveLegendSettings(){
   rows.forEach((row,i)=>{
     const tier=legend[i];
     if(!tier)return;
-    const label=row.querySelector('.legend-edit-label');
+    const labelEl=row.querySelector('.legend-edit-label');
     const minEl=row.querySelector('.legend-edit-min');
     const maxEl=row.querySelector('.legend-edit-max');
+    const typeEl=row.querySelector('.legend-edit-type');
     const bgEl=row.querySelector('.legend-edit-bg');
     const colorEl=row.querySelector('.legend-edit-color');
-    if(label)tier.label=label.value||tier.label;
+    if(labelEl)tier.label=labelEl.value||tier.label;
     if(minEl)tier.min=parseInt(minEl.value)||0;
     if(maxEl)tier.max=maxEl.value===''?99999999:(parseInt(maxEl.value)||tier.max);
-    if(bgEl)tier.bg=bgEl.value;
-    if(colorEl)tier.color=colorEl.value;
+    if(typeEl){
+      const t=typeEl.value;
+      if(t==='custom'){
+        tier.type='custom';
+        if(bgEl)tier.bg=bgEl.value;
+        if(colorEl)tier.color=colorEl.value;
+      } else {
+        tier.type=t;
+        // 테마/없음 선택 시 커스텀 색상 초기화
+        tier.bg='';tier.color='';
+      }
+    }
   });
   S.calAmountLegend=legend;
   saveState();
@@ -2931,7 +3024,10 @@ function openStockModal(){
 }
 
 function closeModal(){
-  document.getElementById('modal-overlay').classList.remove('active');
+  const ov=document.getElementById('modal-overlay');
+  ov.classList.remove('active');
+  ov.style.display='';
+  ov.innerHTML='';
   document.querySelectorAll('.modal').forEach(m=>m.classList.remove('active'));
 }
 
@@ -4390,17 +4486,13 @@ function renderMonthlyArchive(){
       &&!(e.category||'').includes('공과')
       &&!(e.category||'').includes('금융')).length;
     return `<div class="arch-card" id="arch-card-${key}">
-      <div class="arch-card-header" style="background:linear-gradient(135deg,${theme.t1}18,${theme.t2}22);border-bottom:2px solid ${theme.t2}44;" onclick="App._toggleArchiveCard('${key}')">
-        <div class="arch-card-title">
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-            <span class="arch-month-badge" style="background:linear-gradient(135deg,${theme.t1},${theme.t2});">${y}년 ${m}월</span>
-            <span class="arch-closed-date" style="color:${theme.t1};opacity:.7;">📋 ${closedDate} 마감</span>
-          </div>
-          ${snap.note?`<div class="arch-note-preview" style="color:${theme.t1};">${snap.note}</div>`:''}
+      <div class="arch-card-header" style="background:linear-gradient(135deg,${theme.t1}18,${theme.t2}22);" onclick="App._toggleArchiveCard('${key}')">
+        <span class="arch-month-badge" style="background:linear-gradient(135deg,${theme.t1},${theme.t2});flex-shrink:0;">${y}년 ${m}월</span>
+        <div class="arch-header-info">
+          <span class="arch-closed-date" style="color:${theme.t1};opacity:.7;">📋 ${closedDate}</span>
+          ${snap.note?`<span class="arch-note-inline" style="color:${theme.t1};" title="${snap.note}">${snap.note}</span>`:''}
         </div>
-        <div class="arch-card-meta" style="align-self:flex-start;padding-top:2px;">
-          <span class="arch-expand-arrow" id="arch-arrow-${key}">∨</span>
-        </div>
+        <span class="arch-expand-arrow" id="arch-arrow-${key}">∨</span>
       </div>
       <div class="arch-card-body" id="arch-body-${key}" style="display:none;">
         ${(()=>{
@@ -5264,7 +5356,7 @@ window.App={
   openCalModal,saveCalEvent,deleteCalEvent,editCalEvent,
   openSavingsModal,editSavingsGoal,saveSavingsGoal,deleteSavingsGoal,updateSavedAmount,pickSavingsColor,
   toggleFoodPanel,closeFoodPanel,saveFoodField,toggleFoodDirect,saveFoodDirect,
-  toggleCalSpendMode,openLegendSettings,saveLegendSettings,
+  toggleCalSpendMode,openLegendSettings,saveLegendSettings,_onLegendTypeChange,_refreshLegendPreview,
   saveThemeOpacity,toggleThemeOpacityLock,syncThemeSlider,
   toggleCardSettings,addCardSetting,deleteCardSetting,updateCardName,addRate,deleteRate,updateRate,
   calcInstallment,
