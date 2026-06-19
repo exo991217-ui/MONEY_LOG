@@ -2477,8 +2477,8 @@ function renderFood(){
       if(cell.type==='empty')return '<div class="food-day empty"></div>';
       const{d,dow,dd,isOpen,autos}=cell;
       const isToday=_isThisMonth&&d===_todayD;
-      // 오늘: 파스텔 mid 배경 + 테마 진한색 글자 + 테두리
-      const todayInlineStyle=isToday?`background:${ft.mid};border:2px solid ${ft.t1};`:'';
+      // 오늘: 외곽선만, 배경 없음
+      const todayInlineStyle=isToday?`border:2px solid ${ft.t1};`:'';
       const todayNumInlineStyle=isToday?`color:${ft.t1};font-weight:900;`:'';
       const sunStyle=!isToday&&dow===0?'color:var(--red);':'';
       const satStyle=!isToday&&dow===6?'color:var(--blue);':'';
@@ -2486,8 +2486,8 @@ function renderFood(){
       if(spendMode){
         const daySpend=_getDaySpendAmount(d,ledgerEntries,activeAutos);
         const ls=_getAmountLegendStyle(daySpend,ft);
-        // 오늘: 파스텔 mid, 나머지: 금액 tier 배경 (없으면 var(--card-bg))
-        const cellBg=isToday?ft.mid:(ls.bg||'var(--card-bg)');
+        // 오늘: 배경 없음(외곽선만), 나머지: 금액 tier 배경
+        const cellBg=isToday?'var(--card-bg)':(ls.bg||'var(--card-bg)');
         const amtColor=isToday?ft.t1:(ls.color||'var(--text-sub)');
         const spendStr=daySpend>0
           ?`<div class="food-day-spend-amount" style="color:${amtColor};">₩&nbsp;${daySpend.toLocaleString('ko-KR')}</div>`
@@ -2500,16 +2500,15 @@ function renderFood(){
         </div>`;
       }
 
-      // 기본 모드 (식단/메모/일정 보기)
+      // 기본 모드 (식단/메모/일정 보기) — 자동화 뱃지 제거, 점만 표시
       const hasAutoThisDay=autos&&autos.length>0;
-      const autosDot=hasAutoThisDay?`<span class="food-auto-dot" title="${autos.map(a=>a.memo||a.name||'자동화').join(', ')}">●</span>`:'';
-      const autosHtml=hasAutoThisDay
-        ?autos.map(a=>`<span class="food-auto-badge">💸 ${a.memo||a.name||''}</span>`).join('')
+      const autosDot=hasAutoThisDay
+        ?`<span class="food-auto-dot-wrap"><span class="food-auto-dot">●</span><span class="food-auto-dot-tip">${autos.map(a=>a.memo||a.name||'자동화').join(' · ')}</span></span>`
         :'';
       return `<div class="food-day${isOpen?' panel-open':''}${isToday?' today-theme':''}" style="${todayInlineStyle}" onclick="App.toggleFoodPanel(${d})" title="${d}일 클릭하여 편집">
         <div class="food-day-header-row">
           <div class="food-day-num ${dow===0?'sun':dow===6?'sat':''}" style="${todayNumInlineStyle}">${d}</div>
-          ${autosDot}${autosHtml}
+          ${autosDot}
         </div>
         ${dd.special?`<div class="food-special-tag">${dd.special}</div>`:''}
         ${dd.memo?`<div class="food-memo">${dd.memo}</div>`:''}
@@ -2844,7 +2843,6 @@ function toggleFoodPanel(d){
 function renderFoodPanel(d){
   const cm=S.currentMonths.food;
   const key=mkey(cm.y,cm.m);
-  const dd=(S.foodCalendar[key]||{})[d]||{};
   // Remove existing panel
   const existing=document.getElementById('food-inline-panel');
   if(existing)existing.remove();
@@ -2852,41 +2850,82 @@ function renderFoodPanel(d){
   const panel=document.createElement('div');
   panel.id='food-inline-panel';
   panel.className='food-inline-panel';
-  panel.innerHTML=`
-    <div class="food-panel-header">
-      <span>🍱 ${cm.y}년 ${cm.m}월 ${d}일 기록</span>
-      <button class="food-panel-close" onclick="App.closeFoodPanel()">✕ 닫기</button>
-    </div>
-    <div class="food-panel-fields">
-      <div class="food-panel-field">
-        <label>📌 특별 일정</label>
-        <div class="food-panel-input-row">
-          <input type="text" id="fp-special" class="form-input" value="${(dd.special||'').replace(/"/g,'&quot;')}" placeholder="연차, 생일파티..."
-            onkeydown="if(event.key==='Enter')App.saveFoodField(${d},'special')"/>
-          <button class="food-save-field-btn" onclick="App.saveFoodField(${d},'special')">저장</button>
-        </div>
-        <div class="food-field-feedback" id="fp-special-feedback"></div>
+
+  if(S.calSpendMode){
+    // 소비모드: 지출 목록 표시
+    const ledgerEntries=(S.ledger[key]||[]).filter(e=>e.type==='expense');
+    const activeAutos=(S.automations||[]).filter(a=>{
+      if(!a.active||a.type!=='expense')return false;
+      const startY=a.startYear||cm.y;const startM=a.startMonth||1;
+      return !(cm.y<startY||(cm.y===startY&&cm.m<startM));
+    });
+    const dateStr=`${cm.y}-${String(cm.m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dayEntries=ledgerEntries.filter(e=>e.date===dateStr);
+    const dayAutos=activeAutos.filter(a=>(a.billingDay||1)===d);
+    const total=dayEntries.reduce((s,e)=>s+(Number(e.amount)||0),0)
+      +dayAutos.reduce((s,a)=>s+(Number(a.amount)||0),0);
+    const cats=S.ledgerCategories||[];
+    const getCat=name=>cats.find(c=>c.name===name)||{strip:'#A29BFE',bg:'#F0EBFF',color:'#6C5CE7'};
+    const autoRows=dayAutos.map(a=>`
+      <div class="food-spend-row food-spend-auto">
+        <div class="food-spend-row-left"><span class="food-spend-auto-badge">자동</span><span class="food-spend-memo">💸 ${a.memo||a.name||'자동화'}</span></div>
+        <div class="food-spend-amt">₩${(Number(a.amount)||0).toLocaleString('ko-KR')}</div>
+      </div>`).join('');
+    const entryRows=dayEntries.map(e=>{
+      const cc=getCat(e.category);
+      return `<div class="food-spend-row" style="--cat-strip:${cc.strip};">
+        <div class="food-spend-row-left"><span class="food-spend-cat-dot" style="background:${cc.strip};"></span><span class="food-spend-memo">${e.category||''} ${e.memo?`· ${e.memo}`:''}</span></div>
+        <div class="food-spend-amt">₩${(Number(e.amount)||0).toLocaleString('ko-KR')}</div>
+      </div>`;}).join('');
+    const emptyMsg=(autoRows||entryRows)?'':`<div class="food-spend-empty">이날 지출 내역이 없어요</div>`;
+    panel.innerHTML=`
+      <div class="food-panel-header">
+        <span>🗒 ${cm.y}년 ${cm.m}월 ${d}일 지출 내역</span>
+        <button class="food-panel-close" onclick="App.closeFoodPanel()">✕ 닫기</button>
       </div>
-      <div class="food-panel-field">
-        <label>🍽️ 식사 메모</label>
-        <div class="food-panel-input-row">
-          <input type="text" id="fp-memo" class="form-input" value="${(dd.memo||'').replace(/"/g,'&quot;')}" placeholder="배달, 된장찌개..."
-            onkeydown="if(event.key==='Enter')App.saveFoodField(${d},'memo')"/>
-          <button class="food-save-field-btn" onclick="App.saveFoodField(${d},'memo')">저장</button>
-        </div>
-        <div class="food-field-feedback" id="fp-memo-feedback"></div>
+      <div class="food-spend-list">
+        ${autoRows}${entryRows}${emptyMsg}
+        ${total>0?`<div class="food-spend-total"><span>합계</span><span class="food-spend-total-amt">₩${total.toLocaleString('ko-KR')}</span></div>`:''}
+      </div>`;
+  } else {
+    // 식비모드: 입력 필드 표시
+    const dd=(S.foodCalendar[key]||{})[d]||{};
+    panel.innerHTML=`
+      <div class="food-panel-header">
+        <span>🍱 ${cm.y}년 ${cm.m}월 ${d}일 기록</span>
+        <button class="food-panel-close" onclick="App.closeFoodPanel()">✕ 닫기</button>
       </div>
-      <div class="food-panel-field">
-        <label>💰 식비 금액 (원)</label>
-        <div class="food-panel-input-row">
-          <input type="text" inputmode="numeric" id="fp-amount" class="form-input" value="${dd.amount?(dd.amount).toLocaleString('ko-KR'):''}" placeholder="15,000"
-            oninput="App.numInputFmt(this)"
-            onkeydown="if(event.key==='Enter')App.saveFoodField(${d},'amount')"/>
-          <button class="food-save-field-btn" onclick="App.saveFoodField(${d},'amount')">저장</button>
+      <div class="food-panel-fields">
+        <div class="food-panel-field">
+          <label>📌 특별 일정</label>
+          <div class="food-panel-input-row">
+            <input type="text" id="fp-special" class="form-input" value="${(dd.special||'').replace(/"/g,'&quot;')}" placeholder="연차, 생일파티..."
+              onkeydown="if(event.key==='Enter')App.saveFoodField(${d},'special')"/>
+            <button class="food-save-field-btn" onclick="App.saveFoodField(${d},'special')">저장</button>
+          </div>
+          <div class="food-field-feedback" id="fp-special-feedback"></div>
         </div>
-        <div class="food-field-feedback" id="fp-amount-feedback"></div>
-      </div>
-    </div>`;
+        <div class="food-panel-field">
+          <label>🍽️ 식사 메모</label>
+          <div class="food-panel-input-row">
+            <input type="text" id="fp-memo" class="form-input" value="${(dd.memo||'').replace(/"/g,'&quot;')}" placeholder="배달, 된장찌개..."
+              onkeydown="if(event.key==='Enter')App.saveFoodField(${d},'memo')"/>
+            <button class="food-save-field-btn" onclick="App.saveFoodField(${d},'memo')">저장</button>
+          </div>
+          <div class="food-field-feedback" id="fp-memo-feedback"></div>
+        </div>
+        <div class="food-panel-field">
+          <label>💰 식비 금액 (원)</label>
+          <div class="food-panel-input-row">
+            <input type="text" inputmode="numeric" id="fp-amount" class="form-input" value="${dd.amount?(dd.amount).toLocaleString('ko-KR'):''}" placeholder="15,000"
+              oninput="App.numInputFmt(this)"
+              onkeydown="if(event.key==='Enter')App.saveFoodField(${d},'amount')"/>
+            <button class="food-save-field-btn" onclick="App.saveFoodField(${d},'amount')">저장</button>
+          </div>
+          <div class="food-field-feedback" id="fp-amount-feedback"></div>
+        </div>
+      </div>`;
+  }
 
   const foodCal=document.getElementById('food-calendar');
   if(foodCal)foodCal.insertAdjacentElement('afterend',panel);
@@ -2951,14 +2990,14 @@ function saveFoodField(d,field){
         return !(cm.y<startY||(cm.y===startY&&cm.m<startM));
       });
       const dayAutos=activeAutos.filter(a=>(a.billingDay||1)===d);
-      const autosHtml=dayAutos.length>0
-        ?dayAutos.map(a=>`<span class="food-auto-badge">💸 ${a.memo||a.name||''}</span>`).join('')
+      const autosDot2=dayAutos.length>0
+        ?`<span class="food-auto-dot-wrap"><span class="food-auto-dot">●</span><span class="food-auto-dot-tip">${dayAutos.map(a=>a.memo||a.name||'자동화').join(' · ')}</span></span>`
         :'';
       const dowClass=num.classList.contains('sat')?'sat':num.classList.contains('sun')?'sun':'';
       cell.innerHTML=`
         <div class="food-day-header-row">
           <div class="food-day-num ${dowClass}">${d}</div>
-          ${autosHtml}
+          ${autosDot2}
         </div>
         ${dd2.special?`<div class="food-special-tag">${dd2.special}</div>`:''}
         ${dd2.memo?`<div class="food-memo">${dd2.memo}</div>`:''}
