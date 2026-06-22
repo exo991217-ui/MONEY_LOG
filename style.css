@@ -1944,3 +1944,34 @@ body{font-family:var(--font);background:linear-gradient(145deg,#5E4BC422 0%,#D1C
 }
 .lcat-icon-opt svg{width:16px;height:16px;display:block;}
 .lcat-icon-opt-label{font-size:10px;font-weight:600;line-height:1;text-align:center;}
+
+/* ── 카테고리 색상 피커 ── */
+.lcat-color-trigger{
+  transition:transform .15s,box-shadow .15s;
+}
+.lcat-color-trigger:hover{
+  transform:scale(1.15);
+  box-shadow:0 2px 8px rgba(0,0,0,.18);
+}
+.lcat-color-picker{
+  position:absolute;z-index:2001;
+}
+
+/* ── 빠른입력 카테고리 아이콘 ── */
+.lq-cat-icon svg{width:16px;height:16px;display:block;}
+.lq-cat-wrap select{flex:1;}
+
+/* ── 변동지출 항목 아이콘 ── */
+.var-cat-icon svg{width:14px;height:14px;display:block;}
+
+/* ── 예산현황 연동 뱃지 SVG 아이콘 ── */
+.budget-linked-tag .badge-svg-icon{display:inline-flex;align-items:center;margin-right:3px;vertical-align:middle;}
+.budget-linked-tag .badge-svg-icon svg{width:12px;height:12px;}
+
+/* ── bcsync 모달 카테고리 아이콘 ── */
+.bcsync-cat-icon{display:inline-flex;align-items:center;margin-right:4px;color:var(--text-sub);}
+.bcsync-cat-icon svg{width:14px;height:14px;}
+
+/* ── 캘린더 소비 지출내역 SVG 아이콘 ── */
+.food-spend-cat-icon svg{width:14px;height:14px;display:block;}
+.food-spend-row-left{display:flex;align-items:center;gap:6px;flex:1;min-width:0;overflow:hidden;}
