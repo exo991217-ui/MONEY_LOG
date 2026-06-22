@@ -566,9 +566,12 @@
             <option value="income">수입</option>
           </select>
           <input type="date" id="lq-date" class="lq-input lq-date"/>
-          <select id="lq-category" class="lq-input">
-            <option value="">불러오는 중...</option>
-          </select>
+          <div class="lq-cat-wrap" style="display:flex;align-items:center;gap:4px;position:relative;">
+            <span id="lq-cat-icon" class="lq-cat-icon badge-svg-icon" style="flex-shrink:0;color:var(--text-sub);pointer-events:none;"></span>
+            <select id="lq-category" class="lq-input">
+              <option value="">불러오는 중...</option>
+            </select>
+          </div>
           <div class="lq-memo-wrap">
             <input type="text" id="lq-memo" class="lq-input lq-memo" placeholder="메모 #태그입력"
               oninput="App.onMemoInput(this)"
@@ -696,7 +699,7 @@
     </select>
   </div>
   <div class="form-group"><label>날짜</label><input type="date" id="mle-date" class="form-input"/></div>
-  <div class="form-group"><label>분류</label><select id="mle-category" class="form-input"></select></div>
+  <div class="form-group"><label>분류</label><div style="display:flex;align-items:center;gap:6px;"><span id="mle-cat-icon" class="badge-svg-icon" style="color:var(--text-sub);flex-shrink:0;"></span><select id="mle-category" class="form-input" style="flex:1;"></select></div></div>
   <div class="form-group"><label>내용 (메모 + #태그)</label><input type="text" id="mle-memo" class="form-input" placeholder="커피 #카페"/></div>
   <div class="form-group"><label>금액 (원)</label><input type="text" inputmode="numeric" id="mle-amount" class="form-input" placeholder="15,000" oninput="App.numInputFmt(this)"/></div>
   <div class="modal-actions">
