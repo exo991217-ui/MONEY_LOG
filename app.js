@@ -4928,17 +4928,30 @@ function renderAutoList(){
   if(totalOut>0)summaryParts.push(`<span style="color:var(--red);">지출 <strong>${fmt(totalOut)}</strong></span>`);
   if(totalIn>0)summaryParts.push(`<span style="color:var(--green);">수입 <strong>${fmt(totalIn)}</strong></span>`);
   const summary=summaryParts.length>0?`<div class="auto-summary-bar"><span class="badge-svg-icon" style="color:#F9A825;vertical-align:middle;">${_SVG_ICONS.lightning}</span> 활성 자동화 월 합계: ${summaryParts.join(' · ')}</div>`:'';
+  const isIncome=a=>(a.type||'expense')==='income';
   el.innerHTML=summary+automations.map(a=>`
     <div class="auto-card ${a.active===false?'auto-inactive':''}">
-      <div class="auto-card-left">
-        <div class="auto-card-name">${a.memo||a.name||'—'}<span class="auto-type-badge ${(a.type||'expense')==='income'?'income':'expense'}">${(a.type||'expense')==='income'?'수입':'지출'}</span></div>
-        <div class="auto-card-meta">${a.category} · 매월 <span class="auto-day-badge">${a.billingDay}일</span>${a.startYear?` · <span style="font-size:10px;color:var(--text-sub);">시작 ${a.startYear}.${String(a.startMonth||1).padStart(2,'0')}</span>`:''}</div>
-      </div>
-      <div class="auto-card-right">
-        <div class="auto-card-amount ${(a.type||'expense')==='income'?'green':'red'}">${fmt(a.amount)}</div>
-        <label class="sub-toggle-label"><input type="checkbox" ${a.active!==false?'checked':''} onchange="App.toggleAuto(${a.id},this.checked)"/> ${a.active!==false?'활성':'중지'}</label>
-        <button class="icon-btn" onclick="App.editAuto(${a.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-        <button class="icon-btn" onclick="App.deleteAuto(${a.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+      <div class="auto-card-strip ${isIncome(a)?'income':''}"></div>
+      <div class="auto-card-body">
+        <div class="auto-card-left">
+          <div class="auto-card-name">
+            <span style="flex-shrink:0;opacity:.75;">${_getCatSVG(a.category||'')}</span>
+            <span style="overflow:hidden;text-overflow:ellipsis;">${a.memo||a.name||'—'}</span>
+            <span class="auto-type-badge ${isIncome(a)?'income':'expense'}">${isIncome(a)?'수입':'지출'}</span>
+          </div>
+          <div class="auto-card-meta">
+            <span>${a.category||''}</span>
+            <span>·</span>
+            <span>매월 <span class="auto-day-badge">${a.billingDay}일</span></span>
+            ${a.startYear?`<span>·</span><span style="font-size:10px;">시작 ${a.startYear}.${String(a.startMonth||1).padStart(2,'0')}</span>`:''}
+          </div>
+        </div>
+        <div class="auto-card-right">
+          <div class="auto-card-amount ${isIncome(a)?'green':'red'}">${fmt(a.amount)}</div>
+          <label class="auto-toggle-wrap"><input type="checkbox" ${a.active!==false?'checked':''} onchange="App.toggleAuto(${a.id},this.checked)"/>${a.active!==false?'활성':'중지'}</label>
+          <button class="icon-btn" onclick="App.editAuto(${a.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="icon-btn" onclick="App.deleteAuto(${a.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+        </div>
       </div>
     </div>`).join('');
 }
@@ -5029,7 +5042,7 @@ function renderLcatPanel(){
   panel.innerHTML=`<div class="lcat-hint">💡 아이콘을 클릭하면 직접 고를 수 있어요</div><div class="lcat-list" id="lcat-list">${cats.map(c=>{
     return `<div class="lcat-row" data-drag-id="${c.id}">
       <button class="lcat-icon-trigger" title="아이콘 변경" onclick="App._openIconPicker(event,${c.id})">${_getCatSVG(c.name)}</button>
-      <button class="lcat-color-trigger" title="색상" onclick="App._openColorPicker(event,${c.id})" style="background:${c.color||'transparent'};border:2px solid ${c.color?c.color+'88':'var(--border)'};width:18px;height:18px;border-radius:50%;cursor:pointer;flex-shrink:0;padding:0;"></button>
+      <button class="lcat-color-trigger" title="색상" onclick="App._openColorPicker(event,${c.id})" style="background:${c.color||'transparent'};border:2px solid ${c.color?c.color+'88':'var(--border)'};width:16px;height:16px;min-width:16px;border-radius:50%;cursor:pointer;flex-shrink:0;padding:0;"></button>
       <input class="lcat-name-input" type="text" value="${c.name}"
         onchange="App.saveLcatName(${c.id},this.value)"
         onkeydown="if(event.key==='Enter')this.blur()"/>
