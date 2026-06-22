@@ -1284,6 +1284,12 @@ const _SVG_ICONS={
   heart:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`,
 };
 function _getCatSVG(name){
+  // 1순위: 사용자가 직접 설정한 아이콘
+  if(S&&S.ledgerCategories){
+    const cat=(S.ledgerCategories||[]).find(c=>c.name===name);
+    if(cat&&cat.icon&&_SVG_ICONS[cat.icon])return _SVG_ICONS[cat.icon];
+  }
+  // 2순위: 키워드 자동 매칭
   const n=(name||'').toLowerCase();
   if(n.includes('식비')||n.includes('음식')||n.includes('외식')||n.includes('🍚')||n.includes('🍜'))return _SVG_ICONS.food;
   if(n.includes('교통')||n.includes('차량')||n.includes('🚗'))return _SVG_ICONS.car;
@@ -1301,6 +1307,54 @@ function _getCatSVG(name){
   return _SVG_ICONS.pin;
 }
 function _categoryIcon(name){return _getCatSVG(name);}
+
+// ── 아이콘 피커: 이름 ↔ 표시 레이블
+const _ICON_LABELS={
+  food:'식비',car:'교통',phone:'통신',bag:'쇼핑',home:'주거',
+  culture:'문화',health:'건강',wallet:'금융',money:'수입',
+  gift:'경조사',plane:'여행',fashion:'패션',box:'기타',
+  pin:'위치',lightning:'에너지',creditcard:'카드',heart:'좋아요',
+};
+
+function _openIconPicker(e,catId){
+  e.stopPropagation();
+  // 이미 열린 피커 닫기
+  document.querySelectorAll('.lcat-icon-picker').forEach(el=>el.remove());
+  const btn=e.currentTarget;
+  const cat=(S.ledgerCategories||[]).find(c=>c.id==catId);
+  const currentIcon=cat&&cat.icon;
+  const picker=document.createElement('div');
+  picker.className='lcat-icon-picker';
+  picker.innerHTML=Object.entries(_ICON_LABELS).map(([key,label])=>`
+    <button class="lcat-icon-opt${currentIcon===key?' lcat-icon-opt--active':''}"
+      title="${label}"
+      onclick="App._saveLcatIcon(${catId},'${key}',this)">
+      ${_SVG_ICONS[key]||''}
+      <span class="lcat-icon-opt-label">${label}</span>
+    </button>`).join('');
+  // 피커를 버튼 아래에 배치
+  btn.parentNode.style.position='relative';
+  btn.parentNode.appendChild(picker);
+  // 바깥 클릭 시 닫기
+  setTimeout(()=>{
+    function closeOnOut(ev){
+      if(!picker.contains(ev.target)){
+        picker.remove();
+        document.removeEventListener('click',closeOnOut,true);
+      }
+    }
+    document.addEventListener('click',closeOnOut,true);
+  },0);
+}
+
+function _saveLcatIcon(catId,iconKey){
+  const cat=(S.ledgerCategories||[]).find(c=>c.id==catId);
+  if(!cat)return;
+  cat.icon=iconKey;
+  saveState();
+  renderLcatPanel();
+  renderDashboard();
+}
 
 // ── 도넛 팔레트: 8가지 색상이 겹치지 않도록 명도·채도 분산
 const _DONUT_PALETTE=[
@@ -1435,9 +1489,11 @@ function renderDashDonut(y,m){
         <div class="ddl2-bar-fill" data-li-bar="${i}" style="width:${barW}%;background:linear-gradient(90deg,${seg.c},${seg.l});"></div>
       </div>
       ${isOther&&otherEntries.length>0?`<div class="ddl2-other-list" style="overflow:hidden;max-height:0;transition:max-height .26s ease;">
-        ${otherEntries.map(([n,v])=>`<div style="display:flex;justify-content:space-between;padding:4px 4px 3px 24px;font-size:12px;color:var(--text-sub);">
-          <span>${_stripCatEmoji(n)}</span>
-          <span style="display:flex;gap:10px;"><span>${fmt(v)}</span><span style="min-width:34px;text-align:right;">${(v/total*100).toFixed(1)}%</span></span>
+        ${otherEntries.map(([n,v])=>`<div style="display:flex;align-items:center;gap:6px;padding:4px 6px 4px 8px;font-size:12px;color:var(--text-sub);">
+          <span style="flex-shrink:0;width:16px;height:16px;display:flex;align-items:center;justify-content:center;color:${_OTHER_DONUT.c};">${_getCatSVG(n)}</span>
+          <span style="flex:1;">${_stripCatEmoji(n)}</span>
+          <span style="font-weight:700;color:var(--text-main);">${fmt(v)}</span>
+          <span style="min-width:36px;text-align:right;">${(v/total*100).toFixed(1)}%</span>
         </div>`).join('')}
       </div>`:''}
     </div>`;
@@ -4875,7 +4931,7 @@ function renderLcatPanel(){
       ondragend="App._dmDragEnd(event)"
       ontouchstart="App._dmTouchStart(event,'lcat-list')">
       <span class="lcat-drag-handle">⋮⋮</span>
-      <span class="lcat-row-icon">${_getCatSVG(c.name)}</span>
+      <button class="lcat-row-icon lcat-icon-trigger" title="아이콘 변경" onclick="App._openIconPicker(event,${c.id})">${_getCatSVG(c.name)}</button>
       <input class="lcat-name-input" type="text" value="${c.name}"
         onchange="App.saveLcatName(${c.id},this.value)"
         onkeydown="if(event.key==='Enter')this.blur()"/>
@@ -5638,7 +5694,7 @@ function goToLedger(){
 
 window.App={
   changeMonth,changeCalYear,toggleDashSection,toggleDashVarSection,applyMonthTheme,setDashVarMode,
-  showDonutTip,hideDonutTip,_donutOtherToggle,switchTab,
+  showDonutTip,hideDonutTip,_donutOtherToggle,_openIconPicker,_saveLcatIcon,switchTab,
   openModal,closeModal,openVariableModal,
   openBudgetModal,saveBudgetCategory,deleteBudgetCategory,openBudgetAutoModal,applyBudgetSuggestions,
   openBudgetCatSyncModal,saveBudgetCatSync,
