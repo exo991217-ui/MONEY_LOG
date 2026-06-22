@@ -1893,3 +1893,44 @@ body{font-family:var(--font);background:linear-gradient(145deg,#5E4BC422 0%,#D1C
 
 /* 툴팁 숨김 (센터 텍스트로 대체) */
 .dash-donut-tip{display:none!important;}
+
+/* ── 카테고리 아이콘 피커 ── */
+.lcat-icon-trigger{
+  background:none;border:1.5px solid transparent;border-radius:8px;
+  padding:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  width:28px;height:28px;flex-shrink:0;transition:border-color .15s,background .15s;
+  color:var(--text-sub);
+}
+.lcat-icon-trigger:hover{
+  border-color:var(--t1,#A29BFE);background:var(--purple-light,#F3F0FF);
+  color:var(--t1,#5E4BC4);
+}
+.lcat-icon-trigger svg{display:block;width:16px;height:16px;}
+
+/* 팝오버 피커 그리드 */
+.lcat-icon-picker{
+  position:absolute;top:calc(100% + 4px);left:0;z-index:2000;
+  background:#fff;border-radius:14px;padding:10px;
+  box-shadow:0 8px 32px rgba(0,0,0,.16),0 1px 6px rgba(0,0,0,.08);
+  border:1px solid var(--border,#E8E4FF);
+  display:grid;grid-template-columns:repeat(6,1fr);gap:4px;
+  min-width:230px;
+}
+
+/* 각 아이콘 옵션 버튼 */
+.lcat-icon-opt{
+  background:none;border:1.5px solid transparent;border-radius:10px;
+  padding:6px 4px 4px;cursor:pointer;display:flex;flex-direction:column;
+  align-items:center;gap:3px;transition:all .13s;color:var(--text-sub);
+  width:100%;
+}
+.lcat-icon-opt:hover{
+  background:var(--purple-light,#F3F0FF);border-color:var(--t1,#A29BFE);
+  color:var(--t1,#5E4BC4);
+}
+.lcat-icon-opt--active{
+  background:linear-gradient(135deg,var(--t1,#A29BFE),var(--t2,#74B9FF));
+  border-color:transparent;color:#fff;
+}
+.lcat-icon-opt svg{width:16px;height:16px;display:block;}
+.lcat-icon-opt-label{font-size:10px;font-weight:600;line-height:1;text-align:center;}
