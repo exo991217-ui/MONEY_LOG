@@ -1375,7 +1375,7 @@ function _openColorPicker(e,catId){
   ];
   const picker=document.createElement('div');
   picker.className='lcat-color-picker';
-  picker.style.cssText='position:absolute;z-index:999;background:var(--white);border:1.5px solid var(--border);border-radius:12px;padding:10px;box-shadow:0 4px 20px rgba(0,0,0,0.15);display:flex;flex-direction:column;gap:8px;min-width:220px;left:0;top:28px;';
+  picker.style.cssText='position:fixed;z-index:99999;background:var(--white,#fff);border:1.5px solid var(--border,#EEE9FF);border-radius:12px;padding:10px;box-shadow:0 4px 24px rgba(0,0,0,0.18);display:flex;flex-direction:column;gap:8px;min-width:220px;';
   const swatchGrid=PRESET_COLORS.map(col=>{
     const isActive=cat&&cat.color===col;
     return `<button onclick="App._saveLcatColor(${catId},'${col}')" title="${col}"
@@ -1390,8 +1390,16 @@ function _openColorPicker(e,catId){
         oninput="App._saveLcatColor(${catId},this.value)"/>
       ${cat&&cat.color?`<button onclick="App._saveLcatColor(${catId},'')" style="font-size:11px;padding:3px 8px;border-radius:8px;border:1.5px solid var(--border);background:none;cursor:pointer;color:var(--text-sub);">초기화</button>`:''}
     </div>`;
-  btn.parentNode.style.position='relative';
-  btn.parentNode.appendChild(picker);
+  document.body.appendChild(picker);
+  // 버튼 위치 기준으로 피커 위치 계산
+  const rect=btn.getBoundingClientRect();
+  const pickerW=230;
+  let left=rect.left;
+  if(left+pickerW>window.innerWidth-8)left=window.innerWidth-pickerW-8;
+  let top=rect.bottom+4;
+  if(top+280>window.innerHeight)top=rect.top-288;
+  picker.style.left=left+'px';
+  picker.style.top=top+'px';
   setTimeout(()=>{
     function closeOnOut(ev){
       if(!picker.contains(ev.target)&&ev.target!==btn){
@@ -5019,9 +5027,6 @@ function renderLcatPanel(){
     return;
   }
   panel.innerHTML=`<div class="lcat-hint">💡 아이콘을 클릭하면 직접 고를 수 있어요</div><div class="lcat-list" id="lcat-list">${cats.map(c=>{
-    const hasManualIcon=!!(c.icon&&_SVG_ICONS[c.icon]);
-    const badgeLabel=hasManualIcon?'직접설정':'자동';
-    const badgeCls='lcat-badge '+(hasManualIcon?'lcat-badge--custom':'lcat-badge--auto');
     return `<div class="lcat-row" data-drag-id="${c.id}" draggable="true"
       ondragstart="App._dmDragStart(event,'lcat',${c.id})"
       ondragover="App._dmDragOver(event,'lcat')"
@@ -5035,7 +5040,6 @@ function renderLcatPanel(){
         onchange="App.saveLcatName(${c.id},this.value)"
         onkeydown="if(event.key==='Enter')this.blur()"/>
       <button class="lcat-color-trigger" title="테마 색상 설정" onclick="App._openColorPicker(event,${c.id})" style="background:${c.color||'transparent'};border:2px solid ${c.color?c.color+'88':'var(--border)'};width:22px;height:22px;border-radius:50%;cursor:pointer;flex-shrink:0;padding:0;"></button>
-      <span class="${badgeCls}">${badgeLabel}</span>
       <button class="icon-btn lcat-del-btn" onclick="App.deleteLcatEntry(${c.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
     </div>`;}).join('')}
   </div>
