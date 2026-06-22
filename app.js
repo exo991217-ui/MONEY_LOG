@@ -643,11 +643,12 @@ function renderBudget(y,m){
 
   const monthTheme=getMonthTheme(m);
 
-  // 카테고리별 실제 지출 계산 (linkedCategories가 있으면 가계부 합산)
+  // 카테고리별 실제 지출 계산 (linkedCategories가 있으면 catSpent 기준 합산 — 신용카드 포함)
   function getCatSpent(cat){
     const linked=(cat.linkedCategories||[]);
     if(linked.length>0){
-      return linked.reduce((s,lname)=>s+(ledgerSums[lname]||0),0);
+      // catSpent는 getEffectiveVariable 기반이므로 신용카드 결제 완료 항목도 포함됨
+      return linked.reduce((s,lname)=>s+(catSpent[lname]||0),0);
     }
     return catSpent[cat.name]||0;
   }
@@ -1276,7 +1277,7 @@ const _SVG_ICONS={
   money:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>`,
   gift:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M20 6h-2.18c.07-.31.18-.62.18-.93A3.07 3.07 0 0 0 14.93 2c-1.6 0-2.48 1.33-3.48 2.88C10.46 3.33 9.58 2 7.97 2A3.07 3.07 0 0 0 4.9 5.07c0 .31.11.62.18.93H3c-1.1 0-2 .9-2 2v2c0 1.1.9 2 2 2v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z"/></svg>`,
   plane:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>`,
-  fashion:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M12 3c-1.2 5.4-4 6.93-4 9.5 0 2.49 1.79 4.5 4 4.5s4-2.01 4-4.5c0-2.57-2.8-4.1-4-9.5z"/></svg>`,
+  fashion:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M16 2l-4 2.5L8 2 2 6.5l2.5 2.5L6 9.5V21h12V9.5l1.5-0.5L22 6.5z"/></svg>`,
   box:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M20.54 5.23l-1.39-1.68C18.88 3.21 18.47 3 18 3H6c-.47 0-.88.21-1.16.55L3.46 5.23C3.17 5.57 3 6.02 3 6.5V19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6.5c0-.48-.17-.93-.46-1.27zM12 17.5L6.5 12H10v-2h4v2h3.5L12 17.5zM5.12 5l.81-1h12l.94 1H5.12z"/></svg>`,
   pin:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>`,
   lightning:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>`,
@@ -4922,8 +4923,11 @@ function renderLcatPanel(){
       </div>`;
     return;
   }
-  panel.innerHTML=`<div class="lcat-hint">⋮⋮ 아이콘을 드래그해서 순서를 바꿀 수 있어요</div><div class="lcat-list" id="lcat-list">${cats.map(c=>`
-    <div class="lcat-row" data-drag-id="${c.id}" draggable="true"
+  panel.innerHTML=`<div class="lcat-hint">💡 아이콘을 클릭하면 직접 고를 수 있어요</div><div class="lcat-list" id="lcat-list">${cats.map(c=>{
+    const hasManualIcon=!!(c.icon&&_SVG_ICONS[c.icon]);
+    const badgeLabel=hasManualIcon?'직접설정':'자동';
+    const badgeCls='lcat-badge '+(hasManualIcon?'lcat-badge--custom':'lcat-badge--auto');
+    return `<div class="lcat-row" data-drag-id="${c.id}" draggable="true"
       ondragstart="App._dmDragStart(event,'lcat',${c.id})"
       ondragover="App._dmDragOver(event,'lcat')"
       ondragleave="App._dmDragLeave(event)"
@@ -4931,12 +4935,13 @@ function renderLcatPanel(){
       ondragend="App._dmDragEnd(event)"
       ontouchstart="App._dmTouchStart(event,'lcat-list')">
       <span class="lcat-drag-handle">⋮⋮</span>
-      <button class="lcat-row-icon lcat-icon-trigger" title="아이콘 변경" onclick="App._openIconPicker(event,${c.id})">${_getCatSVG(c.name)}</button>
+      <button class="lcat-icon-trigger" title="아이콘 변경 (클릭)" onclick="App._openIconPicker(event,${c.id})">${_getCatSVG(c.name)}</button>
       <input class="lcat-name-input" type="text" value="${c.name}"
         onchange="App.saveLcatName(${c.id},this.value)"
         onkeydown="if(event.key==='Enter')this.blur()"/>
-      <button class="icon-btn" onclick="App.deleteLcatEntry(${c.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
-    </div>`).join('')}
+      <span class="${badgeCls}">${badgeLabel}</span>
+      <button class="icon-btn lcat-del-btn" onclick="App.deleteLcatEntry(${c.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+    </div>`;}).join('')}
   </div>
   <div style="display:flex;gap:8px;margin-top:10px;">
     <input id="lcat-new-name" class="lq-input" placeholder="새 카테고리명" style="flex:1;"
