@@ -661,6 +661,12 @@ body{font-family:var(--font);background:linear-gradient(145deg,#5E4BC422 0%,#D1C
 .lcat-savings-badge{font-size:11px;font-weight:700;border-radius:6px;padding:2px 7px;background:var(--border);color:var(--text-sub);transition:all .15s}
 .lcat-savings-badge.on{background:#A29BFE;color:white}
 .lcat-empty{font-size:13px;color:var(--text-sub);padding:8px 0;line-height:1.6}
+.lcat-hint{font-size:11.5px;color:var(--text-sub);margin-bottom:8px;opacity:.7}
+.lcat-drag-handle{color:var(--text-sub);font-size:13px;cursor:grab;padding:0 4px 0 0;opacity:.45;letter-spacing:-2px;flex-shrink:0;user-select:none;transition:opacity .15s}
+.lcat-drag-handle:hover{opacity:1;color:#A29BFE}
+.lcat-drag-handle:active{cursor:grabbing}
+.lcat-row.dm-dragging{opacity:.35;background:var(--purple-light)!important;border-radius:8px}
+.lcat-row.dm-drag-over{border-top:2.5px solid #A29BFE;padding-top:4px}
 
 /* ===== MOBILE RESPONSIVE ===== */
 @media (max-width:680px){
