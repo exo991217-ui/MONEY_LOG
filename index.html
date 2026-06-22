@@ -527,7 +527,7 @@
         </div>
       </div>
       <div class="ledger-closed-banner" id="ledger-closed-banner" style="display:none;"></div>
-      <div class="lcat-auto-split-bar">
+      <div class="lcat-auto-split-bar lcat-split-3col">
         <div class="lcat-auto-split-left" onclick="App.toggleLcatPanel()">
           ⚙️ 카테고리 관리
           <span id="lcat-panel-arrow" style="font-size:11px;margin-left:4px;">∨</span>
@@ -536,8 +536,13 @@
           ⚡ 자동화
           <span id="ledger-auto-arrow" style="font-size:11px;margin-left:4px;">∨</span>
         </div>
+        <div class="lcat-auto-split-kw" onclick="App.toggleKwRulePanel()">
+          🏷️ 키워드 규칙
+          <span id="kw-rule-arrow" style="font-size:11px;margin-left:4px;">∨</span>
+        </div>
       </div>
       <div class="lcat-panel-wrap" id="lcat-panel" style="display:none;"></div>
+      <div class="lcat-panel-wrap" id="kw-rule-panel" style="display:none;"></div>
       <div id="ledger-auto-panel" style="display:none;">
         <div class="ledger-auto-add-row">
           <select id="la-type" class="lq-input" style="flex:0 0 68px;">
@@ -570,6 +575,7 @@
               onkeydown="App.onMemoKeydown(event)"
               onblur="App.hideMemoDropdown(200)"/>
             <div id="lq-tag-dropdown" class="lq-tag-dropdown" style="display:none;"></div>
+            <div id="kw-auto-hint" class="kw-auto-hint"></div>
           </div>
           <input type="text" inputmode="numeric" id="lq-amount" class="lq-input lq-amount" placeholder="금액"
             oninput="App.numInputFmt(this)"
