@@ -136,7 +136,7 @@ function loadState(){
         S._budget_reset_v2=true;
       }
       if(S.ledgerFilter===undefined)S.ledgerFilter=null;
-      if(S.ledgerTagFilter===undefined)S.ledgerTagFilter=null;
+      S.ledgerTagFilter=null;
       if(!S.currentMonths.ledger)S.currentMonths.ledger={...S.currentMonths.dashboard};
       if(S.themeOpacity===undefined)S.themeOpacity=50;
       if(S.themeOpacityLocked===undefined)S.themeOpacityLocked=false;
@@ -303,6 +303,7 @@ window.FB_MERGE = function(fbData) {
       S._budget_reset_v2=true;
     }
     if(S.ledgerFilter===undefined)S.ledgerFilter=null;
+    S.ledgerTagFilter=null;
     if(!S.currentMonths.ledger)S.currentMonths.ledger={...S.currentMonths.dashboard};
     if(S.themeOpacity===undefined)S.themeOpacity=50;
     if(S.themeOpacityLocked===undefined)S.themeOpacityLocked=false;
@@ -1247,11 +1248,15 @@ function toggleDashSection(section){
 }
 
 // ===== DASHBOARD VARIABLE EXPENSE DONUT CHART =====
-const _DONUT_COLORS=['#64B5F6','#FFB347','#CE93D8','#4DB6AC','#4CAF82','#A29BFE','#F06292','#FDCB6E','#90CAF9','#FF8A65','#80CBC4','#FFCC80','#EF9A9A','#C5E1A5','#B39DDB','#80DEEA','#FFAB91','#F48FB1','#A5D6A7','#FFF176'];
-// 카테고리 이름 기반 안정적 색상 (같은 카테고리 = 항상 같은 색)
+// 카테고리별 안정적 색상 — 골든앵글(137.5°) 기반으로 최대한 다른 색 보장
 function _catColorStable(name){
-  let h=0;for(let i=0;i<name.length;i++)h=((h<<5)-h+name.charCodeAt(i))|0;
-  return _DONUT_COLORS[Math.abs(h)%_DONUT_COLORS.length];
+  const cats=S.ledgerCategories||[];
+  let idx=cats.findIndex(c=>c.name===name);
+  if(idx<0){let h=0;for(let i=0;i<name.length;i++)h=((h<<5)-h+name.charCodeAt(i))|0;idx=Math.abs(h)%60+20;}
+  const hue=Math.round((idx*137.508)%360);
+  const sat=60+((idx*7)%20); // 60~79%
+  const lit=55+((idx*3)%15); // 55~69%
+  return `hsl(${hue},${sat}%,${lit}%)`;
 }
 // ===== SVG 카테고리 아이콘 시스템 (filled/solid) =====
 function _stripCatEmoji(name){
@@ -3885,7 +3890,7 @@ function renderLedger(){
           <div class="ledger-entry ${e.type} item-hover-edit" style="--cat-strip:${cc.strip};--cat-bg:${cc.bg};--cat-color:${cc.color};" onclick="App.openEditLedgerModal('${key}',${e.id})">
             <div class="ledger-cat-strip"></div>
             <div class="ledger-entry-left">
-              <span class="ledger-cat-badge" style="background:${cc.bg};color:${cc.color};">${e.category}</span>
+              <span class="ledger-cat-badge" style="background:${cc.bg};color:${cc.color};"><span class="lcat-badge-icon">${_getCatSVG(e.category)}</span>${_stripCatEmoji(e.category)}</span>
               <div class="ledger-memo-wrap">
                 <span class="ledger-memo">${e.memo||'—'}</span>
                 ${tagPills}
@@ -4789,6 +4794,7 @@ function renderLcatPanel(){
       ondragend="App._dmDragEnd(event)"
       ontouchstart="App._dmTouchStart(event,'lcat-list')">
       <span class="lcat-drag-handle">⋮⋮</span>
+      <span class="lcat-row-icon">${_getCatSVG(c.name)}</span>
       <input class="lcat-name-input" type="text" value="${c.name}"
         onchange="App.saveLcatName(${c.id},this.value)"
         onkeydown="if(event.key==='Enter')this.blur()"/>
@@ -4859,23 +4865,26 @@ function renderKwRulePanel(){
   const rules=S.keywordRules||[];
   const cats=(S.ledgerCategories||[]).map(c=>c.name);
   const catOpts=cats.map(c=>`<option value="${c}">${c}</option>`).join('');
-  const listHTML=rules.length===0
-    ?'<div class="lcat-empty">키워드 규칙이 없어요. 추가해보세요!</div>'
-    :rules.map(r=>`<div class="kw-rule-row" data-id="${r.id}">
-      <span class="kw-rule-keyword">🔍 ${r.keyword}</span>
-      ${r.tag?`<span class="kw-rule-tag">${r.tag}</span>`:''}
-      ${r.category?`<span class="kw-rule-cat">${r.category.split(' ')[0]}</span>`:''}
-      <button class="icon-btn" onclick="App.deleteKwRule(${r.id})"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
-    </div>`).join('');
+  const chipsHTML=rules.length===0
+    ?'<div class="lcat-empty" style="margin-bottom:10px;">키워드 규칙이 없어요. 아래서 추가해보세요!</div>'
+    :`<div class="kw-chips-wrap">${rules.map(r=>{
+        const catEmoji=(r.category||'').match(/\p{Extended_Pictographic}/u);
+        return `<span class="kw-chip">
+          <span class="kw-chip-kw">${r.keyword}</span>
+          ${r.tag?`<span class="kw-chip-tag">${r.tag}</span>`:''}
+          ${r.category?`<span class="kw-chip-cat">${catEmoji?catEmoji[0]:r.category.split(' ').pop()}</span>`:''}
+          <button class="kw-chip-del" onclick="App.deleteKwRule(${r.id})" title="삭제">×</button>
+        </span>`;
+      }).join('')}</div>`;
   panel.innerHTML=`
-    <div style="font-size:11.5px;color:var(--text-sub);margin-bottom:10px;">항목명에 키워드가 포함되면 태그·카테고리를 자동으로 설정해요.</div>
-    ${listHTML}
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;align-items:flex-end;">
-      <div style="flex:1;min-width:90px;"><div style="font-size:11px;color:var(--text-sub);margin-bottom:3px;">키워드</div>
+    <div style="font-size:11.5px;color:var(--text-sub);margin-bottom:8px;">항목명에 키워드가 포함되면 태그·카테고리를 자동으로 설정해요.</div>
+    ${chipsHTML}
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;align-items:flex-end;">
+      <div style="flex:1;min-width:80px;"><div style="font-size:11px;color:var(--text-sub);margin-bottom:3px;">키워드</div>
         <input id="kw-new-keyword" class="lq-input" placeholder="스타벅스" style="width:100%;"/></div>
-      <div style="flex:1;min-width:80px;"><div style="font-size:11px;color:var(--text-sub);margin-bottom:3px;">태그</div>
+      <div style="flex:1;min-width:70px;"><div style="font-size:11px;color:var(--text-sub);margin-bottom:3px;">태그</div>
         <input id="kw-new-tag" class="lq-input" placeholder="#카페" style="width:100%;"/></div>
-      <div style="flex:1;min-width:100px;"><div style="font-size:11px;color:var(--text-sub);margin-bottom:3px;">카테고리</div>
+      <div style="flex:1;min-width:90px;"><div style="font-size:11px;color:var(--text-sub);margin-bottom:3px;">카테고리</div>
         <select id="kw-new-cat" class="lq-input" style="width:100%;"><option value="">선택 안함</option>${catOpts}</select></div>
       <button class="lq-add-btn" onclick="App.addKwRule()">추가</button>
     </div>`;
@@ -4900,18 +4909,23 @@ function deleteKwRule(id){
 
 // 키워드 규칙 자동 적용 (메모 입력 시)
 function _applyKwRules(memoVal){
+  const hintEl=document.getElementById('kw-auto-hint');
   const rules=S.keywordRules||[];
-  if(!rules.length)return;
-  const text=memoVal.replace(/#\S+/g,'').trim();
-  if(!text)return;
+  const text=(memoVal||'').replace(/#\S+/g,'').trim();
+  if(!rules.length||!text){
+    if(hintEl)hintEl.classList.remove('visible');
+    return;
+  }
   const matched=rules.filter(r=>r.keyword&&text.toLowerCase().includes(r.keyword.toLowerCase()));
-  if(!matched.length)return;
+  if(!matched.length){
+    if(hintEl)hintEl.classList.remove('visible');
+    return;
+  }
   // 카테고리 자동 설정
   const firstCat=matched.find(r=>r.category)?.category;
   if(firstCat){const sel=document.getElementById('lq-category');if(sel)sel.value=firstCat;}
   // 힌트 표시
   const hints=matched.map(r=>[r.tag,r.category?r.category.split(' ')[0]:''].filter(Boolean).join(' '));
-  const hintEl=document.getElementById('kw-auto-hint');
   if(hintEl){hintEl.textContent='⚡ 자동 적용: '+hints.join(' · ');hintEl.classList.add('visible');}
 }
 
