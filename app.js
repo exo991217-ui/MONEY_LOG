@@ -1567,7 +1567,7 @@ function _dmDrop(e,type,targetId){
   const fromId=_dmDragging.id;
   _dmDragging=null;
   if(fromId===targetId)return;
-  const listId=type==='income'?'income-list':type==='budget'?'budget-cat-list':'fixed-list';
+  const listId=type==='income'?'income-list':type==='budget'?'budget-cat-list':type==='lcat'?'lcat-list':'fixed-list';
   const list=document.getElementById(listId);
   const fromEl=list.querySelector(`[data-drag-id="${fromId}"]`);
   const toEl=list.querySelector(`[data-drag-id="${targetId}"]`);
@@ -1575,6 +1575,7 @@ function _dmDrop(e,type,targetId){
   const items=[...list.querySelectorAll('[data-drag-id]')];
   if(items.indexOf(fromEl)<items.indexOf(toEl))toEl.after(fromEl);
   else toEl.before(fromEl);
+  if(type==='lcat')_saveLcatOrder();
 }
 function _dmDragEnd(e){
   document.querySelectorAll('.dm-dragging,.dm-drag-over').forEach(el=>{
@@ -1606,8 +1607,21 @@ function _dmTouchMove(e){
 }
 function _dmTouchEnd(){
   if(_dmTouchEl)_dmTouchEl.classList.remove('dm-dragging');
+  const listId=_dmTouchListId;
   _dmTouchEl=null;_dmTouchListId=null;
   document.removeEventListener('touchmove',_dmTouchMove);
+  if(listId==='lcat-list')_saveLcatOrder();
+}
+
+function _saveLcatOrder(){
+  const list=document.getElementById('lcat-list');if(!list)return;
+  const order=[...list.querySelectorAll('[data-drag-id]')].map(el=>Number(el.dataset.dragId));
+  if(order.length&&S.ledgerCategories){
+    S.ledgerCategories.sort((a,b)=>{const ai=order.indexOf(a.id),bi=order.indexOf(b.id);return(ai<0?9999:ai)-(bi<0?9999:bi);});
+  }
+  saveState();
+  _syncLedgerCatSelects();
+  _syncAutoModalCatSelect('');
 }
 
 // 현재 달 포함 이후 모든 달에 기본값 항목을 추가/업데이트 (직접 추가한 항목은 유지, 순서 동기화)
@@ -4750,8 +4764,15 @@ function renderLcatPanel(){
       </div>`;
     return;
   }
-  panel.innerHTML=`<div class="lcat-list">${cats.map(c=>`
-    <div class="lcat-row">
+  panel.innerHTML=`<div class="lcat-hint">⋮⋮ 아이콘을 드래그해서 순서를 바꿀 수 있어요</div><div class="lcat-list" id="lcat-list">${cats.map(c=>`
+    <div class="lcat-row" data-drag-id="${c.id}" draggable="true"
+      ondragstart="App._dmDragStart(event,'lcat',${c.id})"
+      ondragover="App._dmDragOver(event,'lcat')"
+      ondragleave="App._dmDragLeave(event)"
+      ondrop="App._dmDrop(event,'lcat',${c.id})"
+      ondragend="App._dmDragEnd(event)"
+      ontouchstart="App._dmTouchStart(event,'lcat-list')">
+      <span class="lcat-drag-handle">⋮⋮</span>
       <input class="lcat-name-input" type="text" value="${c.name}"
         onchange="App.saveLcatName(${c.id},this.value)"
         onkeydown="if(event.key==='Enter')this.blur()"/>
