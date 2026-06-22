@@ -1302,42 +1302,53 @@ function _getCatSVG(name){
 }
 function _categoryIcon(name){return _getCatSVG(name);}
 
+// ── 도넛 팔레트: 8가지 색상이 겹치지 않도록 명도·채도 분산
+const _DONUT_PALETTE=[
+  {c:'#A29BFE',l:'#DDD9FF'},{c:'#F06292',l:'#FBBDCF'},
+  {c:'#FF7043',l:'#FFCCBC'},{c:'#26C6DA',l:'#B2EBF2'},
+  {c:'#FFA726',l:'#FFE0B2'},{c:'#9CCC65',l:'#DCEDC8'},
+  {c:'#EC407A',l:'#FCB8D0'},{c:'#7E57C2',l:'#D1C4E9'},
+];
+const _OTHER_DONUT={c:'#78909C',l:'#CFD8DC'};
+
 function _donutSVG(segments,total){
-  const size=196,cx=98,cy=98,R=88,ri=58;
+  const size=200,cx=100,cy=100,R=86,ri=60,GAP=0.055; // GAP: 세그먼트 간 여백(rad)
+  const FF="Apple SD Gothic Neo,Noto Sans KR,sans-serif";
   if(total===0){
     return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
       <circle cx="${cx}" cy="${cy}" r="${(R+ri)/2}" fill="none" stroke="#EEE9FF" stroke-width="${R-ri}"/>
-      <text x="${cx}" y="${cy+5}" text-anchor="middle" font-size="12" fill="#9490A8">데이터 없음</text>
+      <text x="${cx}" y="${cy+5}" text-anchor="middle" font-size="12" fill="#9490A8" font-family="${FF}">데이터 없음</text>
     </svg>`;
   }
   let angle=-Math.PI/2;
-  const paths=segments.map((seg,i)=>{
+  const defs=[],paths=[];
+  const total10k=(total/10000).toFixed(1);
+  segments.forEach((seg,i)=>{
     const frac=seg.amount/total;
-    if(frac<=0)return '';
+    if(frac<=0)return;
     const sweep=frac*2*Math.PI;
-    const sA=angle,eA=angle+sweep;
-    angle=eA;
+    const sA=angle+GAP/2,eA=angle+sweep-GAP/2;
+    angle+=sweep;
+    if(eA-sA<0.01)return;
     const x1=cx+R*Math.cos(sA),y1=cy+R*Math.sin(sA);
     const x2=cx+R*Math.cos(eA),y2=cy+R*Math.sin(eA);
     const x3=cx+ri*Math.cos(eA),y3=cy+ri*Math.sin(eA);
     const x4=cx+ri*Math.cos(sA),y4=cy+ri*Math.sin(sA);
-    const la=sweep>Math.PI?1:0;
-    const col=seg.color||_catColorStable(seg.name);
+    const la=eA-sA>Math.PI?1:0;
     const pct=(frac*100).toFixed(1);
-    const safeName=seg.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
-    return `<path d="M${x1.toFixed(2)} ${y1.toFixed(2)} A${R} ${R} 0 ${la} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} L${x3.toFixed(2)} ${y3.toFixed(2)} A${ri} ${ri} 0 ${la} 0 ${x4.toFixed(2)} ${y4.toFixed(2)}Z"
-      fill="${col}" stroke="white" stroke-width="2"
-      onmouseenter="App.showDonutTip(event,this.dataset.name,${seg.amount},'${pct}')"
-      onmouseleave="App.hideDonutTip()"
-      data-name="${safeName}"
-      style="cursor:pointer;transition:opacity .15s;"
-      onmouseover="this.style.opacity='.75'" onmouseout="this.style.opacity='1'"/>`;
+    const safe=(seg.name||'').replace(/"/g,'&quot;');
+    defs.push(`<linearGradient id="dg${i}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="${seg.c}"/><stop offset="100%" stop-color="${seg.l}"/></linearGradient>`);
+    paths.push(`<path d="M${x1.toFixed(2)} ${y1.toFixed(2)} A${R} ${R} 0 ${la} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} L${x3.toFixed(2)} ${y3.toFixed(2)} A${ri} ${ri} 0 ${la} 0 ${x4.toFixed(2)} ${y4.toFixed(2)}Z"
+      fill="url(#dg${i})" data-di="${i}" data-name="${safe}" data-amt="${seg.amount}" data-pct="${pct}" data-col="${seg.c}"
+      style="cursor:pointer;transition:opacity .18s;" class="donut-seg"/>`);
   });
-  const total10k=(total/10000).toFixed(1);
-  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+  return `<svg id="dash-donut-svgi" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="overflow:visible;display:block">
+    <defs>${defs.join('')}</defs>
+    <circle cx="${cx}" cy="${cy}" r="${(R+ri)/2}" fill="none" stroke="#F0EEFF" stroke-width="${R-ri}"/>
     ${paths.join('')}
-    <text x="${cx}" y="${cy-5}" text-anchor="middle" font-size="10" fill="#9490A8">총 변동지출</text>
-    <text x="${cx}" y="${cy+11}" text-anchor="middle" font-size="13" font-weight="800" fill="#2D2D3A">${total10k}만원</text>
+    <text id="dc-label" x="${cx}" y="${cy-7}"  text-anchor="middle" font-size="11"   fill="#9490A8"  font-family="${FF}">총 변동지출</text>
+    <text id="dc-val"   x="${cx}" y="${cy+12}" text-anchor="middle" font-size="15"   fill="#2D2D3A" font-weight="900" font-family="${FF}">${total10k}만원</text>
+    <text id="dc-pct"   x="${cx}" y="${cy+28}" text-anchor="middle" font-size="11"   fill="#9490A8" font-family="${FF}" opacity="0"></text>
   </svg>`;
 }
 
@@ -1387,30 +1398,100 @@ function renderDashDonut(y,m){
   });
   const sorted=Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
   const total=sorted.reduce((s,[,v])=>s+v,0);
-  const segments=sorted.map(([name,amount])=>({name,amount,color:_catColorStable(name)}));
-  svgEl.innerHTML=_donutSVG(segments,total);
-  if(segments.length===0){
+  if(total===0){
+    svgEl.innerHTML=_donutSVG([],0);
     legEl.innerHTML='<div style="color:var(--text-sub);font-size:12px;padding:8px 0;">항목 없음</div>';
     return;
   }
-  const maxAmt=segments[0]?segments[0].amount:1;
-  const innerHtml=segments.map(seg=>{
-    const barW=maxAmt>0?Math.max(6,Math.round(seg.amount/maxAmt*100)):6;
+  // 5% 기준: 미만은 기타로 합산
+  const THRESHOLD=0.05;
+  const mainEntries=sorted.filter(([,v])=>v/total>=THRESHOLD);
+  const otherEntries=sorted.filter(([,v])=>v/total<THRESHOLD);
+  const otherTotal=otherEntries.reduce((s,[,v])=>s+v,0);
+  // 팔레트 할당
+  const segs=mainEntries.map(([name,amount],i)=>({
+    name,amount,
+    c:_DONUT_PALETTE[i%_DONUT_PALETTE.length].c,
+    l:_DONUT_PALETTE[i%_DONUT_PALETTE.length].l,
+  }));
+  if(otherTotal>0)segs.push({name:'기타',amount:otherTotal,c:_OTHER_DONUT.c,l:_OTHER_DONUT.l});
+  svgEl.innerHTML=_donutSVG(segs,total);
+  // 레전드 HTML 생성
+  const legendItems=segs.map((seg,i)=>{
+    const pct=(seg.amount/total*100).toFixed(1);
+    const barW=Math.max(4,Math.round(seg.amount/total*100));
     const svgIcon=_getCatSVG(seg.name);
     const displayName=_stripCatEmoji(seg.name);
-    return `<div class="dash-donut-legend-item2">
+    const isOther=seg.name==='기타';
+    return `<div class="ddl2-row" data-li="${i}" style="border-radius:10px;padding:7px 8px 5px;transition:background .15s;cursor:${isOther?'pointer':'default'};" ${isOther?'onclick="App._donutOtherToggle(this)"':''}>
       <div class="ddl2-header">
-        <span class="ddl2-icon" style="color:${seg.color};">${svgIcon}</span>
+        <span class="ddl2-icon" style="color:${seg.c};">${svgIcon}</span>
         <span class="ddl2-name">${displayName}</span>
-        <span class="ddl2-amt">${fmt(seg.amount)}</span>
+        ${isOther?`<span style="font-size:11px;color:var(--text-sub);margin-left:2px;">${pct}%</span>`:''}
+        <span class="ddl2-amt" data-li-amt="${i}">${fmt(seg.amount)}</span>
+        ${isOther?`<span class="ddl2-arrow" style="font-size:10px;color:var(--text-sub);margin-left:4px;transition:transform .22s;display:inline-block;">▼</span>`:''}
       </div>
       <div class="ddl2-bar-wrap">
-        <div class="ddl2-bar-fill" style="width:${barW}%;background:linear-gradient(90deg,${seg.color},${seg.color}33);"></div>
+        <div class="ddl2-bar-fill" data-li-bar="${i}" style="width:${barW}%;background:linear-gradient(90deg,${seg.c},${seg.l});"></div>
       </div>
+      ${isOther&&otherEntries.length>0?`<div class="ddl2-other-list" style="overflow:hidden;max-height:0;transition:max-height .26s ease;">
+        ${otherEntries.map(([n,v])=>`<div style="display:flex;justify-content:space-between;padding:4px 4px 3px 24px;font-size:12px;color:var(--text-sub);">
+          <span>${_stripCatEmoji(n)}</span>
+          <span style="display:flex;gap:10px;"><span>${fmt(v)}</span><span style="min-width:34px;text-align:right;">${(v/total*100).toFixed(1)}%</span></span>
+        </div>`).join('')}
+      </div>`:''}
     </div>`;
   }).join('');
-  // 스크롤 래퍼를 별도로 두어 overflow-y가 수평 클리핑 유발하는 문제 방지
-  legEl.innerHTML=`<div class="ddl-scroll-inner">${innerHtml}</div>`;
+  legEl.innerHTML=`<div class="ddl-scroll-inner">${legendItems}</div>`;
+  // 호버 동기화: 도넛 세그먼트 ↔ 레전드 행
+  const svgNode=document.getElementById('dash-donut-svgi');
+  if(!svgNode)return;
+  const allSegs=svgNode.querySelectorAll('.donut-seg');
+  const allRows=legEl.querySelectorAll('.ddl2-row');
+  const dcLabel=svgNode.querySelector('#dc-label');
+  const dcVal=svgNode.querySelector('#dc-val');
+  const dcPct=svgNode.querySelector('#dc-pct');
+  const defaultLabel='총 변동지출';
+  const defaultVal=(total/10000).toFixed(1)+'만원';
+  function activateIdx(idx){
+    const seg=segs[idx];if(!seg)return;
+    allSegs.forEach((p,j)=>{p.style.opacity=j===idx?'1':'0.28';});
+    allRows.forEach((r,j)=>{
+      r.style.background=j===idx?`${segs[j].c}18`:'';
+      const amtEl=r.querySelector('[data-li-amt]');
+      if(amtEl)amtEl.style.fontWeight=j===idx?'800':'700';
+      if(amtEl)amtEl.style.color=j===idx?segs[j].c:'var(--text-main)';
+      const barEl=r.querySelector('[data-li-bar]');
+      if(barEl)barEl.style.filter=j===idx?'brightness(1.1)':'none';
+    });
+    if(dcLabel)dcLabel.textContent=_stripCatEmoji(seg.name);
+    if(dcVal){dcVal.textContent=fmt(seg.amount);dcVal.setAttribute('fill',seg.c);}
+    if(dcPct){dcPct.textContent=(seg.amount/total*100).toFixed(1)+'%';dcPct.setAttribute('opacity','1');}
+  }
+  function deactivate(){
+    allSegs.forEach(p=>{p.style.opacity='1';});
+    allRows.forEach(r=>{r.style.background='';const a=r.querySelector('[data-li-amt]');if(a){a.style.fontWeight='700';a.style.color='var(--text-main)';}const b=r.querySelector('[data-li-bar]');if(b)b.style.filter='none';});
+    if(dcLabel)dcLabel.textContent=defaultLabel;
+    if(dcVal){dcVal.textContent=defaultVal;dcVal.setAttribute('fill','#2D2D3A');}
+    if(dcPct)dcPct.setAttribute('opacity','0');
+  }
+  allSegs.forEach(p=>{
+    p.addEventListener('mouseenter',()=>activateIdx(+p.dataset.di));
+    p.addEventListener('mouseleave',deactivate);
+  });
+  allRows.forEach((r,i)=>{
+    r.addEventListener('mouseenter',()=>activateIdx(i));
+    r.addEventListener('mouseleave',deactivate);
+  });
+}
+// 기타 드롭다운 토글 (window.App에 등록됨 — 아래 App 객체 참고)
+function _donutOtherToggle(row){
+  const list=row.querySelector('.ddl2-other-list');
+  const arrow=row.querySelector('.ddl2-arrow');
+  if(!list)return;
+  const open=list.style.maxHeight!=='0px'&&list.style.maxHeight!=='';
+  list.style.maxHeight=open?'0px':list.scrollHeight+'px';
+  if(arrow)arrow.style.transform=open?'':'rotate(180deg)';
 }
 
 function showDonutTip(e,name,amount,pct){
@@ -5557,7 +5638,7 @@ function goToLedger(){
 
 window.App={
   changeMonth,changeCalYear,toggleDashSection,toggleDashVarSection,applyMonthTheme,setDashVarMode,
-  showDonutTip,hideDonutTip,switchTab,
+  showDonutTip,hideDonutTip,_donutOtherToggle,switchTab,
   openModal,closeModal,openVariableModal,
   openBudgetModal,saveBudgetCategory,deleteBudgetCategory,openBudgetAutoModal,applyBudgetSuggestions,
   openBudgetCatSyncModal,saveBudgetCatSync,
