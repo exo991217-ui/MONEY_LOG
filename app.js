@@ -5028,16 +5028,12 @@ function renderLcatPanel(){
   }
   panel.innerHTML=`<div class="lcat-hint">💡 아이콘을 클릭하면 직접 고를 수 있어요</div><div class="lcat-list" id="lcat-list">${cats.map(c=>{
     return `<div class="lcat-row" data-drag-id="${c.id}">
-      <div class="lcat-row-top">
-        <button class="lcat-icon-trigger" title="아이콘 변경 (클릭)" onclick="App._openIconPicker(event,${c.id})">${_getCatSVG(c.name)}</button>
-        <div class="lcat-row-actions">
-          <button class="lcat-color-trigger" title="테마 색상 설정" onclick="App._openColorPicker(event,${c.id})" style="background:${c.color||'transparent'};border:2px solid ${c.color?c.color+'88':'var(--border)'};width:22px;height:22px;border-radius:50%;cursor:pointer;flex-shrink:0;padding:0;"></button>
-          <button class="icon-btn lcat-del-btn" onclick="App.deleteLcatEntry(${c.id})"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
-        </div>
-      </div>
+      <button class="lcat-icon-trigger" title="아이콘 변경" onclick="App._openIconPicker(event,${c.id})">${_getCatSVG(c.name)}</button>
+      <button class="lcat-color-trigger" title="색상" onclick="App._openColorPicker(event,${c.id})" style="background:${c.color||'transparent'};border:2px solid ${c.color?c.color+'88':'var(--border)'};width:18px;height:18px;border-radius:50%;cursor:pointer;flex-shrink:0;padding:0;"></button>
       <input class="lcat-name-input" type="text" value="${c.name}"
         onchange="App.saveLcatName(${c.id},this.value)"
         onkeydown="if(event.key==='Enter')this.blur()"/>
+      <button class="icon-btn lcat-del-btn" onclick="App.deleteLcatEntry(${c.id})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
     </div>`;}).join('')}
   </div>
   <div style="display:flex;gap:8px;margin-top:10px;">
