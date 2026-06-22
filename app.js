@@ -5077,8 +5077,29 @@ function toggleLcatSavings(id,checked){
 
 function saveLcatName(id,name){
   const c=(S.ledgerCategories||[]).find(c=>c.id==id);if(!c)return;
-  c.name=name.trim()||c.name;
-  saveState();renderLcatPanel();
+  const newName=name.trim();if(!newName||newName===c.name)return;
+  const oldName=c.name;
+  c.name=newName;
+  // 가계부 항목 일괄 반영: categoryId 또는 이름 일치하는 모든 항목
+  Object.keys(S.ledger||{}).forEach(key=>{
+    (S.ledger[key]||[]).forEach(e=>{
+      if(e.categoryId==id||e.category===oldName)e.category=newName;
+    });
+  });
+  // 변동지출 항목 일괄 반영
+  Object.keys(S.monthlyData||{}).forEach(key=>{
+    const d=S.monthlyData[key];if(!d)return;
+    (d.variable||[]).forEach(v=>{if(v.category===oldName)v.category=newName;});
+  });
+  // 예산현황 연동 카테고리 배열 반영
+  (S.budgetCategories||[]).forEach(bc=>{
+    if(!bc.linkedCategories)return;
+    bc.linkedCategories=bc.linkedCategories.map(n=>n===oldName?newName:n);
+  });
+  saveState();
+  renderLcatPanel();
+  renderDashboard();
+  renderLedger();
 }
 
 function toggleLcatPanel(){
@@ -5799,7 +5820,7 @@ function goToLedger(){
 
 window.App={
   changeMonth,changeCalYear,toggleDashSection,toggleDashVarSection,applyMonthTheme,setDashVarMode,
-  showDonutTip,hideDonutTip,_donutOtherToggle,_openIconPicker,_saveLcatIcon,switchTab,
+  showDonutTip,hideDonutTip,_donutOtherToggle,_openIconPicker,_saveLcatIcon,_openColorPicker,_saveLcatColor,switchTab,
   openModal,closeModal,openVariableModal,
   openBudgetModal,saveBudgetCategory,deleteBudgetCategory,openBudgetAutoModal,applyBudgetSuggestions,
   openBudgetCatSyncModal,saveBudgetCatSync,
