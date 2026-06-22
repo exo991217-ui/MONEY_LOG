@@ -668,10 +668,11 @@ body{font-family:var(--font);background:linear-gradient(145deg,#5E4BC422 0%,#D1C
 .lcat-toggle-bar:hover{background:var(--purple-light);color:#5E4BC4;border-color:#A29BFE}
 .lcat-panel-wrap{background:white;border:1.5px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:14px;box-shadow:var(--shadow)}
 .lcat-list{display:flex;flex-direction:column;gap:6px;margin-bottom:4px}
-.lcat-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px dashed var(--border)}
-.lcat-row:last-child{border-bottom:none}
-.lcat-name-input{border:1.5px solid var(--border);border-radius:8px;padding:5px 10px;font-size:13px;font-family:var(--font);flex:1}
-.lcat-name-input:focus{outline:none;border-color:#A29BFE}
+.lcat-row{display:flex;align-items:center;gap:10px;padding:7px 6px;border-radius:10px;border-bottom:none;transition:background .15s;}
+.lcat-row:hover{background:rgba(162,155,254,.08);}
+.lcat-name-input{border:1.5px solid transparent;border-radius:8px;padding:5px 8px;font-size:13px;font-family:var(--font);flex:1;background:transparent;transition:border-color .15s,background .15s;}
+.lcat-name-input:hover{border-color:var(--border);}
+.lcat-name-input:focus{outline:none;border-color:#A29BFE;background:#fff;}
 .lcat-savings-label{display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap}
 .lcat-savings-label input{accent-color:#A29BFE;cursor:pointer}
 .lcat-savings-badge{font-size:11px;font-weight:700;border-radius:6px;padding:2px 7px;background:var(--border);color:var(--text-sub);transition:all .15s}
@@ -1896,16 +1897,25 @@ body{font-family:var(--font);background:linear-gradient(145deg,#5E4BC422 0%,#D1C
 
 /* ── 카테고리 아이콘 피커 ── */
 .lcat-icon-trigger{
-  background:none;border:1.5px solid transparent;border-radius:8px;
-  padding:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;
-  width:28px;height:28px;flex-shrink:0;transition:border-color .15s,background .15s;
-  color:var(--text-sub);
+  background:rgba(162,155,254,.13);border:1.5px solid transparent;border-radius:10px;
+  padding:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  width:36px;height:36px;flex-shrink:0;transition:all .15s;
+  color:#7c6fe0;
 }
 .lcat-icon-trigger:hover{
-  border-color:var(--t1,#A29BFE);background:var(--purple-light,#F3F0FF);
-  color:var(--t1,#5E4BC4);
+  border-color:var(--t1,#A29BFE);background:var(--purple-light,#F0EDFF);
+  color:var(--t1,#5E4BC4);transform:scale(1.08);
 }
-.lcat-icon-trigger svg{display:block;width:16px;height:16px;}
+.lcat-icon-trigger svg{display:block;width:18px;height:18px;}
+
+/* 직접설정 / 자동 배지 */
+.lcat-badge{font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;flex-shrink:0;white-space:nowrap;letter-spacing:-.3px;}
+.lcat-badge--custom{background:rgba(162,155,254,.2);color:#7c6fe0;}
+.lcat-badge--auto{background:rgba(0,0,0,.06);color:#aaa;}
+
+/* 삭제 버튼 */
+.lcat-del-btn{opacity:.35;transition:opacity .15s,color .15s;}
+.lcat-del-btn:hover{opacity:1;color:#e74c3c;}
 
 /* 팝오버 피커 그리드 */
 .lcat-icon-picker{
