@@ -1870,12 +1870,26 @@ body{font-family:var(--font);background:linear-gradient(145deg,#5E4BC422 0%,#D1C
   white-space:nowrap;flex-shrink:0;min-width:70px;text-align:right;
 }
 
-/* 그라데이션 막대 — 카테고리 색상 → 투명 */
+/* 그라데이션 막대 — 카테고리 색상 그라데이션 */
 .ddl2-bar-wrap{
-  height:7px;background:transparent;border-radius:20px;overflow:hidden;
+  height:7px;background:#F0EEFF;border-radius:20px;overflow:hidden;margin-top:2px;
 }
 .ddl2-bar-fill{
   height:100%;border-radius:20px;
-  /* background set inline via JS: linear-gradient(90deg, color, color33) */
-  transition:width .5s cubic-bezier(.4,0,.2,1);
+  /* background set inline via JS: linear-gradient(90deg, color, light) */
+  transition:width .5s cubic-bezier(.4,0,.2,1),filter .18s;
 }
+
+/* ── 도넛 레전드 행 — 수정본 추가 스타일 */
+.ddl2-row{border-radius:10px;padding:7px 8px 5px;transition:background .15s;}
+.ddl2-row:hover{background:rgba(162,155,254,.09);}
+
+/* 기타 드롭다운 서브 항목 */
+.ddl2-other-list{overflow:hidden;max-height:0;transition:max-height .26s ease;}
+.ddl2-arrow{font-size:10px;color:var(--text-sub);margin-left:4px;transition:transform .22s;display:inline-block;}
+
+/* 도넛 SVG 세그먼트 기본 */
+.donut-seg{cursor:pointer;transition:opacity .18s;}
+
+/* 툴팁 숨김 (센터 텍스트로 대체) */
+.dash-donut-tip{display:none!important;}
