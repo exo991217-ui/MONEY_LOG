@@ -65,6 +65,7 @@ const DEFAULT_DATA=()=>{
     {id:10,name:'🎁 경조사',isSavings:false},
     {id:11,name:'📦 기타',isSavings:false},
   ],
+  keywordRules:[],
   calSpendMode:false,
   calAmountLegend:[
     {min:0,      max:0,      type:'none',       label:'0원'},
@@ -110,6 +111,7 @@ function loadState(){
       // Migrate per-category sync: add synced/syncFrom/linkedCategories to old categories
       S.budgetCategories=S.budgetCategories.map(c=>({synced:true,syncFrom:'',linkedCategories:[],...c}));
       if(!S.ledgerCategories)S.ledgerCategories=DEFAULT_DATA().ledgerCategories;
+      if(!S.keywordRules)S.keywordRules=[];
       if(S.calSpendMode===undefined)S.calSpendMode=false;
       if(!S.calAmountLegend)S.calAmountLegend=DEFAULT_DATA().calAmountLegend;
       // Migrate 1원~1만원 tier to theme-ultralight
@@ -264,6 +266,7 @@ window.FB_MERGE = function(fbData) {
     if(!S.assetCategories)S.assetCategories=['계좌','적금','주식'];
     if(!S.remainingBudgetSettings)S.remainingBudgetSettings={label:'현재 남은 예산',amount:0};
     if(!S.ledgerCategories)S.ledgerCategories=D.ledgerCategories;
+    if(!S.keywordRules)S.keywordRules=[];
     if(S.calSpendMode===undefined)S.calSpendMode=false;
     if(!S.calAmountLegend)S.calAmountLegend=D.calAmountLegend;
     // Migrate 1원~1만원 tier to theme-ultralight
@@ -1244,7 +1247,12 @@ function toggleDashSection(section){
 }
 
 // ===== DASHBOARD VARIABLE EXPENSE DONUT CHART =====
-const _DONUT_COLORS=['#64B5F6','#FFB347','#CE93D8','#4DB6AC','#4CAF82','#A29BFE','#F06292','#FDCB6E','#90CAF9','#FF8A65'];
+const _DONUT_COLORS=['#64B5F6','#FFB347','#CE93D8','#4DB6AC','#4CAF82','#A29BFE','#F06292','#FDCB6E','#90CAF9','#FF8A65','#80CBC4','#FFCC80','#EF9A9A','#C5E1A5','#B39DDB','#80DEEA','#FFAB91','#F48FB1','#A5D6A7','#FFF176'];
+// 카테고리 이름 기반 안정적 색상 (같은 카테고리 = 항상 같은 색)
+function _catColorStable(name){
+  let h=0;for(let i=0;i<name.length;i++)h=((h<<5)-h+name.charCodeAt(i))|0;
+  return _DONUT_COLORS[Math.abs(h)%_DONUT_COLORS.length];
+}
 // ===== SVG 카테고리 아이콘 시스템 (filled/solid) =====
 function _stripCatEmoji(name){
   if(!name)return'';
@@ -1309,7 +1317,7 @@ function _donutSVG(segments,total){
     const x3=cx+ri*Math.cos(eA),y3=cy+ri*Math.sin(eA);
     const x4=cx+ri*Math.cos(sA),y4=cy+ri*Math.sin(sA);
     const la=sweep>Math.PI?1:0;
-    const col=seg.color||_DONUT_COLORS[i%_DONUT_COLORS.length];
+    const col=seg.color||_catColorStable(seg.name);
     const pct=(frac*100).toFixed(1);
     const safeName=seg.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
     return `<path d="M${x1.toFixed(2)} ${y1.toFixed(2)} A${R} ${R} 0 ${la} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} L${x3.toFixed(2)} ${y3.toFixed(2)} A${ri} ${ri} 0 ${la} 0 ${x4.toFixed(2)} ${y4.toFixed(2)}Z"
@@ -1374,7 +1382,7 @@ function renderDashDonut(y,m){
   });
   const sorted=Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
   const total=sorted.reduce((s,[,v])=>s+v,0);
-  const segments=sorted.map(([name,amount],i)=>({name,amount,color:_DONUT_COLORS[i%_DONUT_COLORS.length]}));
+  const segments=sorted.map(([name,amount])=>({name,amount,color:_catColorStable(name)}));
   svgEl.innerHTML=_donutSVG(segments,total);
   if(segments.length===0){
     legEl.innerHTML='<div style="color:var(--text-sub);font-size:12px;padding:8px 0;">항목 없음</div>';
@@ -3906,8 +3914,16 @@ function addLedgerEntry(){
   const dateParts=date.split('-');
   const entryY=parseInt(dateParts[0]);const entryM=parseInt(dateParts[1]);
   const key=(entryY&&entryM)?mkey(entryY,entryM):mkey(S.currentMonths.ledger.y,S.currentMonths.ledger.m);
-  const tags=extractTagsFromMemo(rawMemo);
+  let tags=extractTagsFromMemo(rawMemo);
   const memo=cleanMemoText(rawMemo);
+  // 키워드 규칙 자동 태그 적용
+  const kwRules=S.keywordRules||[];
+  kwRules.forEach(r=>{
+    if(r.keyword&&memo.toLowerCase().includes(r.keyword.toLowerCase())){
+      if(r.tag){const t=r.tag.replace(/^#/,'');if(!tags.includes(t))tags.push(t);}
+    }
+  });
+  const hintEl=document.getElementById('kw-auto-hint');if(hintEl)hintEl.classList.remove('visible');
   if(!S.ledger[key])S.ledger[key]=[];
   S.ledger[key].push({id:genId(),date,type,category,memo,tags,amount});
   document.getElementById('lq-memo').value='';
@@ -4092,8 +4108,8 @@ function onMemoInput(el){
   const pos=el.selectionStart;
   const before=val.slice(0,pos);
   const hashMatch=before.match(/#([^\s#]*)$/);
-  if(!hashMatch){hideMemoDropdown();return;}
-  showMemoDropdown(el,hashMatch[1]);
+  if(!hashMatch){hideMemoDropdown();}else{showMemoDropdown(el,hashMatch[1]);}
+  _applyKwRules(val);
 }
 
 function showMemoDropdown(el,query){
@@ -4827,6 +4843,78 @@ function toggleLcatPanel(){
   if(hidden)renderLcatPanel();
 }
 
+// ===== KEYWORD RULES =====
+function toggleKwRulePanel(){
+  const panel=document.getElementById('kw-rule-panel');
+  const arrow=document.getElementById('kw-rule-arrow');
+  if(!panel)return;
+  const hidden=panel.style.display==='none'||!panel.style.display;
+  panel.style.display=hidden?'block':'none';
+  if(arrow)arrow.textContent=hidden?'∧':'∨';
+  if(hidden)renderKwRulePanel();
+}
+
+function renderKwRulePanel(){
+  const panel=document.getElementById('kw-rule-panel');if(!panel)return;
+  const rules=S.keywordRules||[];
+  const cats=(S.ledgerCategories||[]).map(c=>c.name);
+  const catOpts=cats.map(c=>`<option value="${c}">${c}</option>`).join('');
+  const listHTML=rules.length===0
+    ?'<div class="lcat-empty">키워드 규칙이 없어요. 추가해보세요!</div>'
+    :rules.map(r=>`<div class="kw-rule-row" data-id="${r.id}">
+      <span class="kw-rule-keyword">🔍 ${r.keyword}</span>
+      ${r.tag?`<span class="kw-rule-tag">${r.tag}</span>`:''}
+      ${r.category?`<span class="kw-rule-cat">${r.category.split(' ')[0]}</span>`:''}
+      <button class="icon-btn" onclick="App.deleteKwRule(${r.id})"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+    </div>`).join('');
+  panel.innerHTML=`
+    <div style="font-size:11.5px;color:var(--text-sub);margin-bottom:10px;">항목명에 키워드가 포함되면 태그·카테고리를 자동으로 설정해요.</div>
+    ${listHTML}
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;align-items:flex-end;">
+      <div style="flex:1;min-width:90px;"><div style="font-size:11px;color:var(--text-sub);margin-bottom:3px;">키워드</div>
+        <input id="kw-new-keyword" class="lq-input" placeholder="스타벅스" style="width:100%;"/></div>
+      <div style="flex:1;min-width:80px;"><div style="font-size:11px;color:var(--text-sub);margin-bottom:3px;">태그</div>
+        <input id="kw-new-tag" class="lq-input" placeholder="#카페" style="width:100%;"/></div>
+      <div style="flex:1;min-width:100px;"><div style="font-size:11px;color:var(--text-sub);margin-bottom:3px;">카테고리</div>
+        <select id="kw-new-cat" class="lq-input" style="width:100%;"><option value="">선택 안함</option>${catOpts}</select></div>
+      <button class="lq-add-btn" onclick="App.addKwRule()">추가</button>
+    </div>`;
+}
+
+function addKwRule(){
+  const kw=(document.getElementById('kw-new-keyword').value||'').trim();
+  if(!kw)return alert('키워드를 입력해주세요');
+  let tag=(document.getElementById('kw-new-tag').value||'').trim();
+  if(tag&&!tag.startsWith('#'))tag='#'+tag;
+  const cat=document.getElementById('kw-new-cat').value||'';
+  if(!S.keywordRules)S.keywordRules=[];
+  if(S.keywordRules.some(r=>r.keyword===kw))return alert('이미 등록된 키워드예요');
+  S.keywordRules.push({id:genId(),keyword:kw,tag,category:cat});
+  saveState();renderKwRulePanel();
+}
+
+function deleteKwRule(id){
+  S.keywordRules=(S.keywordRules||[]).filter(r=>r.id!=id);
+  saveState();renderKwRulePanel();
+}
+
+// 키워드 규칙 자동 적용 (메모 입력 시)
+function _applyKwRules(memoVal){
+  const rules=S.keywordRules||[];
+  if(!rules.length)return;
+  const text=memoVal.replace(/#\S+/g,'').trim();
+  if(!text)return;
+  const matched=rules.filter(r=>r.keyword&&text.toLowerCase().includes(r.keyword.toLowerCase()));
+  if(!matched.length)return;
+  // 카테고리 자동 설정
+  const firstCat=matched.find(r=>r.category)?.category;
+  if(firstCat){const sel=document.getElementById('lq-category');if(sel)sel.value=firstCat;}
+  // 힌트 표시
+  const hints=matched.map(r=>[r.tag,r.category?r.category.split(' ')[0]:''].filter(Boolean).join(' '));
+  const hintEl=document.getElementById('kw-auto-hint');
+  if(hintEl){hintEl.textContent='⚡ 자동 적용: '+hints.join(' · ');hintEl.classList.add('visible');}
+}
+
 // ===== MONTH NAVIGATION =====
 function changeMonth(dir,section){
   const ref=S.currentMonths[section];
@@ -5464,6 +5552,7 @@ window.App={
   updateAssetAmount,updateStockPrice,updateStockBuyAmount,updateStockCurrentAmount,onStockTypeChange,renderAssetStocks,
   deleteCredit,toggleCreditPaid,markAllCreditPaidThisMonth,
   applyLedgerAutomations,toggleLedgerAutoPanel,addAutoInline,
+  toggleKwRulePanel,addKwRule,deleteKwRule,
   openEditLedgerModal,saveLedgerEdit,onLedgerEditTypeChange,
   openCalModal,saveCalEvent,deleteCalEvent,editCalEvent,
   openSavingsModal,editSavingsGoal,saveSavingsGoal,deleteSavingsGoal,updateSavedAmount,pickSavingsColor,
