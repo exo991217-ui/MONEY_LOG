@@ -675,8 +675,8 @@ function renderBudget(y,m){
     const hasLinked=linkedArr.length>0;
     const linkedTagsHtml=hasLinked
       ?(linkedArr.length===1
-        ?`<span class="budget-linked-tag">📒${linkedArr[0]}</span>`
-        :`<span class="budget-linked-tag">📒${linkedArr[0]}+${linkedArr.length-1}</span>`)
+        ?`<span class="budget-linked-tag"><span class="badge-svg-icon">${_getCatSVG(linkedArr[0])}</span>${linkedArr[0]}</span>`
+        :`<span class="budget-linked-tag"><span class="badge-svg-icon">${_getCatSVG(linkedArr[0])}</span>${linkedArr[0]}+${linkedArr.length-1}</span>`)
       :'';
     // 기본값 설정 모드
     const da=_defaultMode?` data-drag-id="${cat.id}" draggable="true" ondragstart="App._dmDragStart(event,'budget',${cat.id})" ondragover="App._dmDragOver(event,'budget')" ondragleave="App._dmDragLeave(event)" ondrop="App._dmDrop(event,'budget',${cat.id})" ondragend="App._dmDragEnd(event)"`:'';
@@ -747,6 +747,7 @@ function openBudgetCatSyncModal(catId){
     bodyEl.innerHTML=lcats.map(lc=>`
       <label class="bcsync-check-row">
         <input type="checkbox" class="bcsync-chk" value="${lc.name.replace(/"/g,'&quot;')}" ${linked.includes(lc.name)?'checked':''}/>
+        <span class="bcsync-cat-icon badge-svg-icon">${_getCatSVG(lc.name)}</span>
         <span class="bcsync-check-label-text">${lc.name}</span>
       </label>`).join('');
   }
@@ -1252,11 +1253,13 @@ function toggleDashSection(section){
 // 카테고리별 안정적 색상 — 골든앵글(137.5°) 기반으로 최대한 다른 색 보장
 function _catColorStable(name){
   const cats=S.ledgerCategories||[];
+  const found=cats.find(c=>c.name===name);
+  if(found&&found.color)return found.color;
   let idx=cats.findIndex(c=>c.name===name);
   if(idx<0){let h=0;for(let i=0;i<name.length;i++)h=((h<<5)-h+name.charCodeAt(i))|0;idx=Math.abs(h)%60+20;}
   const hue=Math.round((idx*137.508)%360);
-  const sat=60+((idx*7)%20); // 60~79%
-  const lit=55+((idx*3)%15); // 55~69%
+  const sat=65+((idx*11)%20); // 65~84%, 더 선명하게
+  const lit=46+((idx*7)%14); // 46~59%, 더 진하게
   return `hsl(${hue},${sat}%,${lit}%)`;
 }
 // ===== SVG 카테고리 아이콘 시스템 (filled/solid) =====
@@ -1266,6 +1269,7 @@ function _stripCatEmoji(name){
   return name.replace(/^[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FEFF}\u{1F000}-\u{1F02F}✈♥⚡💳📱🏠🏦💡💊💪💰💴🎁👕💄🛍🛒🎬🎮🚗🍚🍜📦📌]+\s*/u,'').trim();
 }
 const _SVG_ICONS={
+  cafe:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zm0 5h-2V5h2v3zM4 19h16v2H4z"/></svg>`,
   food:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M11 9H9V2H7v7H5V2H3v7c0 2.12 1.66 3.84 3.75 3.97V22h2.5v-9.03C11.34 12.84 13 11.12 13 9V2h-2v7zm5-3v8h2.5v8H21V2c-2.76 0-5 2.24-5 4z"/></svg>`,
   car:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>`,
   phone:`<svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"/></svg>`,
@@ -1292,6 +1296,7 @@ function _getCatSVG(name){
   }
   // 2순위: 키워드 자동 매칭
   const n=(name||'').toLowerCase();
+  if(n.includes('카페')||n.includes('커피')||n.includes('스타벅스'))return _SVG_ICONS.cafe;
   if(n.includes('식비')||n.includes('음식')||n.includes('외식')||n.includes('🍚')||n.includes('🍜'))return _SVG_ICONS.food;
   if(n.includes('교통')||n.includes('차량')||n.includes('🚗'))return _SVG_ICONS.car;
   if(n.includes('통신')||n.includes('📱'))return _SVG_ICONS.phone;
@@ -1311,7 +1316,7 @@ function _categoryIcon(name){return _getCatSVG(name);}
 
 // ── 아이콘 피커: 이름 ↔ 표시 레이블
 const _ICON_LABELS={
-  food:'식비',car:'교통',phone:'통신',bag:'쇼핑',home:'주거',
+  cafe:'카페',food:'식비',car:'교통',phone:'통신',bag:'쇼핑',home:'주거',
   culture:'문화',health:'건강',wallet:'금융',money:'수입',
   gift:'경조사',plane:'여행',fashion:'패션',box:'기타',
   pin:'위치',lightning:'에너지',creditcard:'카드',heart:'좋아요',
@@ -1354,6 +1359,57 @@ function _saveLcatIcon(catId,iconKey){
   cat.icon=iconKey;
   saveState();
   renderLcatPanel();
+  renderDashboard();
+}
+
+function _openColorPicker(e,catId){
+  e.stopPropagation();
+  document.querySelectorAll('.lcat-color-picker').forEach(el=>el.remove());
+  const btn=e.currentTarget;
+  const cat=(S.ledgerCategories||[]).find(c=>c.id==catId);
+  const PRESET_COLORS=[
+    '#FF6B6B','#FF8A65','#FFA94D','#FFCA28','#FFD54F',
+    '#81C784','#43C98A','#4DB6AC','#4FC3F7','#64B5F6',
+    '#74B9FF','#A29BFE','#CE93D8','#F48FB1','#E91E8C',
+    '#90A4AE','#FDCB6E','#00CEC9','#6C5CE7','#E17055',
+  ];
+  const picker=document.createElement('div');
+  picker.className='lcat-color-picker';
+  picker.style.cssText='position:absolute;z-index:999;background:var(--white);border:1.5px solid var(--border);border-radius:12px;padding:10px;box-shadow:0 4px 20px rgba(0,0,0,0.15);display:flex;flex-direction:column;gap:8px;min-width:220px;left:0;top:28px;';
+  const swatchGrid=PRESET_COLORS.map(col=>{
+    const isActive=cat&&cat.color===col;
+    return `<button onclick="App._saveLcatColor(${catId},'${col}')" title="${col}"
+      style="width:26px;height:26px;border-radius:50%;background:${col};border:${isActive?'3px solid #333':'2px solid rgba(0,0,0,0.1)'};cursor:pointer;flex-shrink:0;transition:transform .15s;" onmouseenter="this.style.transform='scale(1.2)'" onmouseleave="this.style.transform='scale(1)'"></button>`;
+  }).join('');
+  picker.innerHTML=`
+    <div style="font-size:11px;font-weight:700;color:var(--text-sub);margin-bottom:2px;">테마 색상 선택</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;">${swatchGrid}</div>
+    <div style="display:flex;gap:6px;align-items:center;margin-top:2px;">
+      <label style="font-size:11px;color:var(--text-sub);flex-shrink:0;">직접 입력</label>
+      <input type="color" value="${cat&&cat.color||'#A29BFE'}" style="flex:1;height:28px;border-radius:6px;border:1.5px solid var(--border);cursor:pointer;padding:2px;"
+        oninput="App._saveLcatColor(${catId},this.value)"/>
+      ${cat&&cat.color?`<button onclick="App._saveLcatColor(${catId},'')" style="font-size:11px;padding:3px 8px;border-radius:8px;border:1.5px solid var(--border);background:none;cursor:pointer;color:var(--text-sub);">초기화</button>`:''}
+    </div>`;
+  btn.parentNode.style.position='relative';
+  btn.parentNode.appendChild(picker);
+  setTimeout(()=>{
+    function closeOnOut(ev){
+      if(!picker.contains(ev.target)&&ev.target!==btn){
+        picker.remove();
+        document.removeEventListener('click',closeOnOut,true);
+      }
+    }
+    document.addEventListener('click',closeOnOut,true);
+  },0);
+}
+
+function _saveLcatColor(catId,color){
+  const cat=(S.ledgerCategories||[]).find(c=>c.id==catId);
+  if(!cat)return;
+  if(color){cat.color=color;}else{delete cat.color;}
+  saveState();
+  renderLcatPanel();
+  renderLedger();
   renderDashboard();
 }
 
@@ -1941,6 +1997,7 @@ function renderIncome(){
            data-vcat="${catEsc}" data-vtotal="${item.amount}"
            onclick="App.showVarPreview(this)">
         <div class="item-left">
+          <span class="var-cat-icon badge-svg-icon" style="color:var(--text-sub);margin-right:4px;">${_getCatSVG(item.category)}</span>
           <span class="item-name">${item.name}</span>
           ${showCat?`<span class="item-cat">${item.category}</span>`:''}
         </div>
@@ -3039,7 +3096,7 @@ function renderFoodPanel(d){
     const entryRows=dayEntries.map(e=>{
       const cc=getCat(e.category);
       return `<div class="food-spend-row" style="--cat-strip:${cc.strip};">
-        <div class="food-spend-row-left"><span class="food-spend-cat-dot" style="background:${cc.strip};"></span><span class="food-spend-memo">${e.category||''} ${e.memo?`· ${e.memo}`:''}</span></div>
+        <div class="food-spend-row-left"><span class="food-spend-cat-icon badge-svg-icon" style="color:${cc.strip};flex-shrink:0;">${_getCatSVG(e.category)}</span><span class="food-spend-memo">${e.category||''} ${e.memo?`· ${e.memo}`:''}</span></div>
         <div class="food-spend-amt">₩${(Number(e.amount)||0).toLocaleString('ko-KR')}</div>
       </div>`;}).join('');
     const emptyMsg=(autoRows||entryRows)?'':`<div class="food-spend-empty">이날 지출 내역이 없어요</div>`;
@@ -3931,6 +3988,14 @@ function addAutoInline(){
 }
 
 // ===== LEDGER =====
+// categoryId 기반 카테고리명 조회 (이름 변경 시 자동 반영)
+function _getCatNameById(e){
+  if(e.categoryId&&S.ledgerCategories){
+    const cat=(S.ledgerCategories||[]).find(c=>c.id===e.categoryId);
+    if(cat)return cat.name;
+  }
+  return e.category||'';
+}
 function renderLedger(){
   const cm=S.currentMonths.ledger;
   applyLedgerAutomations(cm.y,cm.m);
@@ -4019,8 +4084,9 @@ function renderLedger(){
           <span style="font-weight:800;${dayNet>=0?'color:var(--green)':'color:var(--red)'}">${dayNet>=0?'+':''}${fmt(dayNet)}</span>
         </div>
         ${items.map(e=>{
-          const cc=getCategoryColor(e.category);
-          const tagPills=(e.tags&&e.tags.length>0)?e.tags.map(t=>{const col=getTagColorForCategory(e.category);return `<span class="ledger-tag-pill" style="--tag-bg:${col.bg};--tag-color:${col.color};" onclick="event.stopPropagation();App.setTagFilter('${t}')">#${t}</span>`;}).join(''):'';
+          const catName=_getCatNameById(e);
+          const cc=getCategoryColor(catName);
+          const tagPills=(e.tags&&e.tags.length>0)?e.tags.map(t=>{const col=getTagColorForCategory(catName);return `<span class="ledger-tag-pill" style="--tag-bg:${col.bg};--tag-color:${col.color};" onclick="event.stopPropagation();App.setTagFilter('${t}')">#${t}</span>`;}).join(''):'';
           const creditBadge=e.creditAutoId?`<span class="ledger-credit-auto-badge" style="--cat-strip:${cc.strip};"><span class="badge-svg-icon" style="color:rgba(255,255,255,0.92);">${_SVG_ICONS.creditcard}</span>신용카드 자동</span>`:'';
           const savingsBadge=(e.tags||[]).includes('저축')?`<span class="ledger-savings-badge"><span class="badge-svg-icon" style="color:#E8627A;">${_SVG_ICONS.heart}</span>저축</span>`:'';
           const autoLedgerBadge=e.autoLedgerId?`<span class="ledger-auto-ledger-badge"><span class="badge-svg-icon" style="color:#F9A825;">${_SVG_ICONS.lightning}</span>자동화</span>`:'';
@@ -4028,7 +4094,7 @@ function renderLedger(){
           <div class="ledger-entry ${e.type} item-hover-edit" style="--cat-strip:${cc.strip};--cat-bg:${cc.bg};--cat-color:${cc.color};" onclick="App.openEditLedgerModal('${key}',${e.id})">
             <div class="ledger-cat-strip"></div>
             <div class="ledger-entry-left">
-              <span class="ledger-cat-badge" style="background:${cc.bg};color:${cc.color};"><span class="lcat-badge-icon">${_getCatSVG(e.category)}</span>${_stripCatEmoji(e.category)}</span>
+              <span class="ledger-cat-badge" style="background:${cc.bg};color:${cc.color};"><span class="lcat-badge-icon">${_getCatSVG(catName)}</span>${_stripCatEmoji(catName)}</span>
               <div class="ledger-memo-wrap">
                 <span class="ledger-memo">${e.memo||'—'}</span>
                 ${tagPills}
@@ -4068,7 +4134,9 @@ function addLedgerEntry(){
   });
   const hintEl=document.getElementById('kw-auto-hint');if(hintEl)hintEl.classList.remove('visible');
   if(!S.ledger[key])S.ledger[key]=[];
-  S.ledger[key].push({id:genId(),date,type,category,memo,tags,amount});
+  const _lcatForNew=(S.ledgerCategories||[]).find(c=>c.name===category);
+  const _categoryIdForNew=_lcatForNew?_lcatForNew.id:undefined;
+  S.ledger[key].push({id:genId(),date,type,category,categoryId:_categoryIdForNew,memo,tags,amount});
   document.getElementById('lq-memo').value='';
   document.getElementById('lq-amount').value='';
   hideMemoDropdown();
@@ -4088,6 +4156,11 @@ function deleteLedgerEntry(key,id){
 }
 
 // 가계부 카테고리 셀렉트 공통 동기화 — lq-category(빠른입력)와 mle-category(수정모달) 모두 S.ledgerCategories로 통일
+function _updateCatSelIcon(selId,iconSpanId){
+  const sel=document.getElementById(selId);
+  const span=document.getElementById(iconSpanId);
+  if(sel&&span)span.innerHTML=_getCatSVG(sel.value);
+}
 function _syncLedgerCatSelects(selectedForEdit){
   const cats=S.ledgerCategories||[];
   // 빠른입력 셀렉트
@@ -4096,6 +4169,11 @@ function _syncLedgerCatSelects(selectedForEdit){
     const cur=lqSel.value;
     lqSel.innerHTML=cats.map(c=>`<option value="${c.name}">${c.name}</option>`).join('');
     if([...lqSel.options].some(o=>o.value===cur))lqSel.value=cur;
+    if(!lqSel.dataset.iconBound){
+      lqSel.dataset.iconBound='1';
+      lqSel.addEventListener('change',()=>_updateCatSelIcon('lq-category','lq-cat-icon'));
+    }
+    _updateCatSelIcon('lq-category','lq-cat-icon');
   }
   // 수정 모달 셀렉트 (selectedForEdit가 주어진 경우에만)
   if(selectedForEdit!==undefined){
@@ -4106,6 +4184,11 @@ function _syncLedgerCatSelects(selectedForEdit){
         opts=`<option value="${selectedForEdit}" selected>${selectedForEdit}</option>`+opts;
       }
       mleSel.innerHTML=opts;
+      if(!mleSel.dataset.iconBound){
+        mleSel.dataset.iconBound='1';
+        mleSel.addEventListener('change',()=>_updateCatSelIcon('mle-category','mle-cat-icon'));
+      }
+      _updateCatSelIcon('mle-category','mle-cat-icon');
     }
   }
 }
@@ -4147,7 +4230,9 @@ function saveLedgerEdit(){
   const memo=cleanMemoText(rawMemo);
   const entries=S.ledger[key];if(!entries)return;
   const idx=entries.findIndex(e=>e.id==id);if(idx<0)return;
-  entries[idx]={...entries[idx],date,type,category,memo,tags,amount};
+  const _lcatForEdit=(S.ledgerCategories||[]).find(c=>c.name===category);
+  const _categoryIdForEdit=_lcatForEdit?_lcatForEdit.id:entries[idx].categoryId;
+  entries[idx]={...entries[idx],date,type,category,categoryId:_categoryIdForEdit,memo,tags,amount};
   saveState();closeModal();renderLedger();renderDashboard();renderIncome();
 }
 
@@ -4226,7 +4311,17 @@ const LEDGER_CAT_COLORS={
 };
 const _CAT_FALLBACK_STRIPS=['#FF6B6B','#FFA94D','#74B9FF','#55EFC4','#A29BFE','#FDCB6E','#FD79A8','#00CEC9'];
 function getCategoryColor(catName){
+  // 1순위: 사용자가 직접 설정한 카테고리 색상
+  if(S&&S.ledgerCategories){
+    const lcat=(S.ledgerCategories||[]).find(c=>c.name===catName);
+    if(lcat&&lcat.color){
+      const c=lcat.color;
+      return{strip:c,bg:c+'22',color:c};
+    }
+  }
+  // 2순위: 사전 정의 색상표
   if(LEDGER_CAT_COLORS[catName])return LEDGER_CAT_COLORS[catName];
+  // 3순위: 해시 기반 팔레트
   let h=0;for(let i=0;i<catName.length;i++)h=(h*31+catName.charCodeAt(i))&0xFFFF;
   const strip=_CAT_FALLBACK_STRIPS[Math.abs(h)%_CAT_FALLBACK_STRIPS.length];
   return{strip,bg:strip+'18',color:strip};
@@ -4939,6 +5034,7 @@ function renderLcatPanel(){
       <input class="lcat-name-input" type="text" value="${c.name}"
         onchange="App.saveLcatName(${c.id},this.value)"
         onkeydown="if(event.key==='Enter')this.blur()"/>
+      <button class="lcat-color-trigger" title="테마 색상 설정" onclick="App._openColorPicker(event,${c.id})" style="background:${c.color||'transparent'};border:2px solid ${c.color?c.color+'88':'var(--border)'};width:22px;height:22px;border-radius:50%;cursor:pointer;flex-shrink:0;padding:0;"></button>
       <span class="${badgeCls}">${badgeLabel}</span>
       <button class="icon-btn lcat-del-btn" onclick="App.deleteLcatEntry(${c.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
     </div>`;}).join('')}
