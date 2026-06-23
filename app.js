@@ -25,6 +25,8 @@ const DEFAULT_DATA=()=>{
     {id:3,name:'미국 나스닥 ETF',ticker:'QQQ',sector:'ETF',buyPrice:49145,currentPrice:49145,targetPrice:0,quantity:1,stockType:'foreign',buyAmount:49145,currentAmount:49145},
     {id:4,name:'426030',ticker:'426030',sector:'ETF',buyPrice:55780,currentPrice:55780,targetPrice:0,quantity:1,stockType:'domestic'},
   ],
+  analysisYear:_y,
+  expenseNatureSettings:{},
   consumptionCalendar:{},savingsGoals:{},foodCalendar:{},foodDirectSet:{},
   cardSettings:[{
     id:1,name:'신한카드 MR.LIFE',
@@ -135,6 +137,8 @@ function loadState(){
         S.monthBudgets={};
         S._budget_reset_v2=true;
       }
+      if(S.analysisYear===undefined)S.analysisYear=new Date().getFullYear();
+      if(!S.expenseNatureSettings)S.expenseNatureSettings={};
       if(S.ledgerFilter===undefined)S.ledgerFilter=null;
       S.ledgerTagFilter=null;
       if(!S.currentMonths.ledger)S.currentMonths.ledger={...S.currentMonths.dashboard};
@@ -274,6 +278,8 @@ window.FB_MERGE = function(fbData) {
     if(S.stockAssetDirect===undefined)S.stockAssetDirect=false;
     if(S.stockAssetAutoId===undefined)S.stockAssetAutoId=null;
     if(!S.calFoodSync)S.calFoodSync={};
+    if(S.analysisYear===undefined)S.analysisYear=new Date().getFullYear();
+    if(!S.expenseNatureSettings)S.expenseNatureSettings={};
     // 가계부 카테고리 이모지 버전으로 재설정 (v2)
     if(!S._lcat_reset_v2){
       S.ledgerCategories=[
@@ -5716,20 +5722,17 @@ function deleteMonthData(key){
 // ===== TAB SWITCHING =====
 function switchTab(tab){
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n=>{
+  document.querySelectorAll('.nav-item,.nav-sub-item').forEach(n=>{
     n.classList.remove('active');
     n.style.removeProperty('color');
     n.style.removeProperty('background');
   });
+  document.querySelectorAll('.nav-item-group').forEach(g=>g.classList.remove('active'));
   const tabEl=document.getElementById('tab-'+tab);
   if(tabEl)tabEl.classList.add('active');
   const navEl=document.querySelector('[data-tab="'+tab+'"]');
   if(navEl)navEl.classList.add('active');
-  // 대시보드 탭 전환 시 즉시 재렌더링 (최근 지출 포함)
-  if(tab==='dashboard'){
-    renderDashboard();
-  }
-  // 가계부 서브메뉴 활성화 (월 마감은 독립 탭으로 분리)
+  if(tab==='dashboard') renderDashboard();
   if(tab==='ledger'){
     const parentEl=document.querySelector('.nav-item-group[data-group="ledger"]');
     if(parentEl)parentEl.classList.add('active');
@@ -5737,11 +5740,194 @@ function switchTab(tab){
     if(subMenu)subMenu.style.display='block';
     renderLedger();
   }
-  if(tab==='monthly-archive'){
-    renderMonthlyArchive();
+  if(tab==='monthly-archive') renderMonthlyArchive();
+  if(tab==='analysis') renderAnalysis();
+  if(tab==='analysis'||tab==='monthly-archive'){
+    const anaGroup=document.querySelector('.nav-item-group[data-group="analysis"]');
+    if(anaGroup)anaGroup.classList.add('active');
+    const subMenu=document.getElementById('analysis-submenu');
+    if(subMenu)subMenu.style.display='block';
+    const arrow=document.getElementById('analysis-sub-arrow');
+    if(arrow)arrow.textContent='∨';
   }
-  // Close sidebar on mobile
   if(window.innerWidth<=680)closeSidebar();
+}
+
+// ===== ANALYSIS TAB =====
+const ANA_NATURES=[
+  {key:'필수',label:'필수지출',color:'#F06292',light:'#FFF0F5',icon:'🏠'},
+  {key:'생활',label:'생활지출',color:'#FFB347',light:'#FFF8EE',icon:'🛒'},
+  {key:'투자',label:'투자지출',color:'#64B5F6',light:'#EBF5FF',icon:'📈'},
+  {key:'특별',label:'특별지출',color:'#CE93D8',light:'#F5EEFF',icon:'🎁'},
+];
+let _anaExpandedMonth=null;
+let _anaNaturePanelOpen=false;
+
+function getMonthAnalysisData(y,m){
+  const key=mkey(y,m);
+  const md=S.monthlyData[key]||{};
+  const fixed=(md.fixed||[]).filter(f=>!f.isSavings);
+  const variable=md.variable||[];
+  const allExpenses=[...fixed,...variable];
+  const fixedTotal=fixed.reduce((s,f)=>s+(f.amount||0),0);
+  const varTotal=variable.reduce((s,v)=>s+(v.amount||0),0);
+  const totalExpense=fixedTotal+varTotal;
+  const ns=S.expenseNatureSettings||{};
+  const natureMap={필수:0,생활:0,투자:0,특별:0};
+  allExpenses.forEach(e=>{
+    const n=ns[e.category]||ns[e.name]||'생활';
+    natureMap[n]=(natureMap[n]||0)+(e.amount||0);
+  });
+  const ledgerEntries=(S.ledger[key]||[]).filter(e=>e.type==='expense');
+  const tagMap={};
+  ledgerEntries.forEach(e=>{
+    const tags=(e.tags||[]).filter(t=>t);
+    if(tags.length===0){tagMap['(태그 없음)']=(tagMap['(태그 없음)']||0)+(e.amount||0);}
+    else{tags.forEach(t=>{tagMap[t]=(tagMap[t]||0)+(e.amount||0);});}
+  });
+  return{fixed,variable,fixedTotal,varTotal,totalExpense,natureMap,tagMap};
+}
+
+function changeAnalysisYear(delta){
+  if(!S.analysisYear)S.analysisYear=new Date().getFullYear();
+  S.analysisYear+=delta;
+  _anaExpandedMonth=null;
+  saveState();
+  renderAnalysis();
+}
+
+function _toggleAnaMonth(m){
+  _anaExpandedMonth=_anaExpandedMonth===m?null:m;
+  renderAnalysis();
+}
+
+function _toggleAnalysisMenu(e){
+  e.stopPropagation();
+  const sub=document.getElementById('analysis-submenu');
+  if(!sub)return;
+  const isOpen=sub.style.display!=='none'&&sub.style.display!=='';
+  sub.style.display=isOpen?'none':'block';
+  const arrow=document.getElementById('analysis-sub-arrow');
+  if(arrow)arrow.textContent=isOpen?'›':'∨';
+}
+
+function _openNatureSettings(){
+  _anaNaturePanelOpen=!_anaNaturePanelOpen;
+  renderAnalysis();
+}
+
+function _setNature(cat,nature){
+  if(!S.expenseNatureSettings)S.expenseNatureSettings={};
+  if(nature)S.expenseNatureSettings[cat]=nature;
+  else delete S.expenseNatureSettings[cat];
+  saveState();
+  renderAnalysis();
+}
+
+function _buildNaturePanel(y){
+  const ns=S.expenseNatureSettings||{};
+  const allCats=new Set();
+  for(let m=1;m<=12;m++){
+    const key=mkey(y,m);
+    const md=S.monthlyData[key]||{};
+    [...(md.fixed||[]).filter(f=>!f.isSavings),...(md.variable||[])].forEach(e=>{
+      if(e.category)allCats.add(e.category);
+      else if(e.name)allCats.add(e.name);
+    });
+  }
+  if(allCats.size===0)return`<div class="ana-nature-panel"><div style="font-size:13px;font-weight:800;color:#5E4BC4;margin-bottom:12px;">⚙ 지출 성격 태그 관리</div><div style="color:var(--text-sub);font-size:13px;">${y}년 데이터가 없어요.</div></div>`;
+  const rows=[...allCats].sort().map(cat=>{
+    const cur=ns[cat]||'';
+    const opts=['','필수','생활','투자','특별'].map(v=>`<option value="${v}"${cur===v?' selected':''}>${v||'미분류'}</option>`).join('');
+    return`<div class="ana-nature-set-row"><span style="font-size:13px;font-weight:600;color:var(--text-main);">${cat}</span><select class="ana-nature-select" onchange="App._setNature(${JSON.stringify(cat)},this.value)">${opts}</select></div>`;
+  }).join('');
+  return`<div class="ana-nature-panel"><div style="font-size:13px;font-weight:800;color:#5E4BC4;margin-bottom:12px;">⚙ 지출 성격 태그 관리 — 카테고리별 성격을 지정하세요</div>${rows}</div>`;
+}
+
+function _buildMonthDetail(y,m){
+  const{fixed,totalExpense,fixedTotal,natureMap,tagMap}=getMonthAnalysisData(y,m);
+  const fmt=n=>Math.round(n).toLocaleString('ko-KR')+'원';
+  const natureCards=ANA_NATURES.map(n=>{
+    const amt=natureMap[n.key]||0;
+    const pct=totalExpense>0?Math.round(amt/totalExpense*100):0;
+    return`<div class="ana-nature-card" style="background:${n.light};border-color:${n.color}33;"><div class="ana-nature-icon" style="font-size:18px;">${n.icon}</div><div style="flex:1;min-width:0;"><div style="font-size:11px;color:var(--text-sub);margin-bottom:2px;">${n.label}</div><div style="font-size:14px;font-weight:800;color:${n.color};">${fmt(amt)}</div><div style="font-size:11px;color:var(--text-sub);">${pct}%</div></div></div>`;
+  }).join('');
+  const sorted=Object.entries(tagMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const tagRows=sorted.length===0
+    ?`<div style="color:var(--text-sub);font-size:12px;padding:8px 0;">가계부 태그 없음</div>`
+    :sorted.map(([tag,amt])=>`<div class="ana-tag-row"><span class="ana-tag-pill">${tag}</span><span style="font-weight:700;color:var(--red);">${fmt(amt)}</span></div>`).join('');
+  const fixedRows=fixed.length===0
+    ?`<div style="color:var(--text-sub);font-size:12px;padding:8px 0;">고정 지출 없음</div>`
+    :fixed.map(f=>`<div class="ana-fixed-row"><span style="font-weight:600;color:var(--text-main);">${f.name}</span><span style="font-weight:700;color:var(--blue);">${fmt(f.amount||0)}</span></div>`).join('');
+  return`<div class="ana-month-detail">
+    <div class="ana-stat-grid">
+      <div class="ana-stat-box"><div class="ana-stat-box-label">총 지출</div><div class="ana-stat-box-val" style="color:var(--red);">${fmt(totalExpense)}</div></div>
+      <div class="ana-stat-box"><div class="ana-stat-box-label">정기 비용 (고정)</div><div class="ana-stat-box-val" style="color:var(--blue);">${fmt(fixedTotal)}</div></div>
+    </div>
+    <div class="ana-section-title">지출 성격 분석</div>
+    <div class="ana-nature-grid">${natureCards}</div>
+    <div class="ana-section-title">태그 분석</div>
+    <div style="margin-bottom:14px;">${tagRows}</div>
+    <div class="ana-section-title">생존 비용 (고정 지출 내역)</div>
+    <div>${fixedRows}</div>
+  </div>`;
+}
+
+function renderAnalysis(){
+  const container=document.getElementById('tab-analysis');
+  if(!container)return;
+  if(!S.analysisYear)S.analysisYear=new Date().getFullYear();
+  if(!S.expenseNatureSettings)S.expenseNatureSettings={};
+  const y=S.analysisYear;
+  const fmt=n=>Math.round(n).toLocaleString('ko-KR')+'원';
+  const dataMonths=[];
+  for(let m=12;m>=1;m--){
+    const key=mkey(y,m);
+    const md=S.monthlyData[key];
+    if(!md)continue;
+    const{totalExpense,fixed,variable}=getMonthAnalysisData(y,m);
+    if(totalExpense>0||(md.income&&md.income.length>0)||(fixed&&fixed.length>0)||(variable&&variable.length>0))dataMonths.push(m);
+  }
+  const monthRows=dataMonths.length===0
+    ?`<div class="ana-empty"><div style="font-size:36px;margin-bottom:12px;">📭</div>${y}년에 분석 데이터가 없어요.</div>`
+    :dataMonths.map(m=>{
+      const{totalExpense,fixedTotal,natureMap}=getMonthAnalysisData(y,m);
+      const isOpen=_anaExpandedMonth===m;
+      const bars=ANA_NATURES.map(n=>{
+        const pct=totalExpense>0?(natureMap[n.key]||0)/totalExpense*100:0;
+        return`<div class="ana-nature-bar" title="${n.label}: ${fmt(natureMap[n.key]||0)}" style="width:${Math.max(pct*0.5+4,4)}px;background:${n.color};"></div>`;
+      }).join('');
+      return`<div class="ana-month-row${isOpen?' open':''}">
+        <div class="ana-month-header" onclick="App._toggleAnaMonth(${m})">
+          <div class="ana-month-badge">${m}월</div>
+          <div class="ana-month-stats">
+            <div><span class="ana-stat-label">총 지출 </span><span class="ana-stat-val" style="color:var(--red);">${fmt(totalExpense)}</span></div>
+            <div><span class="ana-stat-label">정기 비용 </span><span class="ana-stat-val" style="color:var(--blue);">${fmt(fixedTotal)}</span></div>
+          </div>
+          <div class="ana-nature-bars">${bars}</div>
+          <span class="ana-arrow">∨</span>
+        </div>
+        ${isOpen?_buildMonthDetail(y,m):''}
+      </div>`;
+    }).join('');
+  container.innerHTML=`
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">지출 성격 분석 📊</h1>
+        <p class="page-sub">연도별 월 지출 성격을 확인하고, 성격·태그·생존 비용을 관리하세요.</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button class="add-btn" onclick="App._openNatureSettings()" style="font-size:12px;">⚙ 태그 관리</button>
+        <div class="month-nav">
+          <button class="month-btn" onclick="App.changeAnalysisYear(-1)">‹</button>
+          <span class="month-label" style="min-width:60px;">${y}년</span>
+          <button class="month-btn" onclick="App.changeAnalysisYear(1)">›</button>
+        </div>
+      </div>
+    </div>
+    ${_anaNaturePanelOpen?_buildNaturePanel(y):''}
+    <div>${monthRows}</div>
+  `;
 }
 
 function toggleLedgerSubmenu(e){
@@ -5850,6 +6036,7 @@ window.App={
   exportLedgerExcel,
   openCloseMonthModal,closeMonth,reopenMonth,
   renderMonthlyArchive,deleteArchiveEntry,_toggleArchiveCard,toggleLedgerSubmenu,
+  renderAnalysis,changeAnalysisYear,_toggleAnaMonth,_toggleAnalysisMenu,_openNatureSettings,_setNature,
   fetchStockPrices,
   downloadMonthlyReport,
   showVarPreview,goToLedger,
