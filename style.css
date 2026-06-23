@@ -1534,6 +1534,42 @@ body{font-family:var(--font);background:linear-gradient(145deg,#5E4BC422 0%,#D1C
 .ana-nature-select{border:1.5px solid var(--border);border-radius:8px;padding:4px 8px;font-size:12px;background:white;cursor:pointer;font-family:var(--font);}
 .ana-empty{background:white;border-radius:12px;border:1.5px solid var(--border);padding:48px 0;text-align:center;color:var(--text-sub);font-size:13px;}
 
+/* ===== ANALYSIS TAB v2 ===== */
+.ana2-mode-tabs{display:flex;gap:8px;margin-bottom:20px;}
+.ana2-mode-btn{padding:9px 22px;border-radius:22px;border:1.5px solid var(--border);background:white;color:var(--text-sub);font-size:13.5px;font-weight:600;cursor:pointer;transition:all .15s;font-family:var(--font);}
+.ana2-mode-btn.active{background:linear-gradient(135deg,#A29BFE22,#74B9FF22);border-color:#A29BFE;color:#5E4BC4;font-weight:800;}
+.ana2-month-nav{display:flex;align-items:center;gap:0;margin-bottom:18px;align-self:flex-start;}
+.ana2-top-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px;}
+.ana2-top-card{border-radius:14px;border:1.5px solid transparent;padding:16px 18px;}
+.ana2-top-card-label{font-size:12px;font-weight:600;margin-bottom:6px;}
+.ana2-top-card-val{font-size:22px;font-weight:900;letter-spacing:-0.5px;}
+.ana2-section-card{background:white;border-radius:16px;border:1.5px solid var(--border);box-shadow:0 2px 14px rgba(160,140,220,.08);padding:20px 22px;margin-bottom:16px;}
+.ana2-section-hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;}
+.ana2-num-badge{background:linear-gradient(135deg,#A29BFE,#74B9FF);color:white;border-radius:8px;font-size:11px;font-weight:800;padding:2px 8px;flex-shrink:0;}
+.ana2-settings-btn{padding:5px 12px;border-radius:16px;border:1px solid var(--border);background:white;color:#5E4BC4;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:var(--font);}
+.ana2-settings-btn:hover{background:#F0EEFF;}
+.ana2-nature-grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:10px;}
+.ana2-nature-card{border-radius:12px;padding:14px;min-width:0;}
+.ana2-score-card{border-radius:12px;border:1.5px solid transparent;padding:14px;text-align:center;}
+.ana2-fixed-list{display:flex;flex-direction:column;gap:4px;}
+.ana2-fixed-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px dashed var(--border);font-size:13px;}
+.ana2-fixed-row:last-child{border-bottom:none;}
+.ana2-tag-pill{background:var(--purple-light);color:#5E4BC4;border-radius:10px;padding:2px 8px;font-size:11px;font-weight:700;}
+.ana-mini-bar-wrap{flex-shrink:0;display:flex;align-items:center;}
+.ana-mini-bar{height:10px;width:90px;border-radius:6px;overflow:hidden;border:1px solid var(--border);display:flex;}
+/* 월마감 아코디언 상세 */
+.ana2-closed-detail{padding:18px 20px;border-top:1.5px solid var(--border);background:#FAFAFF;}
+.ana2-closed-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.ana2-kpi-box{background:white;border-radius:10px;border:1.5px solid var(--border);padding:12px 14px;text-align:center;}
+.ana2-kpi-label{font-size:11px;color:var(--text-sub);margin-bottom:4px;}
+.ana2-kpi-val{font-size:17px;font-weight:900;}
+.ana2-closed-nature-card{border-radius:10px;padding:10px;text-align:center;}
+@media(max-width:680px){
+  .ana2-top-cards{grid-template-columns:1fr 1fr;}
+  .ana2-nature-grid5{grid-template-columns:repeat(2,1fr);}
+  .ana2-closed-kpi-grid{grid-template-columns:repeat(2,1fr);}
+}
+
 /* ===== MONTHLY ARCHIVE TAB ===== */
 .archive-notice{background:#FFFDE7;border:1.5px solid #FFD54F;border-radius:20px;padding:8px 16px;margin-bottom:20px;font-size:12.5px;color:#795548;font-weight:500;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;}
 .archive-count-badge{background:linear-gradient(135deg,#A29BFE,#74B9FF);color:white;font-size:12px;font-weight:700;border-radius:20px;padding:4px 14px;}
