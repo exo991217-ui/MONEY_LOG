@@ -66,9 +66,16 @@
         <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
         가계부
       </li>
-      <li class="nav-item" data-tab="monthly-archive">
-        <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-        월 마감
+      <li class="nav-item-group" data-group="analysis">
+        <div class="nav-group-header" onclick="App._toggleAnalysisMenu(event)">
+          <svg class="nav-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          <span>분석</span>
+          <span class="nav-group-arrow" id="analysis-sub-arrow">›</span>
+        </div>
+        <ul class="nav-submenu" id="analysis-submenu" style="display:none;">
+          <li class="nav-sub-item" data-tab="analysis" onclick="App.switchTab('analysis')">📊 지출 성격 분석</li>
+          <li class="nav-sub-item" data-tab="monthly-archive" onclick="App.switchTab('monthly-archive')">📋 월 마감</li>
+        </ul>
       </li>
     </ul>
     <button class="sidebar-delete-btn" onclick="App.openDeleteModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg> 데이터 삭제</button>
@@ -593,19 +600,21 @@
       <div id="ledger-list"></div>
     </section>
 
+    <!-- ===== ANALYSIS ===== -->
+    <section class="tab-content" id="tab-analysis">
+      <div id="analysis-content"></div>
+    </section>
+
     <!-- ===== MONTHLY ARCHIVE ===== -->
     <section class="tab-content" id="tab-monthly-archive">
       <div class="page-header">
         <div>
           <h1 class="page-title">월 마감 📋</h1>
-          <p class="page-sub">마감 확정된 달의 기록이 여기 보관됩니다 — 데이터 삭제와 무관하게 영구 보존</p>
+          <p class="page-sub">마감 확정된 달의 기록이 여기 보관됩니다</p>
         </div>
         <div style="display:flex;align-items:center;gap:10px;">
           <span class="archive-count-badge" id="archive-count">0건</span>
         </div>
-      </div>
-      <div class="archive-notice">
-        🔒 이 탭의 기록은 <strong>데이터 삭제</strong>와 무관하게 영구 보존됩니다 — 마감 기록은 개별 삭제만 가능
       </div>
       <div id="archive-list"></div>
     </section>
