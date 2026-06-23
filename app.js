@@ -6646,7 +6646,7 @@ function _openNatureDetail(key,y,m){
   }
 
   function render(){
-    const catTabs=cats.map(c=>`<button onclick="App.__ndSetCat('${c.replace(/'/g,"\\'")}',${y},${m},'${key}')" style="font-size:11px;padding:4px 10px;border-radius:20px;font-weight:700;cursor:pointer;border:none;background:${activeCat===c?nature.color:'var(--bg)'};color:${activeCat===c?'white':nature.color};">${c}</button>`).join('');
+    const catTabs=cats.map(c=>`<button onclick="window.__ndSetCat('${c.replace(/'/g,"\\'")}',${y},${m},'${key}')" style="font-size:11px;padding:4px 10px;border-radius:20px;font-weight:700;cursor:pointer;border:none;background:${activeCat===c?nature.color:'var(--bg)'};color:${activeCat===c?'white':nature.color};">${c}</button>`).join('');
     const catTotal=activeCat?matched.filter(e=>(e.category||'기타')===activeCat).reduce((s,e)=>s+(e.amount||0),0):total;
     const list=renderList(activeCat);
     const el=document.getElementById('nature-detail-modal');
@@ -6665,7 +6665,7 @@ function _openNatureDetail(key,y,m){
               </div>
             </div>
             ${cats.length>1?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px dashed ${nature.color}22;">
-              <button onclick="App.__ndSetCat(null,${y},${m},'${key}')" style="font-size:11px;padding:4px 10px;border-radius:20px;font-weight:700;cursor:pointer;border:none;background:${!activeCat?nature.color:'var(--bg)'};color:${!activeCat?'white':nature.color};">전체</button>
+              <button onclick="window.__ndSetCat(null,${y},${m},'${key}')" style="font-size:11px;padding:4px 10px;border-radius:20px;font-weight:700;cursor:pointer;border:none;background:${!activeCat?nature.color:'var(--bg)'};color:${!activeCat?'white':nature.color};">전체</button>
               ${catTabs}
             </div>`:''}
           </div>
@@ -6721,7 +6721,7 @@ window.App={
   openCloseMonthModal,closeMonth,reopenMonth,
   renderMonthlyArchive,deleteArchiveEntry,_toggleArchiveCard,toggleLedgerSubmenu,
   renderAnalysis,changeAnalysisYear,changeAnalysisMode,changeAnalysisMonth,_toggleAnaMonth,_toggleClosedMonth,_toggleAnalysisMenu,_openNatureSettings,_setNature,calcConsumeScore,
-  _selectNatureKey,_nsPickIcon,_nsToggleCat,openTagMgmtModal,_tagMgmtRender,_addSub,_deleteSub,_deleteSubThisMonth,_deleteSubPermanent,_updateSubName,_updateSubAmount,_openTagSuggest,_applyTagSuggest,_applyTagSuggestPopup,deleteMonthAnalysisData,_openNatureDetail,_closeNatureDetail,__ndSetCat,
+  _selectNatureKey,_nsPickIcon,_nsToggleCat,openTagMgmtModal,_tagMgmtRender,_addSub,_deleteSub,_deleteSubThisMonth,_deleteSubPermanent,_updateSubName,_updateSubAmount,_openTagSuggest,_applyTagSuggest,_applyTagSuggestPopup,deleteMonthAnalysisData,_openNatureDetail,_closeNatureDetail,
   fetchStockPrices,
   downloadMonthlyReport,
   showVarPreview,goToLedger,
