@@ -101,6 +101,7 @@ function loadState(){
       if(!S.consumptionCalendar)S.consumptionCalendar={};
       if(!S.ledger)S.ledger={};
       if(!S.subscriptions)S.subscriptions=[];
+      if(!S.subSkipMonths)S.subSkipMonths={};
       if(!S.automations)S.automations=[];
       // Migrate automations: add type/memo/tags for old entries
       S.automations=S.automations.map(a=>({type:'expense',memo:a.name||'',tags:[],...a}));
@@ -6090,6 +6091,45 @@ function _addSub(){
   _tagMgmtRender();
 }
 function _deleteSub(i){
+  if(!S.subscriptions||!S.subscriptions[i])return;
+  const sub=S.subscriptions[i];
+  const y=S.analysisYear||new Date().getFullYear();
+  const m=S.analysisMonth||(new Date().getMonth()+1);
+  document.getElementById('delete-sub-confirm-modal')?.remove();
+  const modal=document.createElement('div');
+  modal.id='delete-sub-confirm-modal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(45,45,58,.5);z-index:2000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px);';
+  modal.innerHTML=`<div style="background:white;border-radius:18px;padding:24px 22px;width:min(360px,90vw);box-shadow:0 8px 36px rgba(0,0,0,.18);">
+    <div style="font-size:15px;font-weight:800;color:var(--text-main);margin-bottom:6px;">🗑 태그 삭제</div>
+    <div style="font-size:13px;color:var(--text-sub);margin-bottom:18px;"><b style="color:var(--text-main);">${sub.name}</b> 태그를 어떻게 삭제할까요?</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button onclick="App._deleteSubThisMonth(${i},${y},${m})" style="padding:13px 14px;background:#FFF8F0;border:1.5px solid #FFB347;border-radius:12px;cursor:pointer;text-align:left;">
+        <div style="font-size:13px;font-weight:700;color:#E65100;">📅 이번 달만 제외</div>
+        <div style="font-size:11px;color:var(--text-sub);margin-top:3px;">${y}년 ${m}월 집계에서만 제외돼요. 태그는 유지됩니다.</div>
+      </button>
+      <button onclick="App._deleteSubPermanent(${i})" style="padding:13px 14px;background:#FFF0F5;border:1.5px solid #F06292;border-radius:12px;cursor:pointer;text-align:left;">
+        <div style="font-size:13px;font-weight:700;color:#C62828;">🗑 이후 달도 삭제</div>
+        <div style="font-size:11px;color:var(--text-sub);margin-top:3px;">태그를 완전히 제거해요. 이후 모든 달에서 집계되지 않아요.</div>
+      </button>
+    </div>
+    <button onclick="document.getElementById('delete-sub-confirm-modal').remove()" style="margin-top:14px;width:100%;padding:10px;background:var(--border);border:none;border-radius:10px;cursor:pointer;font-size:13px;color:var(--text-sub);font-weight:600;">취소</button>
+  </div>`;
+  modal.addEventListener('click',e=>{if(e.target===modal)modal.remove();});
+  document.body.appendChild(modal);
+}
+function _deleteSubThisMonth(i,y,m){
+  document.getElementById('delete-sub-confirm-modal')?.remove();
+  if(!S.subscriptions||!S.subscriptions[i])return;
+  if(!S.subSkipMonths)S.subSkipMonths={};
+  const mk=mkey(y,m);
+  if(!S.subSkipMonths[mk])S.subSkipMonths[mk]=[];
+  const name=S.subscriptions[i].name;
+  if(!S.subSkipMonths[mk].includes(name))S.subSkipMonths[mk].push(name);
+  saveState();
+  _tagMgmtRender();
+}
+function _deleteSubPermanent(i){
+  document.getElementById('delete-sub-confirm-modal')?.remove();
   if(!S.subscriptions)return;
   S.subscriptions.splice(i,1);
   saveState();
@@ -6098,13 +6138,11 @@ function _deleteSub(i){
 function _updateSubName(i,v){if(!S.subscriptions||!S.subscriptions[i])return;S.subscriptions[i].name=v.trim();saveState();}
 function _updateSubAmount(i,v){if(!S.subscriptions||!S.subscriptions[i])return;S.subscriptions[i].amount=parseInt(v)||0;saveState();}
 function _openTagSuggest(){
-  // 전체 가계부에서 태그 빈도 수집
+  // 전체 가계부에서 실제 태그(#태그)만 빈도 수집 — 메모 제외
   const tagCount={};
   Object.values(S.ledger||{}).forEach(entries=>{
     (entries||[]).filter(e=>e.type==='expense').forEach(e=>{
       (e.tags||[]).filter(t=>t&&t.trim()).forEach(t=>{tagCount[t]=(tagCount[t]||0)+1;});
-      // 메모도 후보로 (자주 쓰인 메모)
-      if(e.memo&&e.memo.trim())tagCount[e.memo.trim()]=(tagCount[e.memo.trim()]||0)+0.5;
     });
   });
   const existing=new Set((S.subscriptions||[]).map(s=>s.name));
@@ -6112,23 +6150,31 @@ function _openTagSuggest(){
     .filter(([t])=>!existing.has(t)&&t.length>0)
     .sort((a,b)=>b[1]-a[1])
     .slice(0,20);
-  const inner=document.getElementById('tag-mgmt-inner');
-  if(!inner)return;
-  inner.innerHTML=`
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-      <button onclick="App._tagMgmtRender()" style="background:none;border:none;cursor:pointer;font-size:18px;padding:2px;">←</button>
-      <div style="font-size:13px;font-weight:800;color:#5E4BC4;">💡 태그 추천</div>
+
+  // 팝업 모달로 표시 (태그 관리 모달 외부)
+  document.getElementById('tag-suggest-popup')?.remove();
+  const popup=document.createElement('div');
+  popup.id='tag-suggest-popup';
+  popup.style.cssText='position:fixed;inset:0;background:rgba(45,45,58,.45);z-index:2100;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px);';
+  popup.innerHTML=`<div style="background:white;border-radius:20px;padding:24px;width:min(520px,94vw);max-height:80vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.18);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+      <div style="font-size:14px;font-weight:800;color:#5E4BC4;">✨ 반복 지출 감지 결과</div>
+      <button onclick="document.getElementById('tag-suggest-popup').remove()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--text-sub);">✕</button>
     </div>
-    <div style="font-size:12px;color:var(--text-sub);margin-bottom:12px;">가계부에서 자주 쓰인 태그/메모입니다. 선택하면 정기 태그로 등록돼요.</div>
-    ${sorted.length===0?'<div style="text-align:center;padding:20px;color:var(--text-sub);font-size:12px;">추천할 태그가 없어요 (가계부 태그를 먼저 입력해 보세요)</div>':
-      `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px;">
-        ${sorted.map(([t,c])=>`<label style="display:flex;align-items:center;gap:10px;background:#F7F4FF;border-radius:9px;padding:8px 12px;border:1.5px solid var(--border);cursor:pointer;">
+    <div style="font-size:12px;color:var(--text-sub);margin-bottom:14px;">가계부에서 자주 사용된 #태그를 분석했어요. 선택하면 정기 태그로 등록돼요.</div>
+    ${sorted.length===0
+      ?'<div style="text-align:center;padding:28px;color:var(--text-sub);font-size:13px;">추천할 태그가 없어요.<br><span style="font-size:11px;">가계부 항목에 #태그를 먼저 입력해 보세요.</span></div>'
+      :`<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px;">
+        ${sorted.map(([t,c])=>`<label style="display:flex;align-items:center;gap:10px;background:#F7F4FF;border-radius:10px;padding:9px 13px;border:1.5px solid var(--border);cursor:pointer;transition:background .15s;" onmouseover="this.style.background='#EDE9FF'" onmouseout="this.style.background='#F7F4FF'">
           <input type="checkbox" value="${t.replace(/"/g,'&quot;')}" style="width:16px;height:16px;accent-color:#A29BFE;flex-shrink:0;">
-          <span style="font-size:13px;font-weight:600;flex:1;">${t}</span>
-          <span style="font-size:11px;color:var(--text-sub);">${Math.floor(c)}회 이상</span>
+          <span style="font-size:14px;font-weight:700;color:#5E4BC4;flex:1;">#${t.replace(/^#/,'')}</span>
+          <span style="font-size:11px;background:#E8E4FF;color:#7C5CBF;border-radius:8px;padding:2px 8px;font-weight:600;">${Math.round(c)}회</span>
         </label>`).join('')}
       </div>
-      <button onclick="App._applyTagSuggest()" style="width:100%;padding:10px;background:linear-gradient(135deg,#A29BFE,#74B9FF);color:white;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;">선택한 태그 등록</button>`}`;
+      <button onclick="App._applyTagSuggestPopup()" style="width:100%;padding:11px;background:linear-gradient(135deg,#A29BFE,#74B9FF);color:white;border:none;border-radius:12px;cursor:pointer;font-size:13px;font-weight:700;">선택 적용</button>`}
+  </div>`;
+  popup.addEventListener('click',e=>{if(e.target===popup)popup.remove();});
+  document.body.appendChild(popup);
 }
 function _applyTagSuggest(){
   const inner=document.getElementById('tag-mgmt-inner');
@@ -6141,6 +6187,18 @@ function _applyTagSuggest(){
   saveState();
   _tagMgmtRender();
 }
+function _applyTagSuggestPopup(){
+  const popup=document.getElementById('tag-suggest-popup');
+  if(!popup)return;
+  const checked=[...popup.querySelectorAll('input[type=checkbox]:checked')].map(cb=>cb.value.trim()).filter(Boolean);
+  if(checked.length===0){alert('선택한 태그가 없어요.');return;}
+  if(!S.subscriptions)S.subscriptions=[];
+  const existing=new Set(S.subscriptions.map(s=>s.name));
+  checked.forEach(t=>{if(!existing.has(t))S.subscriptions.push({name:t,amount:0});});
+  saveState();
+  popup.remove();
+  _tagMgmtRender();
+}
 
 // ── 미니 성격 바 (아코디언 헤더용) ──
 function _buildMiniNatureBar(natureMap,total){
@@ -6151,125 +6209,135 @@ function _buildMiniNatureBar(natureMap,total){
   return`<div class="ana-mini-bar-wrap"><div class="ana-mini-bar">${segs}</div></div>`;
 }
 
-// ── 정기비용 섹션 2 빌더 (가계부 기반) ──
+// ── 정기비용 섹션 2 빌더 (가계부 기반) — 사진2 레이아웃 ──
 function _buildFixed2Section(y,m,fmt){
   const key=mkey(y,m);
   let py=y,pm=m-1;if(pm<1){pm=12;py--;}
+  let p2y=y,p2m=m-2;if(p2m<1){p2m+=12;p2y--;}
   const prevKey=mkey(py,pm);
+  const prev2Key=mkey(p2y,p2m);
   const PILL_COLORS=['#7C5CBF','#4CAF82','#FF8C42','#64B5F6','#F06292','#A29BFE','#FFB347','#4DB6AC'];
 
-  // 가계부에서 현재달/전월 지출 항목
+  const skipList=((S.subSkipMonths||{})[key]||[]);
+  const subs=(S.subscriptions||[]).filter(s=>!skipList.includes(s.name));
+
   const curLedger=(S.ledger[key]||[]).filter(e=>e.type==='expense');
   const prevLedger=(S.ledger[prevKey]||[]).filter(e=>e.type==='expense');
+  const prev2Ledger=(S.ledger[prev2Key]||[]).filter(e=>e.type==='expense');
 
-  // 등록된 구독(태그) 기준으로 가계부에서 금액 계산
-  const subs=S.subscriptions||[];
-
-  function matchEntries(entries,sub){
+  function matchAmt(entries,sub){
+    if(!sub.name)return 0;
+    const nm=sub.name.trim().toLowerCase();
     return entries.filter(e=>{
-      if(!sub.name)return false;
-      const nm=sub.name.trim().toLowerCase();
       const memo=(e.memo||'').toLowerCase();
       const tags=(e.tags||[]).map(t=>t.toLowerCase());
-      return memo===nm||memo.includes(nm)||tags.includes(nm);
-    });
+      return memo===nm||memo.includes(nm)||tags.includes(nm)||tags.includes(nm.replace(/^#/,''));
+    }).reduce((s,e)=>s+(e.amount||0),0);
   }
-
-  const rows=subs.map((sub,i)=>{
-    const curE=matchEntries(curLedger,sub);
-    const prevE=matchEntries(prevLedger,sub);
-    const curAmt=curE.reduce((s,e)=>s+(e.amount||0),0);
-    const prevAmt=prevE.reduce((s,e)=>s+(e.amount||0),0);
-    return{sub,curAmt,prevAmt,count:curE.length,idx:i};
-  });
-
-  const fixedTotal=rows.reduce((s,r)=>s+r.curAmt,0);
-  const prevTotal=rows.reduce((s,r)=>s+r.prevAmt,0);
-  const diffTotal=fixedTotal-prevTotal;
-  const maxAmt=rows.length>0?Math.max(...rows.map(r=>r.curAmt),1):1;
-
-  // 가계부 총 지출 (수입/지출 탭 무관)
-  const ledgerExpTotal=curLedger.reduce((s,e)=>s+(e.amount||0),0);
-  // 가계부 수입
-  const ledgerInc=(S.ledger[key]||[]).filter(e=>e.type==='income').reduce((s,e)=>s+(e.amount||0),0);
-  const incomePct=ledgerInc>0?Math.round(fixedTotal/ledgerInc*100):0;
 
   if(subs.length===0){
     return`<div style="text-align:center;padding:32px 0;color:var(--text-sub);">
       <div style="font-size:32px;margin-bottom:10px;">🏷</div>
       <div style="font-size:14px;font-weight:700;margin-bottom:6px;">등록된 정기 태그가 없어요</div>
-      <div style="font-size:12px;">위 "태그 관리" 버튼으로 정기 지출 태그를 등록하면<br>가계부에서 자동으로 금액을 집계해요.</div>
+      <div style="font-size:12px;">"태그 관리" 버튼으로 정기 지출 태그를 등록하면<br>가계부에서 자동으로 금액을 집계해요.</div>
     </div>`;
   }
 
+  const rows=subs.map((sub,i)=>{
+    const curAmt=matchAmt(curLedger,sub);
+    const prevAmt=matchAmt(prevLedger,sub);
+    const prev2Amt=matchAmt(prev2Ledger,sub);
+    const avg3=Math.round((curAmt+prevAmt+prev2Amt)/3);
+    return{sub,curAmt,prevAmt,prev2Amt,avg3,idx:i};
+  });
+
+  const fixedTotal=rows.reduce((s,r)=>s+r.curAmt,0);
+  const prevTotal=rows.reduce((s,r)=>s+r.prevAmt,0);
+  const prev2Total=rows.reduce((s,r)=>s+r.prev2Amt,0);
+  const diffTotal=fixedTotal-prevTotal;
+  const ledgerInc=(S.ledger[key]||[]).filter(e=>e.type==='income').reduce((s,e)=>s+(e.amount||0),0);
+  const incomePct=ledgerInc>0?Math.round(fixedTotal/ledgerInc*100):0;
+
+  // 월별 추이 바 차트
+  const barMax=Math.max(prev2Total,prevTotal,fixedTotal,1);
+  const barChart=[{lbl:`${p2m}월`,val:prev2Total},{lbl:`${pm}월`,val:prevTotal},{lbl:`${m}월`,val:fixedTotal}].map((item,i)=>{
+    const pct=Math.round(item.val/barMax*100);
+    const isNow=i===2;
+    return`<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;">
+      <div style="font-size:11px;font-weight:700;color:${isNow?'#5E4BC4':'var(--text-sub)'};">${item.val>0?fmt(item.val):'—'}</div>
+      <div style="width:100%;background:var(--border);border-radius:6px 6px 0 0;overflow:hidden;height:80px;display:flex;align-items:flex-end;">
+        <div style="width:100%;height:${pct||2}%;background:${isNow?'linear-gradient(180deg,#A29BFE,#7C5CBF)':'#D1C4E9'};border-radius:6px 6px 0 0;transition:height .5s;"></div>
+      </div>
+      <div style="font-size:11px;color:${isNow?'#5E4BC4':'var(--text-sub)'};">${item.lbl}</div>
+    </div>`;
+  }).join('');
+
+  // 반복지출 감지 (메모/태그에서 3개월간 2회 이상)
+  const memoCount={};
+  [curLedger,prevLedger,prev2Ledger].forEach(ledger=>{
+    ledger.forEach(e=>{
+      const nm=e.memo||(e.tags&&e.tags[0])||'';
+      if(!nm.trim())return;
+      if(!memoCount[nm])memoCount[nm]={count:0,amount:e.amount||0};
+      memoCount[nm].count++;
+    });
+  });
+  const repeatItems=Object.entries(memoCount).filter(([,v])=>v.count>=2).sort((a,b)=>b[1].count-a[1].count).slice(0,3);
+
   const tableRows=rows.map(r=>{
     const diff=r.curAmt-r.prevAmt;
-    const diffPct=r.prevAmt>0?Math.round(diff/r.prevAmt*100):0;
-    const barPct=Math.round(r.curAmt/maxAmt*100);
+    const diffPct=r.prevAmt>0?Math.round(diff/r.prevAmt*100):null;
     const pc=PILL_COLORS[r.idx%PILL_COLORS.length];
     const diffColor=diff>0?'#F06292':diff<0?'#4CAF82':'var(--text-sub)';
     const noData=r.curAmt===0;
-    return`<tr class="rfa-row"${noData?' style="opacity:.55;"':''}>
-      <td><span class="rfa-pill" style="background:${pc}22;color:${pc};">${r.sub.name||'?'}</span>${noData?`<span style="font-size:10px;color:var(--text-sub);margin-left:4px;">미집계</span>`:''}</td>
-      <td style="font-weight:700;text-align:right;">${noData?'—':fmt(r.curAmt)}</td>
-      <td style="font-weight:700;text-align:right;color:var(--text-sub);">${r.prevAmt>0?fmt(r.prevAmt):'—'}</td>
-      <td style="font-weight:700;text-align:right;color:${diffColor};">${diff===0||noData?'—':(diff>0?'+':'')+fmt(Math.abs(diff))}</td>
-      <td style="text-align:right;">
-        <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;">
-          <span style="font-size:10px;color:var(--text-sub);">${r.count}건</span>
-          <span style="font-size:11px;font-weight:700;color:${diffColor};">${diff===0||noData?'':'('+(diff>0?'+':'')+diffPct+'%)'}</span>
-          <div style="width:60px;height:6px;background:var(--border);border-radius:3px;overflow:hidden;">
-            <div style="height:100%;width:${barPct}%;background:${pc};border-radius:3px;"></div>
-          </div>
-        </div>
-      </td>
+    return`<tr class="rfa-row"${noData?' style="opacity:.5;"':''}>
+      <td><span class="rfa-pill" style="background:${pc}22;color:${pc};">${r.sub.name||'?'}</span></td>
+      <td style="font-weight:800;text-align:right;">${noData?'—':fmt(r.curAmt)}</td>
+      <td style="text-align:right;color:var(--text-sub);">${r.avg3>0?fmt(r.avg3):'—'}</td>
+      <td style="font-weight:700;text-align:right;color:${diffColor};">${diff===0||noData?'—':(diff>0?'+':'')+fmt(Math.abs(diff))}${diffPct!==null&&!noData&&diff!==0?`<br><span style="font-size:10px;">(${diff>0?'+':''}${diffPct}%)</span>`:''}</td>
     </tr>`;
   }).join('');
 
-  return`<div class="rfa-wrap">
-    <div class="rfa-summary-row">
-      <div class="rfa-summary-left">
-        <div style="font-size:11px;color:var(--text-sub);margin-bottom:4px;">이번 달 정기 비용 합계 (가계부 기준)</div>
-        <div style="font-size:28px;font-weight:900;color:var(--text-main);letter-spacing:-1px;">${fmt(fixedTotal)}</div>
-        ${ledgerInc>0?`<div style="font-size:12px;color:#5E4BC4;margin-top:3px;">가계부 수입 대비 <b>${incomePct}%</b></div>`:''}
-        <div style="font-size:12px;color:${diffTotal===0?'var(--text-sub)':diffTotal>0?'#F06292':'#4CAF82'};margin-top:4px;">
-          전월 대비 <b>${diffTotal===0?'변동 없음':(diffTotal>0?'+':'')+fmt(Math.abs(diffTotal))}</b>
-          ${diffTotal!==0?`<span style="font-size:10px;">(${prevTotal>0?Math.round(diffTotal/prevTotal*100):0}%)</span>`:''}
-        </div>
+  return`<div style="display:grid;grid-template-columns:180px 1fr 160px;gap:20px;align-items:start;">
+    <div>
+      <div style="font-size:11px;color:var(--text-sub);margin-bottom:4px;">이번 달 정기 비용 (총합)</div>
+      <div style="font-size:26px;font-weight:900;color:var(--text-main);letter-spacing:-1px;margin-bottom:6px;">${fmt(fixedTotal)}</div>
+      ${ledgerInc>0?`<div style="font-size:12px;color:#5E4BC4;margin-bottom:3px;">총 지출의 <b>${incomePct}%</b></div>`:''}
+      <div style="font-size:12px;font-weight:700;color:${diffTotal===0?'var(--text-sub)':diffTotal>0?'#F06292':'#4CAF82'};">
+        전월 대비 ${diffTotal===0?'변동 없음':(diffTotal>0?'+':'')+fmt(Math.abs(diffTotal))}${diffTotal!==0&&prevTotal>0?` <span style="font-size:10px;font-weight:400;">(${Math.round(diffTotal/prevTotal*100)}%)</span>`:''}
       </div>
-      <div class="rfa-summary-right">
-        ${rows.slice(0,5).filter(r=>r.curAmt>0).map((r,i)=>{
-          const barPct=fixedTotal>0?Math.round(r.curAmt/fixedTotal*100):0;
-          const pc=PILL_COLORS[r.idx%PILL_COLORS.length];
-          return`<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
-            <span style="font-size:10px;color:${pc};font-weight:700;min-width:60px;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;">${r.sub.name}</span>
-            <div style="width:60px;height:6px;background:var(--border);border-radius:4px;overflow:hidden;flex-shrink:0;">
-              <div style="height:100%;width:${barPct}%;background:${pc};border-radius:4px;"></div>
-            </div>
-          </div>`;
-        }).join('')}
+      ${repeatItems.length>0?`<div style="margin-top:14px;padding-top:12px;border-top:1.5px dashed var(--border);">
+        <div style="font-size:11px;font-weight:700;color:var(--text-sub);margin-bottom:7px;">🔄 반복 지출 감지</div>
+        ${repeatItems.map(([name,v])=>`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;gap:6px;">
+          <span style="font-size:12px;font-weight:600;color:var(--text-main);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</span>
+          <span style="font-size:10px;background:#E8F5EE;color:#4CAF82;border-radius:6px;padding:2px 6px;white-space:nowrap;">${v.count}회</span>
+        </div>`).join('')}
+      </div>`:''}
+    </div>
+    <div>
+      <div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:10px;">정기 비용 태그별 상세</div>
+      <div style="overflow-x:auto;">
+        <table class="rfa-table" style="width:100%;">
+          <thead><tr>
+            <th>태그</th>
+            <th style="text-align:right;">이번 달</th>
+            <th style="text-align:right;">최근 3개월 평균</th>
+            <th style="text-align:right;">전월 대비</th>
+          </tr></thead>
+          <tbody>${tableRows}</tbody>
+        </table>
       </div>
+      <div style="margin-top:8px;"><button onclick="App.openTagMgmtModal()" style="font-size:12px;color:#5E4BC4;background:var(--purple-light);border:1.5px dashed #A29BFE;border-radius:8px;padding:6px 14px;cursor:pointer;font-weight:600;">+ 태그 추가</button></div>
     </div>
-    <div style="overflow-x:auto;">
-      <table class="rfa-table">
-        <thead>
-          <tr>
-            <th>태그명</th>
-            <th style="text-align:right;">이번달</th>
-            <th style="text-align:right;">전월</th>
-            <th style="text-align:right;">전월대비</th>
-            <th style="text-align:right;">건수 / 비중</th>
-          </tr>
-        </thead>
-        <tbody>${tableRows}</tbody>
-      </table>
+    <div>
+      <div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:10px;">월별 정기 비용 추이 (총합)</div>
+      <div style="display:flex;gap:8px;align-items:flex-end;height:120px;">${barChart}</div>
     </div>
-    <div style="font-size:11px;color:var(--text-sub);margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);">
-      ※ 가계부 항목의 메모 또는 태그에 등록된 태그명이 포함된 경우 자동 집계
-    </div>
+  </div>
+  <div style="font-size:11px;color:var(--text-sub);margin-top:10px;padding-top:8px;border-top:1px dashed var(--border);">
+    ※ 가계부 항목의 태그 또는 메모에 등록된 태그명이 포함된 경우 자동 집계${skipList.length>0?` | 이번달 제외: ${skipList.join(', ')}` : ''}
   </div>`;
 }
-
 // ── 분석 뷰 (현재 달 상세) ──
 function _buildAnalysisView(y,m){
   const fmt=n=>Math.round(n).toLocaleString('ko-KR')+'원';
@@ -6296,13 +6364,6 @@ function _buildAnalysisView(y,m){
   const fixedRows=fixed.length===0
     ?`<div style="color:var(--text-sub);font-size:12px;padding:10px 0;">이번 달 정기 비용 없음</div>`
     :fixed.slice(0,10).map(f=>`<div class="ana2-fixed-row"><span class="ana2-tag-pill">${f.name||f.category||'항목'}</span><span style="font-weight:700;color:var(--blue);">${fmt(f.amount||0)}</span></div>`).join('');
-  // ③ 생존 비용 = 고정비 구성
-  const survivalRows=fixed.slice(0,5).map(f=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed var(--border);font-size:12px;"><span style="color:var(--text-sub);">${f.name||f.category}</span><span style="font-weight:700;">${fmt(f.amount||0)}</span></div>`).join('');
-  const natBars=ANA_NATURES.map(n=>{
-    const amt=natureMap[n.key]||0;
-    const pct=totalExpense>0?Math.round(amt/totalExpense*100):0;
-    return`<div style="margin-bottom:8px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span style="color:${n.color};font-weight:700;">${n.label}</span><span style="font-weight:700;">${pct}%</span></div><div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:${n.barColor};border-radius:3px;"></div></div></div>`;
-  }).join('');
   return`
     <div class="ana2-top-cards">
       <div class="ana2-top-card" style="background:linear-gradient(135deg,#F8BBD0,#FCE4EC);border-color:#F48FB133;">
@@ -6350,26 +6411,7 @@ function _buildAnalysisView(y,m){
       </div>
       ${_buildFixed2Section(y,m,fmt)}
     </div>
-
-    <div class="ana2-section-card">
-      <div class="ana2-section-hd">
-        <div>
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><span class="ana2-num-badge">③</span><span style="font-size:15px;font-weight:800;color:var(--text-main);">생존 비용 분석</span></div>
-          <div style="font-size:11px;color:var(--text-sub);margin-left:34px;">최소 생활에 필요한 비용. 고정 지출 기준으로 계산합니다.</div>
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-        <div>
-          <div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:8px;">한 달 생존 비용 (고정비 기준)</div>
-          <div style="font-size:22px;font-weight:900;color:#4CAF82;margin-bottom:10px;">${fmt(fixedTotal)}</div>
-          ${survivalRows||'<div style="color:var(--text-sub);font-size:12px;">고정 지출 없음</div>'}
-        </div>
-        <div style="background:var(--bg);border-radius:12px;padding:14px 16px;">
-          <div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:8px;">지출 성격 비율</div>
-          ${natBars}
-        </div>
-      </div>
-    </div>`;
+`;
 }
 
 // ── 마감 아코디언 상세 ──
@@ -6585,7 +6627,7 @@ window.App={
   openCloseMonthModal,closeMonth,reopenMonth,
   renderMonthlyArchive,deleteArchiveEntry,_toggleArchiveCard,toggleLedgerSubmenu,
   renderAnalysis,changeAnalysisYear,changeAnalysisMode,changeAnalysisMonth,_toggleAnaMonth,_toggleClosedMonth,_toggleAnalysisMenu,_openNatureSettings,_setNature,calcConsumeScore,
-  _selectNatureKey,_nsPickIcon,_nsToggleCat,openTagMgmtModal,_tagMgmtRender,_addSub,_deleteSub,_updateSubName,_updateSubAmount,_openTagSuggest,_applyTagSuggest,deleteMonthAnalysisData,
+  _selectNatureKey,_nsPickIcon,_nsToggleCat,openTagMgmtModal,_tagMgmtRender,_addSub,_deleteSub,_deleteSubThisMonth,_deleteSubPermanent,_updateSubName,_updateSubAmount,_openTagSuggest,_applyTagSuggest,_applyTagSuggestPopup,deleteMonthAnalysisData,
   fetchStockPrices,
   downloadMonthlyReport,
   showVarPreview,goToLedger,
