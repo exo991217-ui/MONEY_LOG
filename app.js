@@ -18,7 +18,8 @@ const DEFAULT_DATA=()=>{
   return ({
   themeOpacity:50,
   themeOpacityLocked:false,
-  monthlyData:{},creditCards:[],assets:[],
+  mo
+Let me read the current stnthlyData:{},creditCards:[],assets:[],
   stocks:[
     {id:1,name:'삼성전자우',ticker:'005935',sector:'반도체',buyPrice:109472,currentPrice:109472,targetPrice:0,quantity:1,stockType:'domestic'},
     {id:2,name:'삼성전자',ticker:'005930',sector:'반도체',buyPrice:156700,currentPrice:156700,targetPrice:0,quantity:1,stockType:'domestic'},
@@ -5796,25 +5797,26 @@ function _getPrevScore(y,m){
 
 function _buildScoreBox(score,grade,color,feedback,prevScore){
   const diff=prevScore!=null?score-prevScore:null;
-  const prevHtml=prevScore!=null?`
-    <div class="ana2-score-compare">
-      <span style="color:var(--text-sub);">지난달 <b>${prevScore}점</b></span>
-      <span style="color:var(--text-sub);">이번달 <b style="color:${color};">${score}점</b></span>
-      <span class="ana2-score-delta" style="color:${diff>=0?'#4CAF82':'#F06292'};">${diff>=0?'▲':'▼'} ${Math.abs(diff)}점 ${diff>=0?'상승':'하락'}</span>
+  const diffColor=diff!=null?(diff>=0?'#4CAF82':'#F06292'):'';
+  const diffHtml=prevScore!=null?`
+    <div class="score-compare-row">
+      <span class="score-compare-prev">지난달 <b>${prevScore}점</b></span>
+      <span class="score-compare-delta" style="color:${diffColor};">${diff>=0?'▲':'▼'} ${Math.abs(diff)}점 ${diff>=0?'상승':'하락'}</span>
     </div>`:'';
-  const fbHtml=feedback.map(f=>`<div style="font-size:12px;color:var(--text-sub);margin-bottom:3px;padding-left:10px;position:relative;">• ${f}</div>`).join('');
-  return`<div class="ana2-score-box" style="border-color:${color}44;background:${color}0d;">
-    <div style="font-size:11px;font-weight:700;color:var(--text-sub);margin-bottom:6px;">📊 소비 균형 점수</div>
-    <div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;">
-      <div>
-        <div style="font-size:46px;font-weight:900;color:${color};line-height:1;">${score}<span style="font-size:18px;">점</span></div>
-        <div style="font-size:14px;font-weight:800;color:${color};margin-top:4px;">${grade}</div>
-      </div>
-      <div style="flex:1;min-width:180px;">
-        <div style="font-size:11px;font-weight:700;color:var(--text-sub);margin-bottom:6px;">피드백</div>
-        ${fbHtml}
-        ${prevHtml}
-      </div>
+  const fbHtml=feedback.map(f=>`<div class="score-fb-item">• ${f}</div>`).join('');
+  // 점수 바 (100점 기준)
+  const barPct=Math.min(100,score);
+  return`<div class="score-box" style="--score-color:${color};">
+    <div class="score-box-left">
+      <div class="score-label">📊 소비 균형 점수</div>
+      <div class="score-number" style="color:${color};">${score}<span class="score-unit">점</span></div>
+      <div class="score-grade" style="color:${color};">${grade}</div>
+      <div class="score-bar-wrap"><div class="score-bar-fill" style="width:${barPct}%;background:${color};"></div></div>
+      ${diffHtml}
+    </div>
+    <div class="score-box-right">
+      <div class="score-fb-title">💬 피드백</div>
+      <div class="score-fb-list">${fbHtml}</div>
     </div>
   </div>`;
 }
@@ -5840,27 +5842,39 @@ function getMonthAnalysisData(y,m){
   const md=S.monthlyData[key]||{};
   const fixed=(md.fixed||[]).filter(f=>!f.isSavings);
   const variable=md.variable||[];
-  const allExpenses=[...fixed,...variable];
   const fixedTotal=fixed.reduce((s,f)=>s+(f.amount||0),0);
   const varTotal=variable.reduce((s,v)=>s+(v.amount||0),0);
   const totalExpense=fixedTotal+varTotal;
+
+  // ── 가계부(ledger) 카테고리 기반으로 지출 성격 계산 ──
+  const ledgerEntries=(S.ledger[key]||[]).filter(e=>e.type==='expense');
+  const ledgerTotal=ledgerEntries.reduce((s,e)=>s+(e.amount||0),0);
   const ns=S.expenseNatureSettings||{};
   const natureMap={필수:0,생활:0,투자:0,특별:0};
   let unclassifiedTotal=0;
-  allExpenses.forEach(e=>{
-    const catName=e.category||e.name||'';
-    const n=ns[catName]||(ns[catName]===''?'':(getDefaultNature(catName)));
-    if(n&&natureMap[n]!==undefined)natureMap[n]=(natureMap[n]||0)+(e.amount||0);
-    else unclassifiedTotal+=(e.amount||0);
-  });
-  const ledgerEntries=(S.ledger[key]||[]).filter(e=>e.type==='expense');
+
+  const _applyNature=(catName,amt)=>{
+    const n=ns.hasOwnProperty(catName)?ns[catName]:getDefaultNature(catName);
+    if(n&&natureMap.hasOwnProperty(n))natureMap[n]+=amt;
+    else unclassifiedTotal+=amt;
+  };
+
+  if(ledgerTotal>0){
+    // 가계부 데이터가 있으면 ledger 기반
+    ledgerEntries.forEach(e=>_applyNature(e.category||'',e.amount||0));
+  } else {
+    // 가계부 미입력 시 monthlyData 기반 폴백
+    [...fixed,...variable].forEach(e=>_applyNature(e.category||e.name||'',e.amount||0));
+  }
+  const scoreBase=ledgerTotal||totalExpense;
+
   const tagMap={};
   ledgerEntries.forEach(e=>{
     const tags=(e.tags||[]).filter(t=>t);
     if(tags.length===0){tagMap['(태그 없음)']=(tagMap['(태그 없음)']||0)+(e.amount||0);}
     else{tags.forEach(t=>{tagMap[t]=(tagMap[t]||0)+(e.amount||0);});}
   });
-  return{fixed,variable,fixedTotal,varTotal,totalExpense,natureMap,tagMap,unclassifiedTotal};
+  return{fixed,variable,fixedTotal,varTotal,totalExpense:scoreBase,natureMap,tagMap,unclassifiedTotal,ledgerTotal,ledgerEntries};
 }
 
 function changeAnalysisYear(delta){
@@ -5927,16 +5941,13 @@ function _getNatureDesc(key){const d=DEFAULT_NATURES_DEF.find(n=>n.key===key);re
 
 function _buildNaturePanel(y){
   const ns=S.expenseNatureSettings||{};
-  // 전체 ledger 카테고리 목록
+  // 가계부 카테고리 목록 기반 (저축 제외)
   const allLcats=(S.ledgerCategories||[]).filter(c=>!c.isSavings).map(c=>c.name);
-  // 연도 내 실제 사용 카테고리 추가
+  // 실제 ledger 사용 카테고리 보완
   const usedCats=new Set(allLcats);
   for(let mo=1;mo<=12;mo++){
     const key=mkey(y,mo);
-    const md=S.monthlyData[key]||{};
-    [...(md.fixed||[]).filter(f=>!f.isSavings),...(md.variable||[])].forEach(e=>{
-      if(e.category)usedCats.add(e.category);else if(e.name)usedCats.add(e.name);
-    });
+    (S.ledger[key]||[]).filter(e=>e.type==='expense'&&e.category).forEach(e=>usedCats.add(e.category));
   }
   const catList=[...usedCats];
   const sel=_selectedNatureKey;
@@ -6024,6 +6035,40 @@ function _nsToggleCat(cat,checked,natureKey){
   saveState();
   renderAnalysis();
 }
+
+// ── 태그 관리 모달 (정기비용 태그 분석용) ──
+function openTagMgmtModal(){
+  if(!S.subscriptions)S.subscriptions=[];
+  const subs=S.subscriptions;
+  let html=`<div style="padding:4px 0;">
+    <div style="font-size:13px;font-weight:800;color:#5E4BC4;margin-bottom:14px;">🏷 정기 비용 태그 관리</div>
+    <div style="font-size:12px;color:var(--text-sub);margin-bottom:14px;">정기적으로 발생하는 지출 항목을 등록해 분석에 활용하세요.</div>
+    <div id="tag-mgmt-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">
+      ${subs.map((s,i)=>`<div style="display:flex;align-items:center;gap:8px;background:#F7F4FF;border-radius:10px;padding:8px 12px;border:1.5px solid var(--border);">
+        <span style="font-size:16px;">🔄</span>
+        <input style="flex:1;border:1.5px solid var(--border);border-radius:8px;padding:6px 10px;font-size:13px;font-family:var(--font);" value="${s.name||''}" onchange="App._updateSubName(${i},this.value)" placeholder="태그명">
+        <input type="number" style="width:110px;border:1.5px solid var(--border);border-radius:8px;padding:6px 10px;font-size:13px;font-family:var(--font);" value="${s.amount||0}" onchange="App._updateSubAmount(${i},this.value)" placeholder="금액">
+        <button onclick="App._deleteSub(${i})" style="background:var(--red-light);border:none;border-radius:8px;padding:6px 10px;cursor:pointer;color:var(--red);font-size:12px;font-weight:700;">삭제</button>
+      </div>`).join('')}
+    </div>
+    <button onclick="App._addSub()" style="width:100%;padding:10px;background:var(--purple-light);color:#5E4BC4;border:1.5px dashed #A29BFE;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;">+ 새 태그 추가</button>
+  </div>`;
+  const modal=document.createElement('div');
+  modal.id='tag-mgmt-modal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(45,45,58,.45);z-index:1000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px);';
+  modal.innerHTML=`<div style="background:white;border-radius:20px;padding:24px;width:min(480px,92vw);max-height:80vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.18);">
+    ${html}
+    <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+      <button onclick="document.getElementById('tag-mgmt-modal').remove();App.renderAnalysis();" style="padding:10px 24px;background:linear-gradient(135deg,#A29BFE,#74B9FF);color:white;border:none;border-radius:12px;cursor:pointer;font-size:13px;font-weight:700;">닫기</button>
+    </div>
+  </div>`;
+  modal.addEventListener('click',e=>{if(e.target===modal){modal.remove();renderAnalysis();}});
+  document.body.appendChild(modal);
+}
+function _addSub(){if(!S.subscriptions)S.subscriptions=[];S.subscriptions.push({name:'',amount:0});saveState();openTagMgmtModal();}
+function _deleteSub(i){if(!S.subscriptions)return;S.subscriptions.splice(i,1);saveState();openTagMgmtModal();}
+function _updateSubName(i,v){if(!S.subscriptions||!S.subscriptions[i])return;S.subscriptions[i].name=v;saveState();}
+function _updateSubAmount(i,v){if(!S.subscriptions||!S.subscriptions[i])return;S.subscriptions[i].amount=parseInt(v)||0;saveState();}
 
 // ── 미니 성격 바 (아코디언 헤더용) ──
 function _buildMiniNatureBar(natureMap,total){
@@ -6217,6 +6262,10 @@ function _buildAnalysisView(y,m){
           </div>
           <div style="font-size:11px;color:var(--text-sub);margin-left:34px;">매월 반복되는 내역을 태그로 분류하여 정리하고 관리하세요.</div>
         </div>
+        <button class="nsp-open-btn" style="font-size:12px;padding:7px 13px;" onclick="App.openTagMgmtModal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+          태그 관리
+        </button>
       </div>
       ${_buildFixed2Section(fixed,fixedTotal,totalExpense,y,m,fmt)}
     </div>
@@ -6451,7 +6500,7 @@ window.App={
   openCloseMonthModal,closeMonth,reopenMonth,
   renderMonthlyArchive,deleteArchiveEntry,_toggleArchiveCard,toggleLedgerSubmenu,
   renderAnalysis,changeAnalysisYear,changeAnalysisMode,changeAnalysisMonth,_toggleAnaMonth,_toggleClosedMonth,_toggleAnalysisMenu,_openNatureSettings,_setNature,calcConsumeScore,
-  _selectNatureKey,_nsPickIcon,_nsToggleCat,
+  _selectNatureKey,_nsPickIcon,_nsToggleCat,openTagMgmtModal,_addSub,_deleteSub,_updateSubName,_updateSubAmount,
   fetchStockPrices,
   downloadMonthlyReport,
   showVarPreview,goToLedger,
