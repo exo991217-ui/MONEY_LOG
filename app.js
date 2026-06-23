@@ -6317,11 +6317,12 @@ function _buildAnalysisView(y,m){
     const pct=totalExpense>0?Math.round(amt/totalExpense*100):0;
     const range=NATURE_RANGES[n.key];
     const inRange=pct>=range.min&&pct<=range.max;
-    return`<div class="ana2-nature-card" style="background:${n.light};border:1.5px solid ${n.color}33;">
+    return`<div class="ana2-nature-card" onclick="App._openNatureDetail('${n.key}',${y},${m})" style="background:${n.light};border:1.5px solid ${n.color}33;cursor:pointer;transition:transform .15s,box-shadow .15s;" onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 8px 20px ${n.color}22'" onmouseout="this.style.transform='';this.style.boxShadow=''">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;color:${n.color};">${n.svg||''}<span style="font-size:12px;font-weight:800;">${n.label}</span></div>
       <div style="font-size:18px;font-weight:900;color:${n.color};margin-bottom:3px;">${fmt(amt)}</div>
       <div style="font-size:13px;font-weight:700;color:${n.color};">${pct}%</div>
       <div style="font-size:10px;color:${inRange?'#4CAF82':'#FFB347'};margin-top:3px;">${inRange?'✓ 권장 범위':'권장 '+range.min+'~'+range.max+'%'}</div>
+      <div style="font-size:10px;color:${n.color};margin-top:6px;opacity:.6;">▶ 상세 내역 보기</div>
     </div>`;
   }).join('');
   // 고정비 구성 — ③ 섹션용 (가계부 카테고리별 집계)
@@ -6459,7 +6460,7 @@ function _buildClosedDetail(key){
       </div>
       ${note?`<div style="background:white;border-radius:10px;border:1.5px solid var(--border);padding:10px 12px;font-size:13px;color:var(--text-main);">${note}</div>`:'<div style="color:var(--text-sub);font-size:12px;">소감 없음</div>'}
     </div>
-  </div>\`; 
+  </div>`;
 }
 
 // ── 월마감 뷰 ──
@@ -6606,6 +6607,93 @@ function goToLedger(){
   document.querySelector('.nav-item[data-tab="ledger"]')?.click();
 }
 
+// ── 지출 성격 상세 내역 팝업 ──
+function _openNatureDetail(key,y,m){
+  const fmt=n=>Math.round(n).toLocaleString('ko-KR')+'원';
+  const nature=ANA_NATURES.find(n=>n.key===key);
+  if(!nature)return;
+  const mKey=mkey(y,m);
+  const ns=S.expenseNatureSettings||{};
+  const entries=(S.ledger[mKey]||[]).filter(e=>e.type==='expense');
+  const matched=entries.filter(e=>{
+    const n=ns.hasOwnProperty(e.category||'')?ns[e.category||'']:getDefaultNature(e.category||'');
+    return n===key;
+  });
+  const total=matched.reduce((s,e)=>s+(e.amount||0),0);
+  const totalAll=entries.reduce((s,e)=>s+(e.amount||0),0);
+  const pct=totalAll>0?Math.round(total/totalAll*100):0;
+
+  // 카테고리 목록
+  const cats=[...new Set(matched.map(e=>e.category||'기타'))];
+  let activeCat=null;
+
+  function renderList(cat){
+    const list=cat?matched.filter(e=>(e.category||'기타')===cat):matched;
+    if(list.length===0)return'<div style="padding:20px;text-align:center;color:var(--text-sub);font-size:13px;">해당 항목 없음</div>';
+    return list.map(e=>{
+      const d=e.date||'';
+      const day=d.slice(-2).replace(/^0/,'')+'일';
+      const tags=(e.tags||[]).map(t=>`<span style="font-size:10px;color:var(--text-sub);margin-left:4px;">${t}</span>`).join('');
+      return`<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px dashed var(--border);">
+        <div style="min-width:28px;text-align:center;font-size:11px;font-weight:700;color:${nature.color};background:${nature.light};border-radius:6px;padding:3px 4px;">${day}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:600;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${e.memo||'(메모 없음)'}${tags}</div>
+          <div style="font-size:11px;color:var(--text-sub);margin-top:1px;">${e.category||'기타'}</div>
+        </div>
+        <div style="font-size:13px;font-weight:800;color:var(--text-main);flex-shrink:0;">${fmt(e.amount||0)}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function render(){
+    const catTabs=cats.map(c=>`<button onclick="App.__ndSetCat('${c.replace(/'/g,"\\'")}',${y},${m},'${key}')" style="font-size:11px;padding:4px 10px;border-radius:20px;font-weight:700;cursor:pointer;border:none;background:${activeCat===c?nature.color:'var(--bg)'};color:${activeCat===c?'white':nature.color};">${c}</button>`).join('');
+    const catTotal=activeCat?matched.filter(e=>(e.category||'기타')===activeCat).reduce((s,e)=>s+(e.amount||0),0):total;
+    const list=renderList(activeCat);
+    const el=document.getElementById('nature-detail-modal');
+    if(el)el.innerHTML=`
+      <div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:3100;display:flex;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)App._closeNatureDetail()">
+        <div style="background:white;border-radius:20px;width:100%;max-width:460px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.2);overflow:hidden;">
+          <div style="padding:18px 18px 14px;background:linear-gradient(135deg,${nature.light},white);">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;">
+              <div>
+                <div style="display:flex;align-items:center;gap:8px;color:${nature.color};margin-bottom:4px;">${nature.svg||''}<span style="font-size:15px;font-weight:900;">${nature.label} 상세</span></div>
+                <div style="font-size:11px;color:var(--text-sub);">${y}년 ${m}월 · ${matched.length}건</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-size:22px;font-weight:900;color:${nature.color};">${fmt(catTotal)}</div>
+                <div style="font-size:11px;color:var(--text-sub);">총 지출의 ${pct}%</div>
+              </div>
+            </div>
+            ${cats.length>1?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px dashed ${nature.color}22;">
+              <button onclick="App.__ndSetCat(null,${y},${m},'${key}')" style="font-size:11px;padding:4px 10px;border-radius:20px;font-weight:700;cursor:pointer;border:none;background:${!activeCat?nature.color:'var(--bg)'};color:${!activeCat?'white':nature.color};">전체</button>
+              ${catTabs}
+            </div>`:''}
+          </div>
+          <div style="overflow-y:auto;flex:1;">${list}</div>
+          <div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:#fafafa;">
+            <div style="font-size:12px;color:var(--text-sub);">${activeCat||'전체'} · ${activeCat?matched.filter(e=>(e.category||'기타')===activeCat).length:matched.length}건</div>
+            <div style="font-size:14px;font-weight:900;color:${nature.color};">${fmt(catTotal)}</div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  window.__ndSetCat=function(cat,y,m,key){
+    activeCat=cat;
+    render();
+  };
+
+  let el=document.getElementById('nature-detail-modal');
+  if(!el){el=document.createElement('div');el.id='nature-detail-modal';document.body.appendChild(el);}
+  render();
+}
+
+function _closeNatureDetail(){
+  const el=document.getElementById('nature-detail-modal');
+  if(el)el.innerHTML='';
+}
+
+
 window.App={
   changeMonth,changeCalYear,toggleDashSection,toggleDashVarSection,applyMonthTheme,setDashVarMode,
   showDonutTip,hideDonutTip,_donutOtherToggle,_openIconPicker,_saveLcatIcon,_openColorPicker,_saveLcatColor,switchTab,
@@ -6633,7 +6721,7 @@ window.App={
   openCloseMonthModal,closeMonth,reopenMonth,
   renderMonthlyArchive,deleteArchiveEntry,_toggleArchiveCard,toggleLedgerSubmenu,
   renderAnalysis,changeAnalysisYear,changeAnalysisMode,changeAnalysisMonth,_toggleAnaMonth,_toggleClosedMonth,_toggleAnalysisMenu,_openNatureSettings,_setNature,calcConsumeScore,
-  _selectNatureKey,_nsPickIcon,_nsToggleCat,openTagMgmtModal,_tagMgmtRender,_addSub,_deleteSub,_deleteSubThisMonth,_deleteSubPermanent,_updateSubName,_updateSubAmount,_openTagSuggest,_applyTagSuggest,_applyTagSuggestPopup,deleteMonthAnalysisData,
+  _selectNatureKey,_nsPickIcon,_nsToggleCat,openTagMgmtModal,_tagMgmtRender,_addSub,_deleteSub,_deleteSubThisMonth,_deleteSubPermanent,_updateSubName,_updateSubAmount,_openTagSuggest,_applyTagSuggest,_applyTagSuggestPopup,deleteMonthAnalysisData,_openNatureDetail,_closeNatureDetail,__ndSetCat,
   fetchStockPrices,
   downloadMonthlyReport,
   showVarPreview,goToLedger,
