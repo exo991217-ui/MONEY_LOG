@@ -1548,9 +1548,11 @@ body{font-family:var(--font);background:linear-gradient(145deg,#5E4BC422 0%,#D1C
 .ana2-num-badge{background:linear-gradient(135deg,#A29BFE,#74B9FF);color:white;border-radius:8px;font-size:11px;font-weight:800;padding:2px 8px;flex-shrink:0;}
 .ana2-settings-btn{padding:5px 12px;border-radius:16px;border:1px solid var(--border);background:white;color:#5E4BC4;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:var(--font);}
 .ana2-settings-btn:hover{background:#F0EEFF;}
-.ana2-nature-grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:10px;}
+.ana2-nature-grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px;}
 .ana2-nature-card{border-radius:12px;padding:14px;min-width:0;}
-.ana2-score-card{border-radius:12px;border:1.5px solid transparent;padding:14px;text-align:center;}
+.ana2-score-box{border-radius:14px;border:1.5px solid transparent;padding:18px 20px;margin-top:4px;}
+.ana2-score-compare{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);}
+.ana2-score-delta{font-weight:800;font-size:13px;}
 .ana2-fixed-list{display:flex;flex-direction:column;gap:4px;}
 .ana2-fixed-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px dashed var(--border);font-size:13px;}
 .ana2-fixed-row:last-child{border-bottom:none;}
