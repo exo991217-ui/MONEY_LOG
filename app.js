@@ -18,8 +18,7 @@ const DEFAULT_DATA=()=>{
   return ({
   themeOpacity:50,
   themeOpacityLocked:false,
-  mo
-Let me read the current stnthlyData:{},creditCards:[],assets:[],
+  monthlyData:{},creditCards:[],assets:[],
   stocks:[
     {id:1,name:'삼성전자우',ticker:'005935',sector:'반도체',buyPrice:109472,currentPrice:109472,targetPrice:0,quantity:1,stockType:'domestic'},
     {id:2,name:'삼성전자',ticker:'005930',sector:'반도체',buyPrice:156700,currentPrice:156700,targetPrice:0,quantity:1,stockType:'domestic'},
