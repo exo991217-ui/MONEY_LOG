@@ -5754,21 +5754,69 @@ let _anaNaturePanelOpen=false;
 let _anaMode='analysis';
 let _anaExpandedClose=null;
 
-// 소비점수: 생활+특별 비율 기반 (30%→100점 최고)
-function calcConsumeScore(lifePct){
-  const T=[[0,70],[20,90],[30,100],[40,90],[50,75],[60,55],[70,35],[80,15],[100,5]];
-  if(lifePct<=T[0][0])return T[0][1];
-  for(let i=0;i<T.length-1;i++){
-    const[x0,y0]=T[i],[x1,y1]=T[i+1];
-    if(lifePct<=x1)return Math.round(y0+(y1-y0)*(lifePct-x0)/(x1-x0));
+// ── 소비 균형 점수 (50/30/20 원칙 기반) ──
+const NATURE_RANGES={필수:{min:40,max:60},생활:{min:15,max:30},투자:{min:15,max:25},특별:{min:0,max:15}};
+
+function calcConsumeScore(natureMap,totalExpense){
+  if(totalExpense<=0)return{score:0,grade:'🚨 크게 치우침',color:'#F06292',feedback:['지출 데이터가 없습니다.'],detail:{}};
+  let totalScore=0;
+  const feedback=[];
+  const detail={};
+  for(const[key,range]of Object.entries(NATURE_RANGES)){
+    const pct=(natureMap[key]||0)/totalExpense*100;
+    let pts=0;
+    if(pct>=range.min&&pct<=range.max){pts=25;}
+    else{const diff=pct<range.min?range.min-pct:pct-range.max;if(diff<=5)pts=20;else if(diff<=10)pts=10;else pts=0;}
+    totalScore+=pts;
+    detail[key]={pct:Math.round(pct),pts,inRange:pts===25,isHigh:pct>range.max};
+    if(pts<25){
+      const hi=pct>range.max;
+      if(key==='필수')feedback.push(hi?'필수지출 비중이 높아 소비 여유가 부족한 상태입니다.':'필수지출 비중이 낮습니다. 필수 항목을 확인해보세요.');
+      else if(key==='생활')feedback.push(hi?'생활지출 비중이 다소 높은 편입니다.':'생활지출 비중이 낮습니다.');
+      else if(key==='투자')feedback.push(hi?'투자지출 비중이 다소 높은 편입니다.':'투자지출 비중이 낮습니다.');
+      else if(key==='특별'&&hi)feedback.push('특별지출 비중이 높습니다.');
+    }
   }
-  return 5;
+  if(feedback.length===0)feedback.push('전반적으로 균형 잡힌 소비 패턴을 유지하고 있습니다.');
+  let grade,color;
+  if(totalScore>=90){grade='🌟 매우 균형적';color='#4CAF82';}
+  else if(totalScore>=80){grade='✅ 균형적';color='#64B5F6';}
+  else if(totalScore>=70){grade='🙂 보통';color='#A29BFE';}
+  else if(totalScore>=60){grade='⚠ 다소 치우침';color='#FFB347';}
+  else{grade='🚨 크게 치우침';color='#F06292';}
+  return{score:totalScore,grade,color,feedback,detail};
 }
-function getScoreLabel(s){
-  if(s>=90)return{emoji:'🌟',text:'매우 건강한 소비'};
-  if(s>=80)return{emoji:'✅',text:'잘한 소비'};
-  if(s>=60)return{emoji:'🙂',text:'보통 소비'};
-  return{emoji:'⚠',text:'소비 비중 점검 필요'};
+
+function _getPrevScore(y,m){
+  let py=y,pm=m-1;if(pm<1){pm=12;py--;}
+  const{natureMap:pn,totalExpense:pt}=getMonthAnalysisData(py,pm);
+  if(pt<=0)return null;
+  return calcConsumeScore(pn,pt).score;
+}
+
+function _buildScoreBox(score,grade,color,feedback,prevScore){
+  const diff=prevScore!=null?score-prevScore:null;
+  const prevHtml=prevScore!=null?`
+    <div class="ana2-score-compare">
+      <span style="color:var(--text-sub);">지난달 <b>${prevScore}점</b></span>
+      <span style="color:var(--text-sub);">이번달 <b style="color:${color};">${score}점</b></span>
+      <span class="ana2-score-delta" style="color:${diff>=0?'#4CAF82':'#F06292'};">${diff>=0?'▲':'▼'} ${Math.abs(diff)}점 ${diff>=0?'상승':'하락'}</span>
+    </div>`:'';
+  const fbHtml=feedback.map(f=>`<div style="font-size:12px;color:var(--text-sub);margin-bottom:3px;padding-left:10px;position:relative;">• ${f}</div>`).join('');
+  return`<div class="ana2-score-box" style="border-color:${color}44;background:${color}0d;">
+    <div style="font-size:11px;font-weight:700;color:var(--text-sub);margin-bottom:6px;">📊 소비 균형 점수</div>
+    <div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:46px;font-weight:900;color:${color};line-height:1;">${score}<span style="font-size:18px;">점</span></div>
+        <div style="font-size:14px;font-weight:800;color:${color};margin-top:4px;">${grade}</div>
+      </div>
+      <div style="flex:1;min-width:180px;">
+        <div style="font-size:11px;font-weight:700;color:var(--text-sub);margin-bottom:6px;">피드백</div>
+        ${fbHtml}
+        ${prevHtml}
+      </div>
+    </div>
+  </div>`;
 }
 
 function getMonthAnalysisData(y,m){
@@ -5877,19 +5925,20 @@ function _buildMiniNatureBar(natureMap,total){
 function _buildAnalysisView(y,m){
   const fmt=n=>Math.round(n).toLocaleString('ko-KR')+'원';
   const{fixed,fixedTotal,totalExpense,natureMap}=getMonthAnalysisData(y,m);
-  // 소비점수
-  const lifePct=totalExpense>0?((natureMap['생활']||0)+(natureMap['특별']||0))/totalExpense*100:30;
-  const score=calcConsumeScore(lifePct);
-  const{emoji,text}=getScoreLabel(score);
-  const scoreColor=score>=90?'#4CAF82':score>=80?'#64B5F6':score>=60?'#FFB347':'#F06292';
+  // 소비 균형 점수
+  const{score,grade,color:scoreColor,feedback}=calcConsumeScore(natureMap,totalExpense);
+  const prevScore=_getPrevScore(y,m);
   // 성격별 카드
   const natureCardsHtml=ANA_NATURES.map(n=>{
     const amt=natureMap[n.key]||0;
     const pct=totalExpense>0?Math.round(amt/totalExpense*100):0;
+    const range=NATURE_RANGES[n.key];
+    const inRange=pct>=range.min&&pct<=range.max;
     return`<div class="ana2-nature-card" style="background:${n.light};border:1.5px solid ${n.color}33;">
       <div style="font-size:12px;font-weight:800;color:${n.color};margin-bottom:4px;">${n.label}</div>
       <div style="font-size:18px;font-weight:900;color:${n.color};margin-bottom:3px;">${fmt(amt)}</div>
       <div style="font-size:13px;font-weight:700;color:${n.color};">${pct}%</div>
+      <div style="font-size:10px;color:${inRange?'#4CAF82':'#FFB347'};margin-top:3px;">${inRange?'✓ 권장 범위':'권장 '+range.min+'~'+range.max+'%'}</div>
     </div>`;
   }).join('');
   // 성격 설정 패널
@@ -5932,18 +5981,10 @@ function _buildAnalysisView(y,m){
         <button class="ana2-settings-btn" onclick="App._openNatureSettings()">⚙ 성격별 설정 관리</button>
       </div>
       ${naturePanelHtml}
-      <div class="ana2-nature-grid5">
+      <div class="ana2-nature-grid4">
         ${natureCardsHtml}
-        <div class="ana2-score-card" style="border-color:${scoreColor}33;background:${scoreColor}11;">
-          <div style="font-size:11px;font-weight:700;color:var(--text-sub);margin-bottom:4px;">소비 점수</div>
-          <div style="font-size:34px;font-weight:900;color:${scoreColor};line-height:1;">${score}<span style="font-size:15px;">점</span></div>
-          <div style="font-size:12px;font-weight:700;color:${scoreColor};margin-top:5px;">${emoji} ${text}</div>
-          <div style="font-size:10px;color:var(--text-sub);margin-top:8px;line-height:1.5;">생활+특별 비중<br><b>${Math.round(lifePct)}%</b> 기준</div>
-        </div>
       </div>
-      <div style="padding:8px 12px;background:#FAFAFF;border-radius:8px;font-size:11px;color:var(--text-sub);margin-top:6px;">
-        💡 생활+특별 비중 30%일 때 최고점(100점). 너무 낮으면 필수지출 과다, 너무 높으면 소비 과다.
-      </div>
+      ${_buildScoreBox(score,grade,scoreColor,feedback,prevScore)}
     </div>
 
     <div class="ana2-section-card">
@@ -5990,10 +6031,8 @@ function _buildClosedDetail(key){
   const net=(income||0)-(expense||0);
   const netColor=net>=0?'#4CAF82':'#F06292';
   const{natureMap,totalExpense}=getMonthAnalysisData(y,m);
-  const lifePct=totalExpense>0?((natureMap['생활']||0)+(natureMap['특별']||0))/totalExpense*100:30;
-  const score=calcConsumeScore(lifePct);
-  const{emoji,text}=getScoreLabel(score);
-  const scoreColor=score>=90?'#4CAF82':score>=80?'#64B5F6':score>=60?'#FFB347':'#F06292';
+  const{score,grade,color:scoreColor,feedback}=calcConsumeScore(natureMap,totalExpense);
+  const prevScore=_getPrevScore(y,m);
   const cats=(categories||[]);
   const maxCat=cats.length>0?Math.max(...cats.map(c=>c.amount)):1;
   const catRows=cats.map(c=>`<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span style="font-weight:600;">${c.name}</span><span style="font-weight:700;">${fmt(c.amount)}</span></div><div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;"><div style="height:100%;width:${Math.min(100,c.amount/(maxCat||1)*100)}%;background:linear-gradient(90deg,#A29BFE,#74B9FF);border-radius:3px;"></div></div></div>`).join('');
@@ -6010,15 +6049,10 @@ function _buildClosedDetail(key){
       <div class="ana2-kpi-box" style="border-color:#A29BFE44;"><div class="ana2-kpi-label">저축액</div><div class="ana2-kpi-val" style="color:#A29BFE;">${fmt(savings||0)}</div></div>
       <div class="ana2-kpi-box" style="border-color:${net>=0?'#4CAF8244':'#F0629244'};"><div class="ana2-kpi-label">순자산 증감</div><div class="ana2-kpi-val" style="color:${netColor};font-size:16px;">${net>=0?'+':''}${fmt(Math.abs(net))}</div></div>
     </div>
-    <div style="display:flex;gap:10px;margin-bottom:16px;">
-      <div style="flex:1;background:white;border-radius:10px;border:1.5px solid var(--border);padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
-        <div><div style="font-size:11px;color:var(--text-sub);">소비 점수</div><div style="font-size:20px;font-weight:900;color:${scoreColor};">${emoji} ${score}점</div></div>
-        <div style="font-size:11px;color:${scoreColor};font-weight:600;">${text}</div>
-      </div>
-      <div style="flex:1;background:white;border-radius:10px;border:1.5px solid var(--border);padding:10px 14px;">
-        <div style="font-size:11px;color:var(--text-sub);">저축률</div>
-        <div style="font-size:20px;font-weight:900;color:#A29BFE;">${savingsRate||0}%</div>
-      </div>
+    ${_buildScoreBox(score,grade,scoreColor,feedback,prevScore)}
+    <div style="background:white;border-radius:10px;border:1.5px solid var(--border);padding:10px 14px;margin-bottom:16px;display:inline-block;min-width:120px;">
+      <div style="font-size:11px;color:var(--text-sub);">저축률</div>
+      <div style="font-size:20px;font-weight:900;color:#A29BFE;">${savingsRate||0}%</div>
     </div>
     <div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:8px;">지출 성격 요약</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">${natCards}</div></div>
     <div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:8px;">카테고리별 지출</div>${catRows||'<div style="color:var(--text-sub);font-size:12px;">기록 없음</div>'}</div>
