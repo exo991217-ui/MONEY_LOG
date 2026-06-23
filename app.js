@@ -4929,7 +4929,7 @@ function renderAutoList(){
   if(totalIn>0)summaryParts.push(`<span style="color:var(--green);">수입 <strong>${fmt(totalIn)}</strong></span>`);
   const summary=summaryParts.length>0?`<div class="auto-summary-bar"><span class="badge-svg-icon" style="color:#F9A825;vertical-align:middle;">${_SVG_ICONS.lightning}</span> 활성 자동화 월 합계: ${summaryParts.join(' · ')}</div>`:'';
   const isIncome=a=>(a.type||'expense')==='income';
-  el.innerHTML=summary+automations.map(a=>`
+  el.innerHTML=summary+`<div class="auto-cards-grid">`+automations.map(a=>`
     <div class="auto-card ${a.active===false?'auto-inactive':''}">
       <div class="auto-card-strip ${isIncome(a)?'income':''}"></div>
       <div class="auto-card-body">
@@ -4953,7 +4953,7 @@ function renderAutoList(){
           <button class="icon-btn" onclick="App.deleteAuto(${a.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
         </div>
       </div>
-    </div>`).join('');
+    </div>`).join('')+`</div>`;
 }
 
 function editAuto(id){
