@@ -5745,10 +5745,14 @@ function switchTab(tab){
 
 // ===== ANALYSIS TAB =====
 const ANA_NATURES=[
-  {key:'필수',label:'필수지출',color:'#5E4BC4',light:'#F0EEFF',barColor:'#A29BFE'},
-  {key:'생활',label:'생활지출',color:'#FF8C42',light:'#FFF4EC',barColor:'#FFB347'},
-  {key:'투자',label:'투자지출',color:'#4CAF82',light:'#E8F5EE',barColor:'#4CAF82'},
-  {key:'특별',label:'특별지출',color:'#64B5F6',light:'#EBF5FF',barColor:'#64B5F6'},
+  {key:'필수',label:'필수지출',color:'#5E4BC4',light:'#F0EEFF',barColor:'#A29BFE',
+   svg:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-4 0v2"/><line x1="12" y1="12" x2="12" y2="16"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>'},
+  {key:'생활',label:'생활지출',color:'#FF8C42',light:'#FFF4EC',barColor:'#FFB347',
+   svg:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2"/><path d="M18 8h3"/><path d="M21 15a3 3 0 0 1-6 0"/></svg>'},
+  {key:'투자',label:'투자지출',color:'#4CAF82',light:'#E8F5EE',barColor:'#4CAF82',
+   svg:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>'},
+  {key:'특별',label:'특별지출',color:'#64B5F6',light:'#EBF5FF',barColor:'#64B5F6',
+   svg:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>'},
 ];
 let _anaExpandedMonth=null;
 let _anaNaturePanelOpen=false;
@@ -6254,8 +6258,8 @@ function _buildFixed2Section(y,m,fmt){
   const fixedTotal=rows.reduce((s,r)=>s+r.curAmt,0);
   const prevTotal=rows.reduce((s,r)=>s+r.prevAmt,0);
   const diffTotal=fixedTotal-prevTotal;
-  const ledgerInc=(S.ledger[key]||[]).filter(e=>e.type==='income').reduce((s,e)=>s+(e.amount||0),0);
-  const incomePct=ledgerInc>0?Math.round(fixedTotal/ledgerInc*100):0;
+  const ledgerExp=curLedger.reduce((s,e)=>s+(e.amount||0),0);
+  const expPct=ledgerExp>0?Math.round(fixedTotal/ledgerExp*100):0;
 
   const tableRows=rows.map(r=>{
     const diff=r.curAmt-r.prevAmt;
@@ -6275,7 +6279,7 @@ function _buildFixed2Section(y,m,fmt){
     <div>
       <div style="font-size:11px;color:var(--text-sub);margin-bottom:4px;">이번 달 정기 비용 (총합)</div>
       <div style="font-size:26px;font-weight:900;color:var(--text-main);letter-spacing:-1px;margin-bottom:6px;">${fmt(fixedTotal)}</div>
-      ${ledgerInc>0?`<div style="font-size:12px;color:#5E4BC4;margin-bottom:4px;">총 지출의 <b>${incomePct}%</b></div>`:''}
+      ${ledgerExp>0?`<div style="font-size:12px;color:#5E4BC4;margin-bottom:4px;">총 지출의 <b>${expPct}%</b></div>`:''}
       <div style="font-size:12px;font-weight:700;color:${diffTotal===0?'var(--text-sub)':diffTotal>0?'#F06292':'#4CAF82'};">
         전월 대비 ${diffTotal===0?'변동 없음':(diffTotal>0?'+':'')+fmt(Math.abs(diffTotal))}${diffTotal!==0&&prevTotal>0?`<span style="font-size:10px;font-weight:400;"> (${Math.round(diffTotal/prevTotal*100)}%)</span>`:''}
       </div>
@@ -6303,7 +6307,7 @@ function _buildFixed2Section(y,m,fmt){
 // ── 분석 뷰 (현재 달 상세) ──
 function _buildAnalysisView(y,m){
   const fmt=n=>Math.round(n).toLocaleString('ko-KR')+'원';
-  const{fixed,fixedTotal,totalExpense,natureMap}=getMonthAnalysisData(y,m);
+  const{fixed,fixedTotal,totalExpense,natureMap,ledgerEntries,ledgerTotal}=getMonthAnalysisData(y,m);
   // 소비 균형 점수
   const{score,grade,color:scoreColor,feedback}=calcConsumeScore(natureMap,totalExpense);
   const prevScore=_getPrevScore(y,m);
@@ -6314,18 +6318,21 @@ function _buildAnalysisView(y,m){
     const range=NATURE_RANGES[n.key];
     const inRange=pct>=range.min&&pct<=range.max;
     return`<div class="ana2-nature-card" style="background:${n.light};border:1.5px solid ${n.color}33;">
-      <div style="font-size:12px;font-weight:800;color:${n.color};margin-bottom:4px;">${n.label}</div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;color:${n.color};">${n.svg||''}<span style="font-size:12px;font-weight:800;">${n.label}</span></div>
       <div style="font-size:18px;font-weight:900;color:${n.color};margin-bottom:3px;">${fmt(amt)}</div>
       <div style="font-size:13px;font-weight:700;color:${n.color};">${pct}%</div>
       <div style="font-size:10px;color:${inRange?'#4CAF82':'#FFB347'};margin-top:3px;">${inRange?'✓ 권장 범위':'권장 '+range.min+'~'+range.max+'%'}</div>
     </div>`;
   }).join('');
-  // 고정비 구성 — ③ 섹션용
-  const survivalRows=fixed.slice(0,5).map(f=>`
+  // 고정비 구성 — ③ 섹션용 (가계부 카테고리별 집계)
+  const _catTotals={};
+  (ledgerEntries||[]).forEach(e=>{const c=e.category||'기타';_catTotals[c]=(_catTotals[c]||0)+(e.amount||0);});
+  const _sortedCats=Object.entries(_catTotals).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const survivalRows=_sortedCats.length>0?_sortedCats.map(([cat,amt])=>`
     <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px dashed var(--border);">
-      <span style="font-size:12px;color:var(--text-sub);font-weight:600;">${f.name||f.category||'항목'}</span>
-      <span style="font-size:13px;font-weight:800;color:var(--text-main);">${fmt(f.amount||0)}</span>
-    </div>`).join('');
+      <span style="font-size:12px;color:var(--text-sub);font-weight:600;">${cat}</span>
+      <span style="font-size:13px;font-weight:800;color:var(--text-main);">${fmt(amt)}</span>
+    </div>`).join(''):'';
   const natBarMax=Math.max(...ANA_NATURES.map(n=>natureMap[n.key]||0),1);
   const natBars=ANA_NATURES.map(n=>{
     const amt=natureMap[n.key]||0;
@@ -6392,14 +6399,14 @@ function _buildAnalysisView(y,m){
       <div class="ana2-section-hd">
         <div>
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><span class="ana2-num-badge">③</span><span style="font-size:15px;font-weight:800;color:var(--text-main);">이달 고정비 구성</span></div>
-          <div style="font-size:11px;color:var(--text-sub);margin-left:34px;">정기 지출 항목과 지출 성격 비율을 한눈에 확인합니다.</div>
+          <div style="font-size:11px;color:var(--text-sub);margin-left:34px;">가계부 기준 카테고리별 지출 현황과 성격 비율을 확인합니다.</div>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
         <div>
-          <div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:10px;">고정 지출 항목 (상위 5개)</div>
-          <div style="font-size:22px;font-weight:900;color:#4CAF82;margin-bottom:10px;">${fmt(fixedTotal)}</div>
-          ${survivalRows||'<div style="color:var(--text-sub);font-size:12px;padding:10px 0;">정기 비용 항목 없음</div>'}
+          <div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:10px;">카테고리별 지출 (가계부 기준, 상위 5개)</div>
+          <div style="font-size:22px;font-weight:900;color:#4CAF82;margin-bottom:10px;">${fmt(ledgerTotal||0)}</div>
+          ${survivalRows||'<div style="color:var(--text-sub);font-size:12px;padding:10px 0;">가계부 항목 없음</div>'}
         </div>
         <div style="background:var(--bg);border-radius:12px;padding:14px 16px;">
           <div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:10px;">지출 성격 비율</div>
@@ -6445,8 +6452,14 @@ function _buildClosedDetail(key){
     <div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:8px;">지출 성격 요약</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">${natCards}</div></div>
     <div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:8px;">카테고리별 지출</div>${catRows||'<div style="color:var(--text-sub);font-size:12px;">기록 없음</div>'}</div>
     <div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:8px;">지출 TOP5 <span style="font-size:10px;font-weight:400;">(주거·공과금·금융 제외)</span></div>${top5||'<div style="color:var(--text-sub);font-size:12px;">기록 없음</div>'}</div>
-    ${note?`<div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:6px;">이번 달 소감</div><div style="background:white;border-radius:10px;border:1.5px solid var(--border);padding:10px 12px;font-size:13px;color:var(--text-main);">${note}</div></div>`:''}
-  </div>`;
+    <div style="margin-bottom:14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <div style="font-size:12px;font-weight:700;color:var(--text-sub);">이번 달 소감</div>
+        <button onclick="App.deleteArchiveEntry('${key}')" style="font-size:11px;color:#F06292;background:#FFF0F5;border:1.5px solid #F0629244;border-radius:8px;padding:4px 10px;cursor:pointer;font-weight:600;display:flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg> 이 마감 삭제</button>
+      </div>
+      ${note?`<div style="background:white;border-radius:10px;border:1.5px solid var(--border);padding:10px 12px;font-size:13px;color:var(--text-main);">${note}</div>`:'<div style="color:var(--text-sub);font-size:12px;">소감 없음</div>'}
+    </div>
+  </div>\`; 
 }
 
 // ── 월마감 뷰 ──
@@ -6495,10 +6508,7 @@ function renderAnalysis(){
         <p class="page-sub">${isAnalysis?'월별 지출 성격을 확인하고, 소비점수·태그·고정비 구성을 관리하세요.':'한 달의 결과를 요약해서 보여주는 보고서에요.'}</p>
       </div>
       <div style="display:flex;align-items:center;gap:10px;">
-        ${isAnalysis?`<button class="nsp-open-btn" style="background:#FFF0F5;color:#F06292;border-color:#F0629244;" onclick="App.deleteMonthAnalysisData(${y},${m})">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-          이 달 삭제
-        </button>`:''}
+
         ${isAnalysis?`<button class="nsp-open-btn${_anaNaturePanelOpen?' active':''}" onclick="App._openNatureSettings()">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           성격 설정 관리
@@ -6511,7 +6521,7 @@ function renderAnalysis(){
       <button class="ana2-mode-btn${!isAnalysis?' active':''}" onclick="App.changeAnalysisMode('close')">📋 월마감</button>
     </div>
     ${naturePanelHtml}
-    ${isAnalysis?`<div class="ana2-month-nav"><button class="month-btn" onclick="App.changeAnalysisMonth(-1)">‹</button><span class="month-label">${y}년 ${m}월</span><button class="month-btn" onclick="App.changeAnalysisMonth(1)">›</button></div>`:''}
+    ${isAnalysis?`<div class="ana2-month-nav"><button class="month-btn" onclick="App.changeAnalysisMonth(-1)">‹</button><span class="month-label">${y}년 ${m}월</span><button class="month-btn" onclick="App.changeAnalysisMonth(1)">›</button><button onclick="App.deleteMonthAnalysisData(${y},${m})" style="margin-left:10px;font-size:11px;color:#F06292;background:#FFF0F5;border:1.5px solid #F0629244;border-radius:8px;padding:4px 10px;cursor:pointer;font-weight:600;">이 달 삭제</button></div>`:''}
     ${bodyHtml}
   `;
 }
