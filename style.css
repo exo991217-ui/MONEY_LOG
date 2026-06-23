@@ -603,7 +603,8 @@ body{font-family:var(--font);background:linear-gradient(145deg,#5E4BC422 0%,#D1C
 .sub-toggle-label{font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px}
 .sub-inactive{opacity:.5}
 .sub-empty{text-align:center;padding:32px 20px;color:var(--text-sub);font-size:13px;line-height:1.7}
-.auto-card{background:white;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:0;display:flex;align-items:stretch;gap:0;margin-bottom:7px;overflow:hidden;transition:box-shadow .15s;}
+.auto-cards-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.auto-card{background:white;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:0;display:flex;align-items:stretch;gap:0;overflow:hidden;transition:box-shadow .15s;}
 .auto-card:hover{box-shadow:0 2px 12px rgba(0,0,0,.08);}
 .auto-card-strip{width:4px;flex-shrink:0;background:var(--orange);}
 .auto-card-strip.income{background:var(--green);}
@@ -675,8 +676,8 @@ body{font-family:var(--font);background:linear-gradient(145deg,#5E4BC422 0%,#D1C
 .lcat-toggle-bar{display:flex;align-items:center;gap:6px;padding:9px 16px;background:white;border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:12.5px;font-weight:700;color:var(--text-sub);margin-bottom:8px;transition:all .15s;user-select:none}
 .lcat-toggle-bar:hover{background:var(--purple-light);color:#5E4BC4;border-color:#A29BFE}
 .lcat-panel-wrap{background:white;border:1.5px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:14px;box-shadow:var(--shadow)}
-.lcat-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;margin-bottom:4px}
-.lcat-row{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:10px;border:1.5px solid var(--border);background:white;transition:border-color .15s,box-shadow .15s;min-width:0;}
+.lcat-list{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:4px}
+.lcat-row{display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);background:white;transition:border-color .15s,box-shadow .15s;min-width:0;}
 .lcat-row:hover{border-color:#A29BFE66;box-shadow:0 1px 6px rgba(162,155,254,.15);}
 .lcat-row-top{display:none;}
 .lcat-row-actions{display:none;}
