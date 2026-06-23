@@ -6035,39 +6035,112 @@ function _nsToggleCat(cat,checked,natureKey){
   renderAnalysis();
 }
 
+// ── 이 달 분석 데이터 삭제 ──
+function deleteMonthAnalysisData(y,m){
+  if(!confirm(`${y}년 ${m}월 가계부 데이터를 삭제할까요?\n(가계부 항목 + 수입/지출 데이터가 삭제되며 복구할 수 없습니다)`))return;
+  const key=mkey(y,m);
+  if(S.ledger)delete S.ledger[key];
+  if(S.monthlyData)delete S.monthlyData[key];
+  saveState();
+  renderAnalysis();
+}
+
 // ── 태그 관리 모달 (정기비용 태그 분석용) ──
-function openTagMgmtModal(){
+function _tagMgmtRender(){
+  const el=document.getElementById('tag-mgmt-inner');
+  if(!el)return;
   if(!S.subscriptions)S.subscriptions=[];
   const subs=S.subscriptions;
-  let html=`<div style="padding:4px 0;">
-    <div style="font-size:13px;font-weight:800;color:#5E4BC4;margin-bottom:14px;">🏷 정기 비용 태그 관리</div>
-    <div style="font-size:12px;color:var(--text-sub);margin-bottom:14px;">정기적으로 발생하는 지출 항목을 등록해 분석에 활용하세요.</div>
-    <div id="tag-mgmt-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">
-      ${subs.map((s,i)=>`<div style="display:flex;align-items:center;gap:8px;background:#F7F4FF;border-radius:10px;padding:8px 12px;border:1.5px solid var(--border);">
-        <span style="font-size:16px;">🔄</span>
-        <input style="flex:1;border:1.5px solid var(--border);border-radius:8px;padding:6px 10px;font-size:13px;font-family:var(--font);" value="${s.name||''}" onchange="App._updateSubName(${i},this.value)" placeholder="태그명">
-        <input type="number" style="width:110px;border:1.5px solid var(--border);border-radius:8px;padding:6px 10px;font-size:13px;font-family:var(--font);" value="${s.amount||0}" onchange="App._updateSubAmount(${i},this.value)" placeholder="금액">
-        <button onclick="App._deleteSub(${i})" style="background:var(--red-light);border:none;border-radius:8px;padding:6px 10px;cursor:pointer;color:var(--red);font-size:12px;font-weight:700;">삭제</button>
-      </div>`).join('')}
+  el.innerHTML=`
+    <div style="font-size:13px;font-weight:800;color:#5E4BC4;margin-bottom:6px;">🏷 정기 비용 태그 관리</div>
+    <div style="font-size:12px;color:var(--text-sub);margin-bottom:14px;">가계부 메모 또는 태그에 포함된 항목을 자동으로 집계해요.</div>
+    <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:14px;">
+      ${subs.length===0?`<div style="text-align:center;padding:16px;color:var(--text-sub);font-size:12px;">등록된 태그 없음</div>`:
+        subs.map((s,i)=>`<div style="display:flex;align-items:center;gap:7px;background:#F7F4FF;border-radius:10px;padding:8px 10px;border:1.5px solid var(--border);">
+          <span style="font-size:15px;">🔄</span>
+          <input style="flex:1;border:1.5px solid var(--border);border-radius:8px;padding:6px 10px;font-size:13px;font-family:var(--font);" value="${(s.name||'').replace(/"/g,'&quot;')}" onchange="App._updateSubName(${i},this.value)" placeholder="태그명 (가계부 메모와 일치)">
+          <button onclick="App._deleteSub(${i})" style="flex-shrink:0;background:#FFF0F5;border:1.5px solid #F06292;border-radius:8px;padding:5px 10px;cursor:pointer;color:#F06292;font-size:12px;font-weight:700;white-space:nowrap;">🗑 삭제</button>
+        </div>`).join('')}
     </div>
-    <button onclick="App._addSub()" style="width:100%;padding:10px;background:var(--purple-light);color:#5E4BC4;border:1.5px dashed #A29BFE;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;">+ 새 태그 추가</button>
-  </div>`;
+    <div style="display:flex;gap:8px;">
+      <button onclick="App._addSub()" style="flex:1;padding:10px;background:var(--purple-light);color:#5E4BC4;border:1.5px dashed #A29BFE;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;">+ 새 태그 추가</button>
+      <button onclick="App._openTagSuggest()" style="flex:1;padding:10px;background:#E8F5EE;color:#4CAF82;border:1.5px dashed #4CAF82;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;">💡 태그 추천</button>
+    </div>`;
+}
+function openTagMgmtModal(){
+  document.getElementById('tag-mgmt-modal')?.remove();
+  if(!S.subscriptions)S.subscriptions=[];
   const modal=document.createElement('div');
   modal.id='tag-mgmt-modal';
   modal.style.cssText='position:fixed;inset:0;background:rgba(45,45,58,.45);z-index:1000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px);';
-  modal.innerHTML=`<div style="background:white;border-radius:20px;padding:24px;width:min(480px,92vw);max-height:80vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.18);">
-    ${html}
+  modal.innerHTML=`<div style="background:white;border-radius:20px;padding:24px;width:min(500px,94vw);max-height:82vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.18);">
+    <div id="tag-mgmt-inner"></div>
     <div style="display:flex;justify-content:flex-end;margin-top:16px;">
       <button onclick="document.getElementById('tag-mgmt-modal').remove();App.renderAnalysis();" style="padding:10px 24px;background:linear-gradient(135deg,#A29BFE,#74B9FF);color:white;border:none;border-radius:12px;cursor:pointer;font-size:13px;font-weight:700;">닫기</button>
     </div>
   </div>`;
   modal.addEventListener('click',e=>{if(e.target===modal){modal.remove();renderAnalysis();}});
   document.body.appendChild(modal);
+  _tagMgmtRender();
 }
-function _addSub(){if(!S.subscriptions)S.subscriptions=[];S.subscriptions.push({name:'',amount:0});saveState();openTagMgmtModal();}
-function _deleteSub(i){if(!S.subscriptions)return;S.subscriptions.splice(i,1);saveState();openTagMgmtModal();}
-function _updateSubName(i,v){if(!S.subscriptions||!S.subscriptions[i])return;S.subscriptions[i].name=v;saveState();}
+function _addSub(){
+  if(!S.subscriptions)S.subscriptions=[];
+  S.subscriptions.push({name:'',amount:0});
+  saveState();
+  _tagMgmtRender();
+}
+function _deleteSub(i){
+  if(!S.subscriptions)return;
+  S.subscriptions.splice(i,1);
+  saveState();
+  _tagMgmtRender();
+}
+function _updateSubName(i,v){if(!S.subscriptions||!S.subscriptions[i])return;S.subscriptions[i].name=v.trim();saveState();}
 function _updateSubAmount(i,v){if(!S.subscriptions||!S.subscriptions[i])return;S.subscriptions[i].amount=parseInt(v)||0;saveState();}
+function _openTagSuggest(){
+  // 전체 가계부에서 태그 빈도 수집
+  const tagCount={};
+  Object.values(S.ledger||{}).forEach(entries=>{
+    (entries||[]).filter(e=>e.type==='expense').forEach(e=>{
+      (e.tags||[]).filter(t=>t&&t.trim()).forEach(t=>{tagCount[t]=(tagCount[t]||0)+1;});
+      // 메모도 후보로 (자주 쓰인 메모)
+      if(e.memo&&e.memo.trim())tagCount[e.memo.trim()]=(tagCount[e.memo.trim()]||0)+0.5;
+    });
+  });
+  const existing=new Set((S.subscriptions||[]).map(s=>s.name));
+  const sorted=Object.entries(tagCount)
+    .filter(([t])=>!existing.has(t)&&t.length>0)
+    .sort((a,b)=>b[1]-a[1])
+    .slice(0,20);
+  const inner=document.getElementById('tag-mgmt-inner');
+  if(!inner)return;
+  inner.innerHTML=`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+      <button onclick="App._tagMgmtRender()" style="background:none;border:none;cursor:pointer;font-size:18px;padding:2px;">←</button>
+      <div style="font-size:13px;font-weight:800;color:#5E4BC4;">💡 태그 추천</div>
+    </div>
+    <div style="font-size:12px;color:var(--text-sub);margin-bottom:12px;">가계부에서 자주 쓰인 태그/메모입니다. 선택하면 정기 태그로 등록돼요.</div>
+    ${sorted.length===0?'<div style="text-align:center;padding:20px;color:var(--text-sub);font-size:12px;">추천할 태그가 없어요 (가계부 태그를 먼저 입력해 보세요)</div>':
+      `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px;">
+        ${sorted.map(([t,c])=>`<label style="display:flex;align-items:center;gap:10px;background:#F7F4FF;border-radius:9px;padding:8px 12px;border:1.5px solid var(--border);cursor:pointer;">
+          <input type="checkbox" value="${t.replace(/"/g,'&quot;')}" style="width:16px;height:16px;accent-color:#A29BFE;flex-shrink:0;">
+          <span style="font-size:13px;font-weight:600;flex:1;">${t}</span>
+          <span style="font-size:11px;color:var(--text-sub);">${Math.floor(c)}회 이상</span>
+        </label>`).join('')}
+      </div>
+      <button onclick="App._applyTagSuggest()" style="width:100%;padding:10px;background:linear-gradient(135deg,#A29BFE,#74B9FF);color:white;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;">선택한 태그 등록</button>`}`;
+}
+function _applyTagSuggest(){
+  const inner=document.getElementById('tag-mgmt-inner');
+  if(!inner)return;
+  const checked=[...inner.querySelectorAll('input[type=checkbox]:checked')].map(cb=>cb.value.trim()).filter(Boolean);
+  if(checked.length===0){alert('선택한 태그가 없어요.');return;}
+  if(!S.subscriptions)S.subscriptions=[];
+  const existing=new Set(S.subscriptions.map(s=>s.name));
+  checked.forEach(t=>{if(!existing.has(t))S.subscriptions.push({name:t,amount:0});});
+  saveState();
+  _tagMgmtRender();
+}
 
 // ── 미니 성격 바 (아코디언 헤더용) ──
 function _buildMiniNatureBar(natureMap,total){
@@ -6078,90 +6151,101 @@ function _buildMiniNatureBar(natureMap,total){
   return`<div class="ana-mini-bar-wrap"><div class="ana-mini-bar">${segs}</div></div>`;
 }
 
-// ── 정기비용 섹션 2 빌더 ──
-function _buildFixed2Section(fixed,fixedTotal,totalExpense,y,m,fmt){
-  const md=S.monthlyData||{};
+// ── 정기비용 섹션 2 빌더 (가계부 기반) ──
+function _buildFixed2Section(y,m,fmt){
+  const key=mkey(y,m);
   let py=y,pm=m-1;if(pm<1){pm=12;py--;}
-  const prevFixed=(md[mkey(py,pm)]||{}).fixed||[];
-  const prevNonSav=prevFixed.filter(f=>!f.isSavings);
-  const prevMap={};prevNonSav.forEach(f=>{prevMap[f.name]=(prevMap[f.name]||0)+(f.amount||0);});
-
-  // 현재 달 수입
-  const incomeNow=((md[mkey(y,m)]||{}).income||[]).reduce((s,i)=>s+(i.amount||0),0);
-  const incomePct=incomeNow>0?Math.round(fixedTotal/incomeNow*100):0;
-
-  // 전월 대비 합계 변화
-  const prevFixedTotal=prevNonSav.reduce((s,f)=>s+(f.amount||0),0);
-  const diffTotal=fixedTotal-prevFixedTotal;
-
-  // 최대 금액 (바 차트용)
-  const maxAmt=fixed.length>0?Math.max(...fixed.map(f=>f.amount||0)):1;
-
-  // 테이블 행
+  const prevKey=mkey(py,pm);
   const PILL_COLORS=['#7C5CBF','#4CAF82','#FF8C42','#64B5F6','#F06292','#A29BFE','#FFB347','#4DB6AC'];
-  const tableRows=fixed.length===0
-    ?`<tr><td colspan="5" style="text-align:center;color:var(--text-sub);padding:20px;font-size:13px;">이번 달 정기 비용 없음</td></tr>`
-    :fixed.map((f,i)=>{
-      const prev=prevMap[f.name]||0;
-      const diff=(f.amount||0)-prev;
-      const diffPct=prev>0?Math.round(diff/prev*100):0;
-      const barPct=Math.round((f.amount||0)/maxAmt*100);
-      const pillColor=PILL_COLORS[i%PILL_COLORS.length];
-      const diffColor=diff>0?'#F06292':diff<0?'#4CAF82':'var(--text-sub)';
-      return`<tr class="rfa-row">
-        <td><span class="rfa-pill" style="background:${pillColor}22;color:${pillColor};">${f.name||f.category||'항목'}</span></td>
-        <td style="font-weight:700;text-align:right;">${fmt(f.amount||0)}</td>
-        <td style="font-weight:700;text-align:right;color:var(--text-sub);">${prev>0?fmt(prev):'—'}</td>
-        <td style="font-weight:700;text-align:right;color:${diffColor};">${diff===0?'—':(diff>0?'+':'')+fmt(Math.abs(diff))}</td>
-        <td style="text-align:right;">
-          <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;">
-            <span style="font-size:11px;font-weight:700;color:${diff===0?'var(--text-sub)':diffColor};">${diff===0?'0%':(diff>0?'+':'')+diffPct+'%'}</span>
-            <div style="width:60px;height:6px;background:var(--border);border-radius:3px;overflow:hidden;">
-              <div style="height:100%;width:${barPct}%;background:${pillColor};border-radius:3px;"></div>
-            </div>
-          </div>
-        </td>
-      </tr>`;
-    }).join('');
 
-  // 구독 목록
+  // 가계부에서 현재달/전월 지출 항목
+  const curLedger=(S.ledger[key]||[]).filter(e=>e.type==='expense');
+  const prevLedger=(S.ledger[prevKey]||[]).filter(e=>e.type==='expense');
+
+  // 등록된 구독(태그) 기준으로 가계부에서 금액 계산
   const subs=S.subscriptions||[];
-  const subsHtml=subs.length===0?'':`<div class="rfa-sub-section">
-    <div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:8px;">최근 지출 건수</div>
-    <div class="rfa-sub-list">${subs.map(sub=>{
-      const ledgerKey=mkey(y,m);
-      const entries=(S.ledger[ledgerKey]||[]).filter(e=>e.type==='expense'&&(e.memo===sub.name||(e.tags||[]).includes(sub.name)));
-      const subTotal=entries.reduce((s,e)=>s+(e.amount||0),0);
-      return`<div class="rfa-sub-row">
-        <div class="rfa-sub-left">
-          <span class="rfa-sub-icon">🔄</span>
-          <div><div style="font-size:13px;font-weight:700;">${sub.name}</div><div style="font-size:11px;color:var(--text-sub);">최근 ${entries.length}회 이용</div></div>
+
+  function matchEntries(entries,sub){
+    return entries.filter(e=>{
+      if(!sub.name)return false;
+      const nm=sub.name.trim().toLowerCase();
+      const memo=(e.memo||'').toLowerCase();
+      const tags=(e.tags||[]).map(t=>t.toLowerCase());
+      return memo===nm||memo.includes(nm)||tags.includes(nm);
+    });
+  }
+
+  const rows=subs.map((sub,i)=>{
+    const curE=matchEntries(curLedger,sub);
+    const prevE=matchEntries(prevLedger,sub);
+    const curAmt=curE.reduce((s,e)=>s+(e.amount||0),0);
+    const prevAmt=prevE.reduce((s,e)=>s+(e.amount||0),0);
+    return{sub,curAmt,prevAmt,count:curE.length,idx:i};
+  });
+
+  const fixedTotal=rows.reduce((s,r)=>s+r.curAmt,0);
+  const prevTotal=rows.reduce((s,r)=>s+r.prevAmt,0);
+  const diffTotal=fixedTotal-prevTotal;
+  const maxAmt=rows.length>0?Math.max(...rows.map(r=>r.curAmt),1):1;
+
+  // 가계부 총 지출 (수입/지출 탭 무관)
+  const ledgerExpTotal=curLedger.reduce((s,e)=>s+(e.amount||0),0);
+  // 가계부 수입
+  const ledgerInc=(S.ledger[key]||[]).filter(e=>e.type==='income').reduce((s,e)=>s+(e.amount||0),0);
+  const incomePct=ledgerInc>0?Math.round(fixedTotal/ledgerInc*100):0;
+
+  if(subs.length===0){
+    return`<div style="text-align:center;padding:32px 0;color:var(--text-sub);">
+      <div style="font-size:32px;margin-bottom:10px;">🏷</div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:6px;">등록된 정기 태그가 없어요</div>
+      <div style="font-size:12px;">위 "태그 관리" 버튼으로 정기 지출 태그를 등록하면<br>가계부에서 자동으로 금액을 집계해요.</div>
+    </div>`;
+  }
+
+  const tableRows=rows.map(r=>{
+    const diff=r.curAmt-r.prevAmt;
+    const diffPct=r.prevAmt>0?Math.round(diff/r.prevAmt*100):0;
+    const barPct=Math.round(r.curAmt/maxAmt*100);
+    const pc=PILL_COLORS[r.idx%PILL_COLORS.length];
+    const diffColor=diff>0?'#F06292':diff<0?'#4CAF82':'var(--text-sub)';
+    const noData=r.curAmt===0;
+    return`<tr class="rfa-row"${noData?' style="opacity:.55;"':''}>
+      <td><span class="rfa-pill" style="background:${pc}22;color:${pc};">${r.sub.name||'?'}</span>${noData?`<span style="font-size:10px;color:var(--text-sub);margin-left:4px;">미집계</span>`:''}</td>
+      <td style="font-weight:700;text-align:right;">${noData?'—':fmt(r.curAmt)}</td>
+      <td style="font-weight:700;text-align:right;color:var(--text-sub);">${r.prevAmt>0?fmt(r.prevAmt):'—'}</td>
+      <td style="font-weight:700;text-align:right;color:${diffColor};">${diff===0||noData?'—':(diff>0?'+':'')+fmt(Math.abs(diff))}</td>
+      <td style="text-align:right;">
+        <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;">
+          <span style="font-size:10px;color:var(--text-sub);">${r.count}건</span>
+          <span style="font-size:11px;font-weight:700;color:${diffColor};">${diff===0||noData?'':'('+(diff>0?'+':'')+diffPct+'%)'}</span>
+          <div style="width:60px;height:6px;background:var(--border);border-radius:3px;overflow:hidden;">
+            <div style="height:100%;width:${barPct}%;background:${pc};border-radius:3px;"></div>
+          </div>
         </div>
-        <span style="font-size:14px;font-weight:800;color:#F06292;">${subTotal>0?fmt(subTotal):fmt(sub.amount||0)}</span>
-      </div>`;
-    }).join('')}</div>
-  </div>`;
+      </td>
+    </tr>`;
+  }).join('');
 
   return`<div class="rfa-wrap">
     <div class="rfa-summary-row">
       <div class="rfa-summary-left">
-        <div style="font-size:11px;color:var(--text-sub);margin-bottom:4px;">이번 달 정기 비용 (합계)</div>
+        <div style="font-size:11px;color:var(--text-sub);margin-bottom:4px;">이번 달 정기 비용 합계 (가계부 기준)</div>
         <div style="font-size:28px;font-weight:900;color:var(--text-main);letter-spacing:-1px;">${fmt(fixedTotal)}</div>
-        <div style="font-size:12px;color:#5E4BC4;margin-top:3px;">총 수입 대비 <b>${incomePct}%</b></div>
+        ${ledgerInc>0?`<div style="font-size:12px;color:#5E4BC4;margin-top:3px;">가계부 수입 대비 <b>${incomePct}%</b></div>`:''}
         <div style="font-size:12px;color:${diffTotal===0?'var(--text-sub)':diffTotal>0?'#F06292':'#4CAF82'};margin-top:4px;">
           전월 대비 <b>${diffTotal===0?'변동 없음':(diffTotal>0?'+':'')+fmt(Math.abs(diffTotal))}</b>
-          ${diffTotal!==0?`<span style="font-size:10px;">(${diffTotal>0?'+':''}${prevFixedTotal>0?Math.round(diffTotal/prevFixedTotal*100):0}%)</span>`:''}
+          ${diffTotal!==0?`<span style="font-size:10px;">(${prevTotal>0?Math.round(diffTotal/prevTotal*100):0}%)</span>`:''}
         </div>
       </div>
       <div class="rfa-summary-right">
-        ${fixed.slice(0,5).map((f,i)=>{
-          const barPct=fixedTotal>0?Math.round((f.amount||0)/fixedTotal*100):0;
-          const pc=PILL_COLORS[i%PILL_COLORS.length];
+        ${rows.slice(0,5).filter(r=>r.curAmt>0).map((r,i)=>{
+          const barPct=fixedTotal>0?Math.round(r.curAmt/fixedTotal*100):0;
+          const pc=PILL_COLORS[r.idx%PILL_COLORS.length];
           return`<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
-            <div style="width:80px;height:8px;background:var(--border);border-radius:4px;overflow:hidden;">
+            <span style="font-size:10px;color:${pc};font-weight:700;min-width:60px;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;">${r.sub.name}</span>
+            <div style="width:60px;height:6px;background:var(--border);border-radius:4px;overflow:hidden;flex-shrink:0;">
               <div style="height:100%;width:${barPct}%;background:${pc};border-radius:4px;"></div>
             </div>
-            <span style="font-size:10px;color:${pc};font-weight:700;min-width:50px;">${fmt(f.amount||0)}</span>
           </div>`;
         }).join('')}
       </div>
@@ -6170,21 +6254,19 @@ function _buildFixed2Section(fixed,fixedTotal,totalExpense,y,m,fmt){
       <table class="rfa-table">
         <thead>
           <tr>
-            <th>항목명</th>
-            <th style="text-align:right;">이번달 금액</th>
-            <th style="text-align:right;">전월 금액</th>
+            <th>태그명</th>
+            <th style="text-align:right;">이번달</th>
+            <th style="text-align:right;">전월</th>
             <th style="text-align:right;">전월대비</th>
-            <th style="text-align:right;">변화율 / 비중</th>
+            <th style="text-align:right;">건수 / 비중</th>
           </tr>
         </thead>
         <tbody>${tableRows}</tbody>
       </table>
     </div>
-    <div style="display:flex;justify-content:flex-end;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);">
-      <span style="font-size:12px;color:var(--text-sub);">정기 비용 합계</span>
-      <span style="font-size:13px;font-weight:800;color:#5E4BC4;margin-left:12px;">${fmt(fixedTotal)}</span>
+    <div style="font-size:11px;color:var(--text-sub);margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);">
+      ※ 가계부 항목의 메모 또는 태그에 등록된 태그명이 포함된 경우 자동 집계
     </div>
-    ${subsHtml}
   </div>`;
 }
 
@@ -6266,7 +6348,7 @@ function _buildAnalysisView(y,m){
           태그 관리
         </button>
       </div>
-      ${_buildFixed2Section(fixed,fixedTotal,totalExpense,y,m,fmt)}
+      ${_buildFixed2Section(y,m,fmt)}
     </div>
 
     <div class="ana2-section-card">
@@ -6375,6 +6457,10 @@ function renderAnalysis(){
         <p class="page-sub">${isAnalysis?'월별 지출 성격을 확인하고, 소비점수·태그·생존 비용을 관리하세요.':'한 달의 결과를 요약해서 보여주는 보고서에요.'}</p>
       </div>
       <div style="display:flex;align-items:center;gap:10px;">
+        ${isAnalysis?`<button class="nsp-open-btn" style="background:#FFF0F5;color:#F06292;border-color:#F0629244;" onclick="App.deleteMonthAnalysisData(${y},${m})">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          이 달 삭제
+        </button>`:''}
         ${isAnalysis?`<button class="nsp-open-btn${_anaNaturePanelOpen?' active':''}" onclick="App._openNatureSettings()">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           성격 설정 관리
@@ -6499,7 +6585,7 @@ window.App={
   openCloseMonthModal,closeMonth,reopenMonth,
   renderMonthlyArchive,deleteArchiveEntry,_toggleArchiveCard,toggleLedgerSubmenu,
   renderAnalysis,changeAnalysisYear,changeAnalysisMode,changeAnalysisMonth,_toggleAnaMonth,_toggleClosedMonth,_toggleAnalysisMenu,_openNatureSettings,_setNature,calcConsumeScore,
-  _selectNatureKey,_nsPickIcon,_nsToggleCat,openTagMgmtModal,_addSub,_deleteSub,_updateSubName,_updateSubAmount,
+  _selectNatureKey,_nsPickIcon,_nsToggleCat,openTagMgmtModal,_tagMgmtRender,_addSub,_deleteSub,_updateSubName,_updateSubAmount,_openTagSuggest,_applyTagSuggest,deleteMonthAnalysisData,
   fetchStockPrices,
   downloadMonthlyReport,
   showVarPreview,goToLedger,
