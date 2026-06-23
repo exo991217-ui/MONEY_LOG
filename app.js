@@ -6253,36 +6253,9 @@ function _buildFixed2Section(y,m,fmt){
 
   const fixedTotal=rows.reduce((s,r)=>s+r.curAmt,0);
   const prevTotal=rows.reduce((s,r)=>s+r.prevAmt,0);
-  const prev2Total=rows.reduce((s,r)=>s+r.prev2Amt,0);
   const diffTotal=fixedTotal-prevTotal;
   const ledgerInc=(S.ledger[key]||[]).filter(e=>e.type==='income').reduce((s,e)=>s+(e.amount||0),0);
   const incomePct=ledgerInc>0?Math.round(fixedTotal/ledgerInc*100):0;
-
-  // 월별 추이 바 차트
-  const barMax=Math.max(prev2Total,prevTotal,fixedTotal,1);
-  const barChart=[{lbl:`${p2m}월`,val:prev2Total},{lbl:`${pm}월`,val:prevTotal},{lbl:`${m}월`,val:fixedTotal}].map((item,i)=>{
-    const pct=Math.round(item.val/barMax*100);
-    const isNow=i===2;
-    return`<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;">
-      <div style="font-size:11px;font-weight:700;color:${isNow?'#5E4BC4':'var(--text-sub)'};">${item.val>0?fmt(item.val):'—'}</div>
-      <div style="width:100%;background:var(--border);border-radius:6px 6px 0 0;overflow:hidden;height:80px;display:flex;align-items:flex-end;">
-        <div style="width:100%;height:${pct||2}%;background:${isNow?'linear-gradient(180deg,#A29BFE,#7C5CBF)':'#D1C4E9'};border-radius:6px 6px 0 0;transition:height .5s;"></div>
-      </div>
-      <div style="font-size:11px;color:${isNow?'#5E4BC4':'var(--text-sub)'};">${item.lbl}</div>
-    </div>`;
-  }).join('');
-
-  // 반복지출 감지 (메모/태그에서 3개월간 2회 이상)
-  const memoCount={};
-  [curLedger,prevLedger,prev2Ledger].forEach(ledger=>{
-    ledger.forEach(e=>{
-      const nm=e.memo||(e.tags&&e.tags[0])||'';
-      if(!nm.trim())return;
-      if(!memoCount[nm])memoCount[nm]={count:0,amount:e.amount||0};
-      memoCount[nm].count++;
-    });
-  });
-  const repeatItems=Object.entries(memoCount).filter(([,v])=>v.count>=2).sort((a,b)=>b[1].count-a[1].count).slice(0,3);
 
   const tableRows=rows.map(r=>{
     const diff=r.curAmt-r.prevAmt;
@@ -6298,21 +6271,14 @@ function _buildFixed2Section(y,m,fmt){
     </tr>`;
   }).join('');
 
-  return`<div style="display:grid;grid-template-columns:180px 1fr 160px;gap:20px;align-items:start;">
+  return`<div style="display:grid;grid-template-columns:180px 1fr;gap:24px;align-items:start;">
     <div>
       <div style="font-size:11px;color:var(--text-sub);margin-bottom:4px;">이번 달 정기 비용 (총합)</div>
       <div style="font-size:26px;font-weight:900;color:var(--text-main);letter-spacing:-1px;margin-bottom:6px;">${fmt(fixedTotal)}</div>
-      ${ledgerInc>0?`<div style="font-size:12px;color:#5E4BC4;margin-bottom:3px;">총 지출의 <b>${incomePct}%</b></div>`:''}
+      ${ledgerInc>0?`<div style="font-size:12px;color:#5E4BC4;margin-bottom:4px;">총 지출의 <b>${incomePct}%</b></div>`:''}
       <div style="font-size:12px;font-weight:700;color:${diffTotal===0?'var(--text-sub)':diffTotal>0?'#F06292':'#4CAF82'};">
-        전월 대비 ${diffTotal===0?'변동 없음':(diffTotal>0?'+':'')+fmt(Math.abs(diffTotal))}${diffTotal!==0&&prevTotal>0?` <span style="font-size:10px;font-weight:400;">(${Math.round(diffTotal/prevTotal*100)}%)</span>`:''}
+        전월 대비 ${diffTotal===0?'변동 없음':(diffTotal>0?'+':'')+fmt(Math.abs(diffTotal))}${diffTotal!==0&&prevTotal>0?`<span style="font-size:10px;font-weight:400;"> (${Math.round(diffTotal/prevTotal*100)}%)</span>`:''}
       </div>
-      ${repeatItems.length>0?`<div style="margin-top:14px;padding-top:12px;border-top:1.5px dashed var(--border);">
-        <div style="font-size:11px;font-weight:700;color:var(--text-sub);margin-bottom:7px;">🔄 반복 지출 감지</div>
-        ${repeatItems.map(([name,v])=>`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;gap:6px;">
-          <span style="font-size:12px;font-weight:600;color:var(--text-main);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</span>
-          <span style="font-size:10px;background:#E8F5EE;color:#4CAF82;border-radius:6px;padding:2px 6px;white-space:nowrap;">${v.count}회</span>
-        </div>`).join('')}
-      </div>`:''}
     </div>
     <div>
       <div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:10px;">정기 비용 태그별 상세</div>
@@ -6327,11 +6293,7 @@ function _buildFixed2Section(y,m,fmt){
           <tbody>${tableRows}</tbody>
         </table>
       </div>
-      <div style="margin-top:8px;"><button onclick="App.openTagMgmtModal()" style="font-size:12px;color:#5E4BC4;background:var(--purple-light);border:1.5px dashed #A29BFE;border-radius:8px;padding:6px 14px;cursor:pointer;font-weight:600;">+ 태그 추가</button></div>
-    </div>
-    <div>
-      <div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:10px;">월별 정기 비용 추이 (총합)</div>
-      <div style="display:flex;gap:8px;align-items:flex-end;height:120px;">${barChart}</div>
+      <div style="margin-top:10px;"><button onclick="App.openTagMgmtModal()" style="font-size:12px;color:#5E4BC4;background:var(--purple-light);border:1.5px dashed #A29BFE;border-radius:8px;padding:6px 14px;cursor:pointer;font-weight:600;">+ 태그 추가</button></div>
     </div>
   </div>
   <div style="font-size:11px;color:var(--text-sub);margin-top:10px;padding-top:8px;border-top:1px dashed var(--border);">
@@ -6358,12 +6320,27 @@ function _buildAnalysisView(y,m){
       <div style="font-size:10px;color:${inRange?'#4CAF82':'#FFB347'};margin-top:3px;">${inRange?'✓ 권장 범위':'권장 '+range.min+'~'+range.max+'%'}</div>
     </div>`;
   }).join('');
-  // 성격 설정 패널
-  const naturePanelHtml=''; // 이제 헤더 아래에 별도 렌더링
-  // 고정비용 목록 (② 정기비용 분석)
-  const fixedRows=fixed.length===0
-    ?`<div style="color:var(--text-sub);font-size:12px;padding:10px 0;">이번 달 정기 비용 없음</div>`
-    :fixed.slice(0,10).map(f=>`<div class="ana2-fixed-row"><span class="ana2-tag-pill">${f.name||f.category||'항목'}</span><span style="font-weight:700;color:var(--blue);">${fmt(f.amount||0)}</span></div>`).join('');
+  // 고정비 구성 — ③ 섹션용
+  const survivalRows=fixed.slice(0,5).map(f=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px dashed var(--border);">
+      <span style="font-size:12px;color:var(--text-sub);font-weight:600;">${f.name||f.category||'항목'}</span>
+      <span style="font-size:13px;font-weight:800;color:var(--text-main);">${fmt(f.amount||0)}</span>
+    </div>`).join('');
+  const natBarMax=Math.max(...ANA_NATURES.map(n=>natureMap[n.key]||0),1);
+  const natBars=ANA_NATURES.map(n=>{
+    const amt=natureMap[n.key]||0;
+    const pct=totalExpense>0?Math.round(amt/totalExpense*100):0;
+    const barPct=Math.round(amt/natBarMax*100);
+    return`<div style="margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;">
+        <span style="font-weight:700;color:${n.color};">${n.label}</span>
+        <span style="color:var(--text-sub);">${pct}%</span>
+      </div>
+      <div style="height:6px;background:var(--border);border-radius:4px;overflow:hidden;">
+        <div style="height:100%;width:${barPct||1}%;background:${n.color};border-radius:4px;transition:width .4s;"></div>
+      </div>
+    </div>`;
+  }).join('');
   return`
     <div class="ana2-top-cards">
       <div class="ana2-top-card" style="background:linear-gradient(135deg,#F8BBD0,#FCE4EC);border-color:#F48FB133;">
@@ -6376,7 +6353,7 @@ function _buildAnalysisView(y,m){
         <div style="font-size:11px;color:#E65100;margin-top:3px;">총 지출의 <b>${totalExpense>0?Math.round(fixedTotal/totalExpense*100):0}%</b></div>
       </div>
       <div class="ana2-top-card" style="background:linear-gradient(135deg,#C8E6C9,#E8F5E9);border-color:#4CAF8233;">
-        <div class="ana2-top-card-label" style="color:#2E7D32;">🏠 월 생존 비용</div>
+        <div class="ana2-top-card-label" style="color:#2E7D32;">🏠 이달 고정 지출</div>
         <div class="ana2-top-card-val" style="color:#1B5E20;">${fmt(fixedTotal)}</div>
         <div style="font-size:11px;color:#388E3C;margin-top:3px;">정기 비용 기준</div>
       </div>
@@ -6388,7 +6365,6 @@ function _buildAnalysisView(y,m){
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><span class="ana2-num-badge">①</span><span style="font-size:15px;font-weight:800;color:var(--text-main);">지출 성격 분석</span></div>
           <div style="font-size:11px;color:var(--text-sub);margin-left:34px;">소비 목적에 따라 지출을 분류하고 성격별 비율을 확인합니다.</div>
         </div>
-        <!-- 설정 버튼은 헤더로 이동 -->
       </div>
       <div class="ana2-nature-grid4">
         ${natureCardsHtml}
@@ -6410,6 +6386,26 @@ function _buildAnalysisView(y,m){
         </button>
       </div>
       ${_buildFixed2Section(y,m,fmt)}
+    </div>
+
+    <div class="ana2-section-card">
+      <div class="ana2-section-hd">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><span class="ana2-num-badge">③</span><span style="font-size:15px;font-weight:800;color:var(--text-main);">이달 고정비 구성</span></div>
+          <div style="font-size:11px;color:var(--text-sub);margin-left:34px;">정기 지출 항목과 지출 성격 비율을 한눈에 확인합니다.</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:10px;">고정 지출 항목 (상위 5개)</div>
+          <div style="font-size:22px;font-weight:900;color:#4CAF82;margin-bottom:10px;">${fmt(fixedTotal)}</div>
+          ${survivalRows||'<div style="color:var(--text-sub);font-size:12px;padding:10px 0;">정기 비용 항목 없음</div>'}
+        </div>
+        <div style="background:var(--bg);border-radius:12px;padding:14px 16px;">
+          <div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:10px;">지출 성격 비율</div>
+          ${natBars}
+        </div>
+      </div>
     </div>
 `;
 }
@@ -6496,7 +6492,7 @@ function renderAnalysis(){
     <div class="page-header">
       <div>
         <h1 class="page-title">${isAnalysis?'지출 성격 분석 📊':'월마감 📋'}</h1>
-        <p class="page-sub">${isAnalysis?'월별 지출 성격을 확인하고, 소비점수·태그·생존 비용을 관리하세요.':'한 달의 결과를 요약해서 보여주는 보고서에요.'}</p>
+        <p class="page-sub">${isAnalysis?'월별 지출 성격을 확인하고, 소비점수·태그·고정비 구성을 관리하세요.':'한 달의 결과를 요약해서 보여주는 보고서에요.'}</p>
       </div>
       <div style="display:flex;align-items:center;gap:10px;">
         ${isAnalysis?`<button class="nsp-open-btn" style="background:#FFF0F5;color:#F06292;border-color:#F0629244;" onclick="App.deleteMonthAnalysisData(${y},${m})">
