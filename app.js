@@ -5324,6 +5324,26 @@ async function downloadMonthlyReport(){
     const daysInMonth=new Date(y,m,0).getDate();
     const zeroDays=daysInMonth-new Set(expEntries.map(e=>e.date)).size;
     const avgPerDay=expEntries.length>0?Math.round(ledOut/daysInMonth):0;
+    // 소비 분석 데이터
+    const analysisData=getMonthAnalysisData(y,m);
+    const{natureMap,totalExpense:analysisTotalExp,ledgerEntries}=analysisData;
+    const{score:consumeScore,grade:consumeGrade,feedback:consumeFeedback}=calcConsumeScore(natureMap,analysisTotalExp);
+    const prevConsumeScore=_getPrevScore(y,m);
+    const prevScoreDiff=prevConsumeScore!=null?consumeScore-prevConsumeScore:null;
+    const natDef=[
+      {key:'필수',label:'필수지출',icon:'🏠',bg:'#F0EEFF',bar:'#A29BFE'},
+      {key:'생활',label:'생활지출',icon:'🍴',bg:'#E8F8F0',bar:'#43C98A'},
+      {key:'투자',label:'투자지출',icon:'📈',bg:'#EBF5FF',bar:'#74B9FF'},
+      {key:'특별',label:'변동지출',icon:'✈',bg:'#FFF8E1',bar:'#FFB347'},
+    ];
+    // 소비 패턴 인사이트 (태그 기반)
+    const tagCnt={};const tagAmt={};
+    ledgerEntries.forEach(e=>(e.tags||[]).forEach(t=>{tagCnt[t]=(tagCnt[t]||0)+1;tagAmt[t]=(tagAmt[t]||0)+e.amount;}));
+    const insightTags=Object.entries(tagCnt).sort((a,b)=>b[1]-a[1]).slice(0,3);
+    const insightHtml=insightTags.map(([t,cnt])=>{
+      const amt=tagAmt[t]||0;
+      return`<div style="flex:1;background:#F7F4FF;border-radius:10px;padding:12px 14px;border:1.5px solid #EEE9FF;display:flex;align-items:center;gap:12px;"><span style="font-size:22px;flex-shrink:0;">🏷️</span><span style="font-size:12px;color:#444;line-height:1.6;">#${t} ${cnt}회 지출, ${Math.round(amt).toLocaleString('ko-KR')}원 — 소비 패턴을 확인해 보세요.</span></div>`;
+    }).join('');
     // Top spending by category — 변동지출 + 식비만 집계 (고정지출 제외), 주거/공과금·금융 제외
     const catMap={};
     getEffectiveVariable(y,m).forEach(v=>{
@@ -5459,10 +5479,10 @@ async function downloadMonthlyReport(){
     <div style="flex:1;background:white;border-radius:16px;padding:18px 20px;border:1.5px solid #EEE9FF;box-shadow:0 2px 12px rgba(162,155,254,.10);">
       <div style="font-size:13px;font-weight:800;margin-bottom:14px;">저축 &amp; 투자 현황</div>
       <div style="margin-bottom:12px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
-          <span style="font-size:12px;font-weight:600;">적금(저축)</span>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
+          <span style="font-size:12px;font-weight:600;flex-shrink:0;">적금(저축)</span>
           <span style="font-size:12px;font-weight:800;color:#A29BFE;">${fmt(totalSavings)} / ${fmt(totalIncome)}</span>
-          <span style="font-size:12px;font-weight:800;color:#A29BFE;">${savingsRate.toFixed(1)}%</span>
+          <span style="font-size:12px;font-weight:800;color:#A29BFE;margin-left:auto;">${savingsRate.toFixed(1)}%</span>
         </div>
         <div style="height:9px;background:#EEE9FF;border-radius:5px;overflow:hidden;">
           <div style="height:100%;width:${Math.min(100,savingsRate)}%;background:linear-gradient(90deg,#A29BFE,#6C5CE7);border-radius:5px;"></div>
@@ -5484,27 +5504,12 @@ async function downloadMonthlyReport(){
       </div>
     </div>
   </div>
-  <!-- 고정지출 + TOP소비 + 6개월추이 -->
+  <!-- TOP소비 + 6개월추이 (고정지출 제거) -->
   <div style="display:flex;gap:16px;padding:0 24px 16px;background:#F7F4FF;">
-    <!-- 고정지출 -->
-    <div style="flex:1;background:white;border-radius:16px;padding:18px 20px;border:1.5px solid #EEE9FF;box-shadow:0 2px 12px rgba(162,155,254,.10);">
-      <div style="font-size:13px;font-weight:800;margin-bottom:12px;">고정 지출 상세</div>
-      ${fixedItems.map(f=>`
-        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed #F0EBF8;font-size:12px;align-items:center;">
-          <div style="display:flex;align-items:center;gap:5px;">
-            <span>${f.name}</span>
-            ${f.isSavings?'<span style="background:#A29BFE;color:white;font-size:9px;border-radius:4px;padding:1px 4px;font-weight:700;">저축</span>':''}
-          </div>
-          <span style="font-weight:700;color:${f.isSavings?'#A29BFE':'#F06292'};">${Math.round(f.amount).toLocaleString('ko-KR')}원</span>
-        </div>`).join('')}
-      <div style="display:flex;justify-content:space-between;padding:8px 0 0;font-size:13px;font-weight:800;border-top:1.5px solid #EEE9FF;margin-top:4px;">
-        <span>합계</span><span style="color:#F06292;">${fmt(totalFixed)}</span>
-      </div>
-    </div>
     <!-- TOP소비 -->
-    <div style="flex:1;background:white;border-radius:16px;padding:18px 20px;border:1.5px solid #EEE9FF;box-shadow:0 2px 12px rgba(162,155,254,.10);">
+    <div style="flex:1.2;background:white;border-radius:16px;padding:18px 20px;border:1.5px solid #EEE9FF;box-shadow:0 2px 12px rgba(162,155,254,.10);">
       <div style="font-size:13px;font-weight:800;margin-bottom:4px;">이번 달 TOP 소비</div>
-      <div style="font-size:10px;color:#9490A8;margin-bottom:10px;">*주거/공과금, 금융 제외</div>
+      <div style="font-size:10px;color:#9490A8;margin-bottom:12px;">*주거/공과금, 금융 제외</div>
       ${top3.map((c,i)=>{
         const pct=ledOut>0?(c[1]/ledOut*100).toFixed(1):0;
         const rankColors=['#A29BFE','#74B9FF','#43C98A'];
@@ -5513,32 +5518,87 @@ async function downloadMonthlyReport(){
         const diff=hasPrev?c[1]-prevAmt:null;
         const diffStr=diff!==null?(diff>0?`▲${Math.round(Math.abs(diff)/1000)}k`:`▽${Math.round(Math.abs(diff)/1000)}k`):'';
         const diffColor=diff!==null?(diff>0?'#F06292':'#43C98A'):'';
-        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed #F0EBF8;">
+        return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:${i<2?'1px dashed #F0EBF8':'none'};">
           <div style="width:26px;height:26px;border-radius:50%;background:${rankColors[i]};color:white;font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${i+1}</div>
           <div style="flex:1;">
-            <div style="font-size:13px;font-weight:700;">${c[0]}</div>
-            <div style="font-size:10px;color:#9490A8;display:flex;align-items:center;gap:5px;">${fmt(c[1])} (${pct}%)${diffStr?`<span style="color:${diffColor};font-weight:700;">${diffStr}</span>`:''}</div>
+            <div style="font-size:13px;font-weight:700;margin-bottom:3px;">${c[0]}</div>
+            <div style="font-size:10px;color:#9490A8;">${fmt(c[1])} (${pct}%)${diffStr?` <span style="color:${diffColor};font-weight:700;">${diffStr}</span>`:''}</div>
           </div>
-          <div style="height:6px;width:60px;background:#F0EBF8;border-radius:4px;overflow:hidden;">
-            <div style="height:100%;width:${pct}%;background:${rankColors[i]};border-radius:4px;"></div>
+          <div style="height:6px;width:70px;background:#F0EBF8;border-radius:4px;overflow:hidden;flex-shrink:0;">
+            <div style="height:100%;width:${Math.min(100,pct)}%;background:${rankColors[i]};border-radius:4px;"></div>
           </div>
         </div>`;
       }).join('')}
     </div>
     <!-- 6개월추이 -->
     <div style="flex:1;background:white;border-radius:16px;padding:18px 20px;border:1.5px solid #EEE9FF;box-shadow:0 2px 12px rgba(162,155,254,.10);">
-      <div style="font-size:13px;font-weight:800;margin-bottom:12px;">지출 추이 (최근 6개월)</div>
-      <div style="display:flex;align-items:flex-end;gap:8px;height:100px;">
+      <div style="font-size:13px;font-weight:800;margin-bottom:14px;">지출 추이 (최근 6개월)</div>
+      <div style="display:flex;align-items:flex-end;gap:8px;height:110px;">
         ${trend.map(t=>{
-          const barH=t.total!=null?Math.max(8,Math.round((t.total/trendMax)*80)):0;
+          const barH=t.total!=null?Math.max(8,Math.round((t.total/trendMax)*90)):0;
           const isCurrent=(t.y===y&&t.m===m);
           return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">
-            <div style="font-size:9px;color:#9490A8;">${t.total!=null?Math.round(t.total/10000)+'만':'-'}</div>
+            <div style="font-size:9px;color:${isCurrent?'#5E4BC4':'#9490A8'};font-weight:${isCurrent?700:400};">${t.total!=null?Math.round(t.total/10000)+'만':'-'}</div>
             <div style="width:100%;background:${isCurrent?'#A29BFE':'#DDD9F5'};border-radius:4px 4px 0 0;height:${barH}px;"></div>
             <div style="font-size:9px;color:${isCurrent?'#5E4BC4':'#9490A8'};font-weight:${isCurrent?700:400};">${t.m}월</div>
           </div>`;
         }).join('')}
       </div>
+    </div>
+  </div>
+  <!-- 이달의 소비 분석 -->
+  <div style="padding:0 24px 16px;background:#F7F4FF;">
+    <div style="font-size:14px;font-weight:800;margin-bottom:12px;display:flex;align-items:center;gap:6px;">📊 이달의 소비 분석</div>
+    <div style="display:flex;gap:16px;margin-bottom:14px;">
+      <!-- 소비 균형 점수 -->
+      <div style="flex:1;background:white;border-radius:16px;padding:18px 20px;border:1.5px solid #EEE9FF;box-shadow:0 2px 12px rgba(162,155,254,.10);">
+        <div style="font-size:11px;font-weight:700;color:#9490A8;margin-bottom:14px;">🎯 소비 균형 점수</div>
+        <div style="display:flex;align-items:baseline;gap:3px;margin-bottom:8px;">
+          <span style="font-size:54px;font-weight:900;color:#FFB347;line-height:1;">${consumeScore}</span>
+          <span style="font-size:20px;font-weight:900;color:#FFB347;">점</span>
+        </div>
+        <div style="display:inline-flex;align-items:center;gap:5px;background:#FFF8E1;border-radius:20px;padding:4px 12px;font-size:13px;font-weight:700;color:#D4820A;margin-bottom:12px;">${consumeGrade}</div>
+        <div style="height:10px;background:#EEE9FF;border-radius:6px;overflow:hidden;margin-bottom:8px;">
+          <div style="height:100%;width:${Math.min(100,consumeScore)}%;background:linear-gradient(90deg,#A29BFE,#FFB347);border-radius:6px;"></div>
+        </div>
+        <div style="font-size:12px;color:#9490A8;margin-bottom:12px;">
+          ${prevConsumeScore!=null?`지난달 ${prevConsumeScore}점 대비 <span style="color:${prevScoreDiff>=0?'#43C98A':'#F06292'};font-weight:700;">${prevScoreDiff>=0?'↑':'↓'} ${Math.abs(prevScoreDiff)}점 ${prevScoreDiff>=0?'상승':'하락'}</span>`:'첫 달 분석입니다.'}
+        </div>
+        <div style="background:#F0EEFF;border-radius:10px;padding:10px 14px;font-size:12px;color:#5E4BC4;line-height:1.9;">
+          ${consumeFeedback.slice(0,2).map(f=>`• ${f}`).join('<br/>')}
+        </div>
+      </div>
+      <!-- 지출 성격 분류 -->
+      <div style="flex:2.3;background:white;border-radius:16px;padding:18px 20px;border:1.5px solid #EEE9FF;box-shadow:0 2px 12px rgba(162,155,254,.10);">
+        <div style="font-size:11px;font-weight:700;color:#9490A8;margin-bottom:14px;">📂 지출 성격 분류</div>
+        <div style="display:flex;gap:10px;">
+          ${natDef.map(n=>{
+            const amt=natureMap[n.key]||0;
+            const pct=analysisTotalExp>0?Math.round(amt/analysisTotalExp*100):0;
+            let py2=y,pm2=m-1;if(pm2<1){pm2=12;py2--;}
+            const{natureMap:pnm,totalExpense:pte}=getMonthAnalysisData(py2,pm2);
+            const prevPct=pte>0?Math.round((pnm[n.key]||0)/pte*100):0;
+            const isUp=pct>prevPct;
+            return `<div style="flex:1;background:${n.bg};border-radius:12px;padding:14px 14px;border:1.5px solid rgba(0,0,0,.05);">
+              <div style="display:flex;align-items:center;gap:5px;margin-bottom:10px;">
+                <span style="font-size:14px;">${n.icon}</span>
+                <span style="font-size:11px;font-weight:700;color:#2D2D3A;">${n.label}</span>
+              </div>
+              <div style="font-size:30px;font-weight:900;color:${n.bar};line-height:1;margin-bottom:9px;">${pct}%</div>
+              <div style="height:7px;background:rgba(0,0,0,.06);border-radius:4px;overflow:hidden;margin-bottom:8px;">
+                <div style="height:100%;width:${Math.min(100,pct*1.8)}%;background:${n.bar};border-radius:4px;"></div>
+              </div>
+              <div style="font-size:10px;color:#9490A8;margin-bottom:2px;">${Math.round(amt).toLocaleString('ko-KR')}원</div>
+              <div style="font-size:10px;font-weight:600;color:${isUp?'#F06292':'#43C98A'};">${isUp?'↑':'↓'}전월 ${prevPct}%</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>
+    <!-- 소비 패턴 인사이트 -->
+    <div style="background:white;border-radius:16px;padding:18px 20px;border:1.5px solid #EEE9FF;box-shadow:0 2px 12px rgba(162,155,254,.10);">
+      <div style="font-size:13px;font-weight:800;margin-bottom:12px;">💡 소비 패턴 인사이트</div>
+      <div style="display:flex;gap:12px;">${insightHtml||'<div style="flex:1;background:#F7F4FF;border-radius:10px;padding:12px 14px;font-size:12px;color:#9490A8;">이번 달 태그 데이터가 없습니다.</div>'}</div>
     </div>
   </div>
 
