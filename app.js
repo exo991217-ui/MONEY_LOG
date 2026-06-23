@@ -5819,6 +5819,22 @@ function _buildScoreBox(score,grade,color,feedback,prevScore){
   </div>`;
 }
 
+function getDefaultNature(catName){
+  const n=(catName||'').replace(/[^\u0000-\u007F\uAC00-\uD7A3]/g,'').trim();
+  if(/주거|공과금/.test(n))return'필수';
+  if(/교통|통신/.test(n))return'필수';
+  if(/식비/.test(n))return'생활';
+  if(/카페/.test(n))return'생활';
+  if(/생활용품/.test(n))return'생활';
+  if(/문화|취미/.test(n))return'생활';
+  if(/패션|미용/.test(n))return'생활';
+  if(/건강|교육/.test(n))return'투자';
+  if(/금융/.test(n))return'투자';
+  if(/여행/.test(n))return'특별';
+  if(/경조사/.test(n))return'특별';
+  return''; // 기타 = 미분류
+}
+
 function getMonthAnalysisData(y,m){
   const key=mkey(y,m);
   const md=S.monthlyData[key]||{};
@@ -5830,9 +5846,12 @@ function getMonthAnalysisData(y,m){
   const totalExpense=fixedTotal+varTotal;
   const ns=S.expenseNatureSettings||{};
   const natureMap={필수:0,생활:0,투자:0,특별:0};
+  let unclassifiedTotal=0;
   allExpenses.forEach(e=>{
-    const n=ns[e.category]||ns[e.name]||'생활';
-    natureMap[n]=(natureMap[n]||0)+(e.amount||0);
+    const catName=e.category||e.name||'';
+    const n=ns[catName]||(ns[catName]===''?'':(getDefaultNature(catName)));
+    if(n&&natureMap[n]!==undefined)natureMap[n]=(natureMap[n]||0)+(e.amount||0);
+    else unclassifiedTotal+=(e.amount||0);
   });
   const ledgerEntries=(S.ledger[key]||[]).filter(e=>e.type==='expense');
   const tagMap={};
@@ -5841,7 +5860,7 @@ function getMonthAnalysisData(y,m){
     if(tags.length===0){tagMap['(태그 없음)']=(tagMap['(태그 없음)']||0)+(e.amount||0);}
     else{tags.forEach(t=>{tagMap[t]=(tagMap[t]||0)+(e.amount||0);});}
   });
-  return{fixed,variable,fixedTotal,varTotal,totalExpense,natureMap,tagMap};
+  return{fixed,variable,fixedTotal,varTotal,totalExpense,natureMap,tagMap,unclassifiedTotal};
 }
 
 function changeAnalysisYear(delta){
@@ -5893,23 +5912,117 @@ function _setNature(cat,nature){
   renderAnalysis();
 }
 
+// ── 성격 설정 패널 상태 ──
+let _selectedNatureKey='필수';
+
+const DEFAULT_NATURES_DEF=[
+  {key:'필수',label:'필수지출',icon:'🏠',desc:'생활 유지에 반드시 필요한 지출',defCats:['주거','공과금','교통','통신']},
+  {key:'생활',label:'생활지출',icon:'🍴',desc:'일상적인 생활 소비 지출',defCats:['식비','카페','생활용품','문화','취미','패션','미용']},
+  {key:'투자',label:'투자지출',icon:'📈',desc:'미래를 위한 자기계발 및 자산 투자',defCats:['건강','교육','금융']},
+  {key:'특별',label:'특별지출',icon:'✈',desc:'비정기적이고 특별한 상황의 지출',defCats:['여행','경조사']},
+];
+
+function _getNatureIcon(key){const d=DEFAULT_NATURES_DEF.find(n=>n.key===key);return d?d.icon:'⚙';}
+function _getNatureDesc(key){const d=DEFAULT_NATURES_DEF.find(n=>n.key===key);return d?d.desc:'';}
+
 function _buildNaturePanel(y){
   const ns=S.expenseNatureSettings||{};
-  const allCats=new Set();
+  // 전체 ledger 카테고리 목록
+  const allLcats=(S.ledgerCategories||[]).filter(c=>!c.isSavings).map(c=>c.name);
+  // 연도 내 실제 사용 카테고리 추가
+  const usedCats=new Set(allLcats);
   for(let mo=1;mo<=12;mo++){
     const key=mkey(y,mo);
     const md=S.monthlyData[key]||{};
     [...(md.fixed||[]).filter(f=>!f.isSavings),...(md.variable||[])].forEach(e=>{
-      if(e.category)allCats.add(e.category);else if(e.name)allCats.add(e.name);
+      if(e.category)usedCats.add(e.category);else if(e.name)usedCats.add(e.name);
     });
   }
-  if(allCats.size===0)return`<div class="ana-nature-panel"><div style="font-size:13px;font-weight:800;color:#5E4BC4;margin-bottom:12px;">⚙ 지출 성격 설정 관리</div><div style="color:var(--text-sub);font-size:13px;">${y}년 데이터가 없어요.</div></div>`;
-  const rows=[...allCats].sort().map(cat=>{
-    const cur=ns[cat]||'';
-    const opts=['','필수','생활','투자','특별'].map(v=>`<option value="${v}"${cur===v?' selected':''}>${v||'미분류'}</option>`).join('');
-    return`<div class="ana-nature-set-row"><span style="font-size:13px;font-weight:600;color:var(--text-main);">${cat}</span><select class="ana-nature-select" onchange="App._setNature(${JSON.stringify(cat)},this.value)">${opts}</select></div>`;
+  const catList=[...usedCats];
+  const sel=_selectedNatureKey;
+
+  // 각 성격별 카테고리 카운트
+  const natureCount={};
+  catList.forEach(cat=>{
+    const n=ns[cat]||getDefaultNature(cat)||'미분류';
+    natureCount[n]=(natureCount[n]||0)+1;
+  });
+
+  // 좌측 목록
+  const natListHtml=DEFAULT_NATURES_DEF.map(n=>{
+    const cnt=catList.filter(c=>(ns[c]||getDefaultNature(c)||'미분류')===n.key).length;
+    const isActive=sel===n.key;
+    return`<div class="nsp-nat-item${isActive?' active':''}" onclick="App._selectNatureKey('${n.key}')">
+      <span class="nsp-nat-icon">${n.icon}</span>
+      <div class="nsp-nat-info">
+        <div class="nsp-nat-name">${n.label}</div>
+        <div class="nsp-nat-cnt">${cnt}개 카테고리</div>
+      </div>
+      <span class="nsp-nat-drag">⋮⋮</span>
+    </div>`;
   }).join('');
-  return`<div class="ana-nature-panel"><div style="font-size:13px;font-weight:800;color:#5E4BC4;margin-bottom:12px;">⚙ 지출 성격 설정 관리 — 카테고리별 성격을 지정하세요</div>${rows}</div>`;
+
+  // 우측 편집 패널
+  const selDef=DEFAULT_NATURES_DEF.find(n=>n.key===sel)||DEFAULT_NATURES_DEF[0];
+  const ICONS=['🏠','🍴','📈','✈','💊','🎓','🚗','💡','🛒','🎁','💰','🐾','🎮','☕','📦'];
+  const iconBtns=ICONS.map(ic=>`<button class="nsp-icon-btn${selDef.icon===ic?' active':''}" onclick="App._nsPickIcon('${ic}')">${ic}</button>`).join('');
+  
+  // 카테고리 체크박스
+  const totalCats=catList.length;
+  const checkedCats=catList.filter(c=>(ns[c]||getDefaultNature(c)||'미분류')===sel).length;
+  const catChecks=catList.map(cat=>{
+    const natOfCat=ns[cat]||getDefaultNature(cat)||'미분류';
+    const checked=natOfCat===sel;
+    return`<label class="nsp-cat-check${checked?' checked':''}">
+      <input type="checkbox" ${checked?'checked':''} onchange="App._nsToggleCat(${JSON.stringify(cat)},this.checked,'${sel}')">
+      <span>${cat}</span>
+    </label>`;
+  }).join('');
+
+  return`<div class="nsp-panel">
+    <div class="nsp-left">
+      <div class="nsp-section-title">성격 목록</div>
+      <div class="nsp-nat-list">${natListHtml}</div>
+    </div>
+    <div class="nsp-right">
+      <div class="nsp-section-title">성격 수정</div>
+      <div class="nsp-field"><label class="nsp-label">성격명</label>
+        <input class="nsp-input" value="${selDef.label}" readonly></div>
+      <div class="nsp-field"><label class="nsp-label">아이콘</label>
+        <div class="nsp-icon-row">${iconBtns}</div></div>
+      <div class="nsp-field"><label class="nsp-label">설명</label>
+        <input class="nsp-input" id="nsp-desc-input" value="${selDef.desc}"></div>
+      <div class="nsp-field">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <label class="nsp-label" style="margin:0;">포함 카테고리 선택</label>
+          <span style="font-size:11px;color:var(--text-sub);">${checkedCats}/${totalCats}개 선택</span>
+        </div>
+        <div class="nsp-cat-list">${catChecks||'<div style="color:var(--text-sub);font-size:12px;">카테고리 없음</div>'}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function _selectNatureKey(key){
+  _selectedNatureKey=key;
+  renderAnalysis();
+}
+
+function _nsPickIcon(icon){
+  // 아이콘 변경은 시각적 피드백용 (기본 4개 성격 아이콘은 고정)
+  renderAnalysis();
+}
+
+function _nsToggleCat(cat,checked,natureKey){
+  if(!S.expenseNatureSettings)S.expenseNatureSettings={};
+  if(checked){
+    S.expenseNatureSettings[cat]=natureKey;
+  } else {
+    // 기본값으로 되돌리기 (삭제하면 getDefaultNature 가 적용됨)
+    delete S.expenseNatureSettings[cat];
+  }
+  saveState();
+  renderAnalysis();
 }
 
 // ── 미니 성격 바 (아코디언 헤더용) ──
@@ -5919,6 +6032,116 @@ function _buildMiniNatureBar(natureMap,total){
     return pct>0?`<div style="width:${pct}%;background:${n.barColor};height:100%;"></div>`:'';
   }).join('');
   return`<div class="ana-mini-bar-wrap"><div class="ana-mini-bar">${segs}</div></div>`;
+}
+
+// ── 정기비용 섹션 2 빌더 ──
+function _buildFixed2Section(fixed,fixedTotal,totalExpense,y,m,fmt){
+  const md=S.monthlyData||{};
+  let py=y,pm=m-1;if(pm<1){pm=12;py--;}
+  const prevFixed=(md[mkey(py,pm)]||{}).fixed||[];
+  const prevNonSav=prevFixed.filter(f=>!f.isSavings);
+  const prevMap={};prevNonSav.forEach(f=>{prevMap[f.name]=(prevMap[f.name]||0)+(f.amount||0);});
+
+  // 현재 달 수입
+  const incomeNow=((md[mkey(y,m)]||{}).income||[]).reduce((s,i)=>s+(i.amount||0),0);
+  const incomePct=incomeNow>0?Math.round(fixedTotal/incomeNow*100):0;
+
+  // 전월 대비 합계 변화
+  const prevFixedTotal=prevNonSav.reduce((s,f)=>s+(f.amount||0),0);
+  const diffTotal=fixedTotal-prevFixedTotal;
+
+  // 최대 금액 (바 차트용)
+  const maxAmt=fixed.length>0?Math.max(...fixed.map(f=>f.amount||0)):1;
+
+  // 테이블 행
+  const PILL_COLORS=['#7C5CBF','#4CAF82','#FF8C42','#64B5F6','#F06292','#A29BFE','#FFB347','#4DB6AC'];
+  const tableRows=fixed.length===0
+    ?`<tr><td colspan="5" style="text-align:center;color:var(--text-sub);padding:20px;font-size:13px;">이번 달 정기 비용 없음</td></tr>`
+    :fixed.map((f,i)=>{
+      const prev=prevMap[f.name]||0;
+      const diff=(f.amount||0)-prev;
+      const diffPct=prev>0?Math.round(diff/prev*100):0;
+      const barPct=Math.round((f.amount||0)/maxAmt*100);
+      const pillColor=PILL_COLORS[i%PILL_COLORS.length];
+      const diffColor=diff>0?'#F06292':diff<0?'#4CAF82':'var(--text-sub)';
+      return`<tr class="rfa-row">
+        <td><span class="rfa-pill" style="background:${pillColor}22;color:${pillColor};">${f.name||f.category||'항목'}</span></td>
+        <td style="font-weight:700;text-align:right;">${fmt(f.amount||0)}</td>
+        <td style="font-weight:700;text-align:right;color:var(--text-sub);">${prev>0?fmt(prev):'—'}</td>
+        <td style="font-weight:700;text-align:right;color:${diffColor};">${diff===0?'—':(diff>0?'+':'')+fmt(Math.abs(diff))}</td>
+        <td style="text-align:right;">
+          <div style="display:flex;align-items:center;gap:6px;justify-content:flex-end;">
+            <span style="font-size:11px;font-weight:700;color:${diff===0?'var(--text-sub)':diffColor};">${diff===0?'0%':(diff>0?'+':'')+diffPct+'%'}</span>
+            <div style="width:60px;height:6px;background:var(--border);border-radius:3px;overflow:hidden;">
+              <div style="height:100%;width:${barPct}%;background:${pillColor};border-radius:3px;"></div>
+            </div>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+
+  // 구독 목록
+  const subs=S.subscriptions||[];
+  const subsHtml=subs.length===0?'':`<div class="rfa-sub-section">
+    <div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:8px;">최근 지출 건수</div>
+    <div class="rfa-sub-list">${subs.map(sub=>{
+      const ledgerKey=mkey(y,m);
+      const entries=(S.ledger[ledgerKey]||[]).filter(e=>e.type==='expense'&&(e.memo===sub.name||(e.tags||[]).includes(sub.name)));
+      const subTotal=entries.reduce((s,e)=>s+(e.amount||0),0);
+      return`<div class="rfa-sub-row">
+        <div class="rfa-sub-left">
+          <span class="rfa-sub-icon">🔄</span>
+          <div><div style="font-size:13px;font-weight:700;">${sub.name}</div><div style="font-size:11px;color:var(--text-sub);">최근 ${entries.length}회 이용</div></div>
+        </div>
+        <span style="font-size:14px;font-weight:800;color:#F06292;">${subTotal>0?fmt(subTotal):fmt(sub.amount||0)}</span>
+      </div>`;
+    }).join('')}</div>
+  </div>`;
+
+  return`<div class="rfa-wrap">
+    <div class="rfa-summary-row">
+      <div class="rfa-summary-left">
+        <div style="font-size:11px;color:var(--text-sub);margin-bottom:4px;">이번 달 정기 비용 (합계)</div>
+        <div style="font-size:28px;font-weight:900;color:var(--text-main);letter-spacing:-1px;">${fmt(fixedTotal)}</div>
+        <div style="font-size:12px;color:#5E4BC4;margin-top:3px;">총 수입 대비 <b>${incomePct}%</b></div>
+        <div style="font-size:12px;color:${diffTotal===0?'var(--text-sub)':diffTotal>0?'#F06292':'#4CAF82'};margin-top:4px;">
+          전월 대비 <b>${diffTotal===0?'변동 없음':(diffTotal>0?'+':'')+fmt(Math.abs(diffTotal))}</b>
+          ${diffTotal!==0?`<span style="font-size:10px;">(${diffTotal>0?'+':''}${prevFixedTotal>0?Math.round(diffTotal/prevFixedTotal*100):0}%)</span>`:''}
+        </div>
+      </div>
+      <div class="rfa-summary-right">
+        ${fixed.slice(0,5).map((f,i)=>{
+          const barPct=fixedTotal>0?Math.round((f.amount||0)/fixedTotal*100):0;
+          const pc=PILL_COLORS[i%PILL_COLORS.length];
+          return`<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
+            <div style="width:80px;height:8px;background:var(--border);border-radius:4px;overflow:hidden;">
+              <div style="height:100%;width:${barPct}%;background:${pc};border-radius:4px;"></div>
+            </div>
+            <span style="font-size:10px;color:${pc};font-weight:700;min-width:50px;">${fmt(f.amount||0)}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="rfa-table">
+        <thead>
+          <tr>
+            <th>항목명</th>
+            <th style="text-align:right;">이번달 금액</th>
+            <th style="text-align:right;">전월 금액</th>
+            <th style="text-align:right;">전월대비</th>
+            <th style="text-align:right;">변화율 / 비중</th>
+          </tr>
+        </thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);">
+      <span style="font-size:12px;color:var(--text-sub);">정기 비용 합계</span>
+      <span style="font-size:13px;font-weight:800;color:#5E4BC4;margin-left:12px;">${fmt(fixedTotal)}</span>
+    </div>
+    ${subsHtml}
+  </div>`;
 }
 
 // ── 분석 뷰 (현재 달 상세) ──
@@ -5942,7 +6165,7 @@ function _buildAnalysisView(y,m){
     </div>`;
   }).join('');
   // 성격 설정 패널
-  const naturePanelHtml=_anaNaturePanelOpen?_buildNaturePanel(y):'';
+  const naturePanelHtml=''; // 이제 헤더 아래에 별도 렌더링
   // 고정비용 목록 (② 정기비용 분석)
   const fixedRows=fixed.length===0
     ?`<div style="color:var(--text-sub);font-size:12px;padding:10px 0;">이번 달 정기 비용 없음</div>`
@@ -5978,9 +6201,8 @@ function _buildAnalysisView(y,m){
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><span class="ana2-num-badge">①</span><span style="font-size:15px;font-weight:800;color:var(--text-main);">지출 성격 분석</span></div>
           <div style="font-size:11px;color:var(--text-sub);margin-left:34px;">소비 목적에 따라 지출을 분류하고 성격별 비율을 확인합니다.</div>
         </div>
-        <button class="ana2-settings-btn" onclick="App._openNatureSettings()">⚙ 성격별 설정 관리</button>
+        <!-- 설정 버튼은 헤더로 이동 -->
       </div>
-      ${naturePanelHtml}
       <div class="ana2-nature-grid4">
         ${natureCardsHtml}
       </div>
@@ -5990,15 +6212,13 @@ function _buildAnalysisView(y,m){
     <div class="ana2-section-card">
       <div class="ana2-section-hd">
         <div>
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><span class="ana2-num-badge">②</span><span style="font-size:15px;font-weight:800;color:var(--text-main);">정기 비용(태그) 분석</span></div>
-          <div style="font-size:11px;color:var(--text-sub);margin-left:34px;">매월 반복적으로 발생하는 고정 지출 항목을 확인하세요.</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><span class="ana2-num-badge">②</span><span style="font-size:15px;font-weight:800;color:var(--text-main);">정기 비용(태그) 분석</span>
+            ${(S.subscriptions||[]).length>0?`<span style="background:#E8F5EE;color:#4CAF82;border-radius:10px;font-size:10px;font-weight:700;padding:2px 7px;">${(S.subscriptions||[]).length}개 구독</span>`:''}
+          </div>
+          <div style="font-size:11px;color:var(--text-sub);margin-left:34px;">매월 반복되는 내역을 태그로 분류하여 정리하고 관리하세요.</div>
         </div>
       </div>
-      <div class="ana2-fixed-list">${fixedRows}</div>
-      <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);display:flex;justify-content:space-between;font-size:12px;">
-        <span style="color:var(--text-sub);">정기 비용 합계</span>
-        <span style="font-weight:800;color:var(--blue);">${fmt(fixedTotal)}</span>
-      </div>
+      ${_buildFixed2Section(fixed,fixedTotal,totalExpense,y,m,fmt)}
     </div>
 
     <div class="ana2-section-card">
@@ -6099,18 +6319,26 @@ function renderAnalysis(){
   const isAnalysis=_anaMode==='analysis';
   const nowY=new Date().getFullYear(),nowM=new Date().getMonth()+1;
   const bodyHtml=isAnalysis?_buildAnalysisView(y,m):_buildCloseView(y);
+  const naturePanelHtml=isAnalysis&&_anaNaturePanelOpen?_buildNaturePanel(y):'';
   container.innerHTML=`
     <div class="page-header">
       <div>
         <h1 class="page-title">${isAnalysis?'지출 성격 분석 📊':'월마감 📋'}</h1>
         <p class="page-sub">${isAnalysis?'월별 지출 성격을 확인하고, 소비점수·태그·생존 비용을 관리하세요.':'한 달의 결과를 요약해서 보여주는 보고서에요.'}</p>
       </div>
-      ${!isAnalysis?`<button class="add-btn" onclick="App.openCloseMonthModal()" style="font-size:12px;">+ ${nowY}년 ${nowM}월 마감하기</button>`:''}
+      <div style="display:flex;align-items:center;gap:10px;">
+        ${isAnalysis?`<button class="nsp-open-btn${_anaNaturePanelOpen?' active':''}" onclick="App._openNatureSettings()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          성격 설정 관리
+        </button>`:''}
+        ${!isAnalysis?`<button class="add-btn" onclick="App.openCloseMonthModal()" style="font-size:12px;">+ ${nowY}년 ${nowM}월 마감하기</button>`:''}
+      </div>
     </div>
     <div class="ana2-mode-tabs">
       <button class="ana2-mode-btn${isAnalysis?' active':''}" onclick="App.changeAnalysisMode('analysis')">📊 분석</button>
       <button class="ana2-mode-btn${!isAnalysis?' active':''}" onclick="App.changeAnalysisMode('close')">📋 월마감</button>
     </div>
+    ${naturePanelHtml}
     ${isAnalysis?`<div class="ana2-month-nav"><button class="month-btn" onclick="App.changeAnalysisMonth(-1)">‹</button><span class="month-label">${y}년 ${m}월</span><button class="month-btn" onclick="App.changeAnalysisMonth(1)">›</button></div>`:''}
     ${bodyHtml}
   `;
@@ -6223,6 +6451,7 @@ window.App={
   openCloseMonthModal,closeMonth,reopenMonth,
   renderMonthlyArchive,deleteArchiveEntry,_toggleArchiveCard,toggleLedgerSubmenu,
   renderAnalysis,changeAnalysisYear,changeAnalysisMode,changeAnalysisMonth,_toggleAnaMonth,_toggleClosedMonth,_toggleAnalysisMenu,_openNatureSettings,_setNature,calcConsumeScore,
+  _selectNatureKey,_nsPickIcon,_nsToggleCat,
   fetchStockPrices,
   downloadMonthlyReport,
   showVarPreview,goToLedger,
