@@ -5846,14 +5846,17 @@ let _anaMode='analysis';
 let _anaExpandedClose=null;
 
 // ── 재무관리 점수 (수입 대비 비율 기준) ──
+// ※ 부동소수점 오차 방지를 위해 Math.round(pct*10)/10 (소수점 1자리) 기준으로 판단
 function calcConsumeScore(natureMap,totalIncome){
   if(totalIncome<=0)return{score:0,grade:'🚨 관리 필요',color:'#F06292',feedback:['수입 데이터가 없습니다. 가계부에 수입을 입력해주세요.'],detail:{}};
+  // 소수점 1자리 반올림으로 표시값과 판단 기준 일치
+  const pct=(amt)=>Math.round((amt/totalIncome)*1000)/10; // 소수점 1자리
   let totalScore=0;
   const feedback=[];
   const detail={};
 
   // 저축·투자 (수입 대비)
-  const 투자Pct=(natureMap['투자']||0)/totalIncome*100;
+  const 투자Pct=pct(natureMap['투자']||0);
   let 투자Pts=0;
   if(투자Pct>=40)투자Pts=25;
   else if(투자Pct>=30)투자Pts=20;
@@ -5864,37 +5867,42 @@ function calcConsumeScore(natureMap,totalIncome){
   detail['투자']={pct:Math.round(투자Pct),pts:투자Pts};
   if(투자Pct>=40)feedback.push('저축·투자 비중이 매우 높습니다. 탁월한 자산 형성 습관입니다.');
   else if(투자Pct>=20)feedback.push('안정적인 저축·투자 비중을 유지하고 있습니다.');
+  else if(투자Pct>=10)feedback.push('저축·투자 비중이 다소 낮습니다. 더 늘려보세요.');
   else feedback.push('저축·투자 비중이 낮습니다. 수입의 10% 이상 저축·투자를 목표로 해보세요.');
 
   // 필수지출 (수입 대비)
-  const 필수Pct=(natureMap['필수']||0)/totalIncome*100;
+  const 필수Pct=pct(natureMap['필수']||0);
   let 필수Pts=0;
   if(필수Pct>=20&&필수Pct<=35)필수Pts=25;
   else if(필수Pct>35&&필수Pct<=40)필수Pts=20;
   else if(필수Pct>40&&필수Pct<=45)필수Pts=15;
   else if(필수Pct>45&&필수Pct<=50)필수Pts=10;
+  else if(필수Pct<20&&필수Pct>=15)필수Pts=20; // 너무 낮아도 약간 감점 (과소 계상 가능성)
   else 필수Pts=0;
   totalScore+=필수Pts;
   detail['필수']={pct:Math.round(필수Pct),pts:필수Pts};
   if(필수Pct>50)feedback.push('필수지출 비중이 수입의 50%를 넘습니다. 고정비 구조를 점검해 볼 필요가 있습니다.');
   else if(필수Pct>35)feedback.push('필수지출 비중이 다소 높습니다. 고정비 절감 방법을 검토해보세요.');
-  else if(필수Pct<20)feedback.push('필수지출 비중이 낮습니다. 현재 소득 대비 고정비 부담이 크지 않습니다.');
+  else if(필수Pct>=20)feedback.push('필수지출 비중이 안정적입니다.');
+  else feedback.push('필수지출 비중이 낮습니다. 현재 소득 대비 고정비 부담이 크지 않습니다.');
 
   // 생활지출 (수입 대비)
-  const 생활Pct=(natureMap['생활']||0)/totalIncome*100;
+  const 생활Pct=pct(natureMap['생활']||0);
   let 생활Pts=0;
   if(생활Pct>=10&&생활Pct<=15)생활Pts=25;
   else if(생활Pct>15&&생활Pct<=20)생활Pts=20;
   else if(생활Pct>20&&생활Pct<=25)생활Pts=15;
   else if(생활Pct>25&&생활Pct<=30)생활Pts=10;
+  else if(생활Pct>=7&&생활Pct<10)생활Pts=20; // 10% 미만이지만 합리적 수준
   else 생활Pts=0;
   totalScore+=생활Pts;
   detail['생활']={pct:Math.round(생활Pct),pts:생활Pts};
   if(생활Pct>30)feedback.push('생활·여가 지출 비중이 높습니다. 소비 지출을 점검해보세요.');
-  else if(생활Pct<10)feedback.push('생활지출 비중이 낮습니다. 계획적인 소비 습관을 유지하고 있습니다.');
+  else if(생활Pct>=10)feedback.push('생활지출 비중이 적정합니다.');
+  else feedback.push('생활지출 비중이 낮습니다. 계획적인 소비 습관을 유지하고 있습니다.');
 
   // 특별지출 (수입 대비)
-  const 특별Pct=(natureMap['특별']||0)/totalIncome*100;
+  const 특별Pct=pct(natureMap['특별']||0);
   let 특별Pts=0;
   if(특별Pct<=5)특별Pts=25;
   else if(특별Pct<=10)특별Pts=20;
@@ -5905,6 +5913,7 @@ function calcConsumeScore(natureMap,totalIncome){
   detail['특별']={pct:Math.round(특별Pct),pts:특별Pts};
   if(특별Pct>20)feedback.push('특별지출 비중이 높습니다. 일시적 지출이 과도하지 않은지 확인해보세요.');
   else if(특별Pct>10)feedback.push('특별지출 비중이 다소 있습니다. 계획적인 지출인지 확인해보세요.');
+  else feedback.push('특별지출 비중이 잘 관리되고 있습니다.');
 
   if(feedback.length===0)feedback.push('전반적으로 균형 잡힌 재무 패턴을 유지하고 있습니다.');
   let grade,color;
@@ -5935,7 +5944,7 @@ function _buildScoreBox(score,grade,color,feedback,prevScore){
   const fbHtml=feedback.map(f=>`<span class="score-fb-item">• ${f}</span>`).join('');
   const barPct=Math.min(100,score);
   return`<div class="score-box" style="--score-color:${color};">
-    <div class="score-label">📊 소비 균형 점수</div>
+    <div class="score-label">📊 재무관리 점수</div>
     <div class="score-box-inner">
       <div class="score-box-left">
         <div class="score-number" style="color:${color};">${score}<span class="score-unit">점</span></div>
@@ -6610,8 +6619,8 @@ function _buildClosedDetail(key){
   const{year:y,month:m,ledgerIncome:income,ledgerExpense:expense,savings,savingsRate,note,categories}=arch;
   const net=(income||0)-(expense||0);
   const netColor=net>=0?'#4CAF82':'#F06292';
-  const{natureMap,totalExpense}=getMonthAnalysisData(y,m);
-  const{score,grade,color:scoreColor,feedback}=calcConsumeScore(natureMap,totalExpense);
+  const{natureMap,totalIncome:closedIncome,totalExpense}=getMonthAnalysisData(y,m);
+  const{score,grade,color:scoreColor,feedback}=calcConsumeScore(natureMap,closedIncome||income||0);
   const prevScore=_getPrevScore(y,m);
   const cats=(categories||[]);
   const maxCat=cats.length>0?Math.max(...cats.map(c=>c.amount)):1;
