@@ -5247,10 +5247,8 @@ function toggleSsbItem(id){
   const arrow=document.getElementById(id+'-arrow');
   if(!content)return;
   const isOpen=content.classList.contains('open');
-  // 모두 닫기
   document.querySelectorAll('.ssb-content').forEach(el=>el.classList.remove('open'));
   document.querySelectorAll('.ssb-arrow').forEach(el=>el.classList.remove('open'));
-  // 클릭한 것만 토글
   if(!isOpen){
     content.classList.add('open');
     if(arrow)arrow.classList.add('open');
