@@ -5809,7 +5809,7 @@ const ANA_NATURES=[
    svg:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-4 0v2"/><line x1="12" y1="12" x2="12" y2="16"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>'},
   {key:'생활',label:'생활지출',color:'#FF8C42',light:'#FFF4EC',barColor:'#FFB347',
    svg:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2"/><path d="M18 8h3"/><path d="M21 15a3 3 0 0 1-6 0"/></svg>'},
-  {key:'투자',label:'투자지출',color:'#4CAF82',light:'#E8F5EE',barColor:'#4CAF82',
+  {key:'투자',label:'저축·투자',color:'#4CAF82',light:'#E8F5EE',barColor:'#4CAF82',
    svg:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>'},
   {key:'특별',label:'특별지출',color:'#64B5F6',light:'#EBF5FF',barColor:'#64B5F6',
    svg:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>'},
@@ -5819,36 +5819,53 @@ let _anaNaturePanelOpen=false;
 let _anaMode='analysis';
 let _anaExpandedClose=null;
 
-// ── 소비 균형 점수 (50/30/20 원칙 기반) ──
-const NATURE_RANGES={필수:{min:40,max:60},생활:{min:15,max:30},투자:{min:15,max:25},특별:{min:0,max:15}};
+// ── 소비 균형 점수 (소비·저축 균형 분석 기반) ──
+const NATURE_RANGES={필수:{min:20,max:50},생활:{min:10,max:30},투자:{min:20,max:60},특별:{min:0,max:15}};
 
 function calcConsumeScore(natureMap,totalExpense){
-  if(totalExpense<=0)return{score:0,grade:'🚨 크게 치우침',color:'#F06292',feedback:['지출 데이터가 없습니다.'],detail:{}};
+  if(totalExpense<=0)return{score:0,grade:'📌 소비 패턴 점검 필요',color:'#F06292',feedback:['지출 데이터가 없습니다.'],detail:{}};
   let totalScore=0;
   const feedback=[];
   const detail={};
   for(const[key,range]of Object.entries(NATURE_RANGES)){
     const pct=(natureMap[key]||0)/totalExpense*100;
     let pts=0;
-    if(pct>=range.min&&pct<=range.max){pts=25;}
-    else{const diff=pct<range.min?range.min-pct:pct-range.max;if(diff<=5)pts=20;else if(diff<=10)pts=10;else pts=0;}
+    // 저축·투자는 60% 초과해도 감점 없음 — 자산 형성 중심 패턴으로 인정
+    if(key==='투자'&&pct>range.max){
+      pts=25;
+    } else if(pct>=range.min&&pct<=range.max){
+      pts=25;
+    } else {
+      const diff=pct<range.min?range.min-pct:pct-range.max;
+      if(diff<=5)pts=20;else if(diff<=10)pts=10;else pts=0;
+    }
     totalScore+=pts;
     detail[key]={pct:Math.round(pct),pts,inRange:pts===25,isHigh:pct>range.max};
-    if(pts<25){
-      const hi=pct>range.max;
-      if(key==='필수')feedback.push(hi?'필수지출 비중이 높아 소비 여유가 부족한 상태입니다.':'필수지출 비중이 낮습니다. 필수 항목을 확인해보세요.');
-      else if(key==='생활')feedback.push(hi?'생활지출 비중이 다소 높은 편입니다.':'생활지출 비중이 낮습니다.');
-      else if(key==='투자')feedback.push(hi?'투자지출 비중이 다소 높은 편입니다.':'투자지출 비중이 낮습니다.');
-      else if(key==='특별'&&hi)feedback.push('특별지출 비중이 높습니다.');
+    // 피드백 생성
+    const hi=pct>range.max;
+    const lo=pct<range.min;
+    if(key==='필수'){
+      if(lo)feedback.push('필수지출 비중이 낮은 편입니다. 현재 소득 대비 고정비 부담이 크지 않은 것으로 보입니다.');
+      else if(hi)feedback.push('필수지출 비중이 높은 편입니다. 고정비 구조를 점검해 볼 수 있습니다.');
+    } else if(key==='생활'){
+      if(lo)feedback.push('생활지출 비중이 낮은 편입니다. 계획적인 소비 습관을 유지하고 있습니다.');
+      else if(hi)feedback.push('생활 편의 및 여가 소비 비중이 높은 편입니다.');
+    } else if(key==='투자'){
+      if(pct>=60)feedback.push('소비보다 미래 자산 형성에 무게를 둔 소비 패턴입니다.');
+      else if(pct>=40)feedback.push('높은 저축률을 바탕으로 자산 형성에 집중하고 있습니다.');
+      else if(pct>=20)feedback.push('안정적인 자산 형성 습관을 유지하고 있습니다.');
+      else feedback.push('저축·투자 비중이 낮은 편입니다.');
+    } else if(key==='특별'){
+      if(hi)feedback.push('일시적인 지출 증가가 반영된 것으로 보입니다.');
     }
   }
   if(feedback.length===0)feedback.push('전반적으로 균형 잡힌 소비 패턴을 유지하고 있습니다.');
   let grade,color;
   if(totalScore>=90){grade='🌟 매우 균형적';color='#4CAF82';}
   else if(totalScore>=80){grade='✅ 균형적';color='#64B5F6';}
-  else if(totalScore>=70){grade='🙂 보통';color='#A29BFE';}
-  else if(totalScore>=60){grade='⚠ 다소 치우침';color='#FFB347';}
-  else{grade='🚨 크게 치우침';color='#F06292';}
+  else if(totalScore>=70){grade='🙂 양호';color='#A29BFE';}
+  else if(totalScore>=60){grade='⚠ 일부 치우침';color='#FFB347';}
+  else{grade='📌 소비 패턴 점검 필요';color='#F06292';}
   return{score:totalScore,grade,color,feedback,detail};
 }
 
