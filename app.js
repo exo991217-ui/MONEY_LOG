@@ -5246,11 +5246,17 @@ function toggleSsbItem(id){
   const content=document.getElementById(id);
   const arrow=document.getElementById(id+'-arrow');
   if(!content)return;
-  const isOpen=content.classList.contains('open');
-  document.querySelectorAll('.ssb-content').forEach(el=>el.classList.remove('open'));
-  document.querySelectorAll('.ssb-arrow').forEach(el=>el.classList.remove('open'));
+  const isOpen=content.style.display==='block';
+  // 모두 닫기
+  ['ssb-theme','ssb-payday'].forEach(k=>{
+    const el=document.getElementById(k);
+    const ar=document.getElementById(k+'-arrow');
+    if(el)el.style.display='none';
+    if(ar)ar.classList.remove('open');
+  });
+  // 클릭한 것 토글
   if(!isOpen){
-    content.classList.add('open');
+    content.style.display='block';
     if(arrow)arrow.classList.add('open');
   }
 }
