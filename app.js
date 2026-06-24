@@ -5867,21 +5867,23 @@ function _buildScoreBox(score,grade,color,feedback,prevScore){
       <span class="score-compare-prev">지난달 <b>${prevScore}점</b></span>
       <span class="score-compare-delta" style="color:${diffColor};">${diff>=0?'▲':'▼'} ${Math.abs(diff)}점 ${diff>=0?'상승':'하락'}</span>
     </div>`:'';
-  const fbHtml=feedback.map(f=>`<div class="score-fb-item">• ${f}</div>`).join('');
-  // 점수 바 (100점 기준)
+  const fbHtml=feedback.map(f=>`<span class="score-fb-item">• ${f}</span>`).join('');
   const barPct=Math.min(100,score);
   return`<div class="score-box" style="--score-color:${color};">
-    <div class="score-box-left">
-      <div class="score-label">📊 소비 균형 점수</div>
-      <div class="score-number" style="color:${color};">${score}<span class="score-unit">점</span></div>
-      <div class="score-grade" style="color:${color};">${grade}</div>
-      <div class="score-bar-wrap"><div class="score-bar-fill" style="width:${barPct}%;background:${color};"></div></div>
-      ${diffHtml}
+    <div class="score-label">📊 소비 균형 점수</div>
+    <div class="score-box-inner">
+      <div class="score-box-left">
+        <div class="score-number" style="color:${color};">${score}<span class="score-unit">점</span></div>
+      </div>
+      <div class="score-box-divider"></div>
+      <div class="score-box-right">
+        <div class="score-grade" style="color:${color};background:${color}22;">✅ ${grade}</div>
+        <div class="score-fb-list">${fbHtml}</div>
+      </div>
     </div>
-    <div class="score-box-right">
-      <div class="score-fb-title">💬 피드백</div>
-      <div class="score-fb-list">${fbHtml}</div>
-    </div>
+    <div class="score-bar-wrap"><div class="score-bar-fill" style="width:${barPct}%;background:${color};"></div></div>
+    <div class="score-bar-labels"><span>0점</span><span>100점</span></div>
+    ${diffHtml}
   </div>`;
 }
 
