@@ -18,6 +18,8 @@ const DEFAULT_DATA=()=>{
   return ({
   themeOpacity:50,
   themeOpacityLocked:false,
+  payDay:null,
+  payDayLocked:false,
   monthlyData:{},creditCards:[],assets:[],
   stocks:[
     {id:1,name:'삼성전자우',ticker:'005935',sector:'반도체',buyPrice:109472,currentPrice:109472,targetPrice:0,quantity:1,stockType:'domestic'},
@@ -147,6 +149,8 @@ function loadState(){
       if(!S.currentMonths.ledger)S.currentMonths.ledger={...S.currentMonths.dashboard};
       if(S.themeOpacity===undefined)S.themeOpacity=50;
       if(S.themeOpacityLocked===undefined)S.themeOpacityLocked=false;
+      if(S.payDay===undefined)S.payDay=null;
+      if(S.payDayLocked===undefined)S.payDayLocked=false;
       // 가계부 카테고리 기본값 재설정 (v1: 식비/생활/주거/교통/문화/저축투자/기타)
       if(!S._lcat_reset_v1){
         S.ledgerCategories=[
@@ -317,6 +321,8 @@ window.FB_MERGE = function(fbData) {
     if(!S.currentMonths.ledger)S.currentMonths.ledger={...S.currentMonths.dashboard};
     if(S.themeOpacity===undefined)S.themeOpacity=50;
     if(S.themeOpacityLocked===undefined)S.themeOpacityLocked=false;
+    if(S.payDay===undefined)S.payDay=null;
+    if(S.payDayLocked===undefined)S.payDayLocked=false;
     S.budgetCategories=S.budgetCategories.map(c=>({synced:true,syncFrom:'',linkedCategories:[],...c}));
     // Migrate fundCalc: add assetLinked field
     if(!S.fundCalc)S.fundCalc={amount:0,items:[],assetLinked:false,assetLinkedAt:null,linkedAssetIds:[]};
@@ -3828,6 +3834,24 @@ function saveFoodDirect(val){
   saveState();renderFood();renderIncome();renderDashboard();
 }
 
+// ── 급여일 설정 ──
+function setPayDay(val){
+  if(S.payDayLocked)return;
+  const d=parseInt(val)||0;
+  S.payDay=(d>=1&&d<=31)?d:null;
+  saveState();renderAnalysis();_syncPayDayUI();
+}
+function togglePayDayLock(){
+  S.payDayLocked=!S.payDayLocked;
+  saveState();_syncPayDayUI();
+}
+function _syncPayDayUI(){
+  const sel=document.getElementById('pay-day-select');
+  const lockBtn=document.getElementById('pay-day-lock-btn');
+  if(sel){sel.value=S.payDay||'';sel.disabled=!!S.payDayLocked;}
+  if(lockBtn){lockBtn.textContent=S.payDayLocked?'🔒':'🔓';}
+}
+
 function saveThemeOpacity(val){
   if(S.themeOpacityLocked)return;
   S.themeOpacity=Math.max(0,Math.min(100,parseInt(val)||50));
@@ -3856,6 +3880,7 @@ function syncThemeSlider(){
     lockBtn.textContent=locked?'🔒':'🔓';
     lockBtn.title=locked?'잠금 해제':'잠금';
   }
+  _syncPayDayUI();
 }
 
 // Card settings
@@ -5327,7 +5352,8 @@ async function downloadMonthlyReport(){
     // 소비 분석 데이터
     const analysisData=getMonthAnalysisData(y,m);
     const{natureMap,totalExpense:analysisTotalExp,ledgerEntries}=analysisData;
-    const{score:consumeScore,grade:consumeGrade,feedback:consumeFeedback}=calcConsumeScore(natureMap,analysisTotalExp);
+    const _anaDataForDash=getMonthAnalysisData(y,m);
+    const{score:consumeScore,grade:consumeGrade,feedback:consumeFeedback}=calcConsumeScore(natureMap,_anaDataForDash.totalIncome||analysisTotalExp);
     const prevConsumeScore=_getPrevScore(y,m);
     const prevScoreDiff=prevConsumeScore!=null?consumeScore-prevConsumeScore:null;
     const natDef=[
@@ -5819,61 +5845,83 @@ let _anaNaturePanelOpen=false;
 let _anaMode='analysis';
 let _anaExpandedClose=null;
 
-// ── 소비 균형 점수 (소비·저축 균형 분석 기반) ──
-const NATURE_RANGES={필수:{min:20,max:50},생활:{min:10,max:30},투자:{min:20,max:60},특별:{min:0,max:10}};
-
-function calcConsumeScore(natureMap,totalExpense){
-  if(totalExpense<=0)return{score:0,grade:'📌 소비 패턴 점검 필요',color:'#F06292',feedback:['지출 데이터가 없습니다.'],detail:{}};
+// ── 재무관리 점수 (수입 대비 비율 기준) ──
+function calcConsumeScore(natureMap,totalIncome){
+  if(totalIncome<=0)return{score:0,grade:'🚨 관리 필요',color:'#F06292',feedback:['수입 데이터가 없습니다. 가계부에 수입을 입력해주세요.'],detail:{}};
   let totalScore=0;
   const feedback=[];
   const detail={};
-  for(const[key,range]of Object.entries(NATURE_RANGES)){
-    const pct=(natureMap[key]||0)/totalExpense*100;
-    let pts=0;
-    // 저축·투자는 60% 초과해도 감점 없음 — 자산 형성 중심 패턴으로 인정
-    if(key==='투자'&&pct>range.max){
-      pts=25;
-    } else if(pct>=range.min&&pct<=range.max){
-      pts=25;
-    } else {
-      const diff=pct<range.min?range.min-pct:pct-range.max;
-      if(diff<=5)pts=20;else if(diff<=10)pts=10;else pts=0;
-    }
-    totalScore+=pts;
-    detail[key]={pct:Math.round(pct),pts,inRange:pts===25,isHigh:pct>range.max};
-    // 피드백 생성
-    const hi=pct>range.max;
-    const lo=pct<range.min;
-    if(key==='필수'){
-      if(lo)feedback.push('필수지출 비중이 낮은 편입니다. 현재 소득 대비 고정비 부담이 크지 않은 것으로 보입니다.');
-      else if(hi)feedback.push('필수지출 비중이 높은 편입니다. 고정비 구조를 점검해 볼 수 있습니다.');
-    } else if(key==='생활'){
-      if(lo)feedback.push('생활지출 비중이 낮은 편입니다. 계획적인 소비 습관을 유지하고 있습니다.');
-      else if(hi)feedback.push('생활 편의 및 여가 소비 비중이 높은 편입니다.');
-    } else if(key==='투자'){
-      if(pct>=60)feedback.push('소비보다 미래 자산 형성에 무게를 둔 소비 패턴입니다.');
-      else if(pct>=40)feedback.push('높은 저축률을 바탕으로 자산 형성에 집중하고 있습니다.');
-      else if(pct>=20)feedback.push('안정적인 자산 형성 습관을 유지하고 있습니다.');
-      else feedback.push('저축·투자 비중이 낮은 편입니다.');
-    } else if(key==='특별'){
-      if(hi)feedback.push('일시적인 지출 증가가 반영된 것으로 보입니다.');
-    }
-  }
-  if(feedback.length===0)feedback.push('전반적으로 균형 잡힌 소비 패턴을 유지하고 있습니다.');
+
+  // 저축·투자 (수입 대비)
+  const 투자Pct=(natureMap['투자']||0)/totalIncome*100;
+  let 투자Pts=0;
+  if(투자Pct>=40)투자Pts=25;
+  else if(투자Pct>=30)투자Pts=20;
+  else if(투자Pct>=20)투자Pts=15;
+  else if(투자Pct>=10)투자Pts=10;
+  else 투자Pts=0;
+  totalScore+=투자Pts;
+  detail['투자']={pct:Math.round(투자Pct),pts:투자Pts};
+  if(투자Pct>=40)feedback.push('저축·투자 비중이 매우 높습니다. 탁월한 자산 형성 습관입니다.');
+  else if(투자Pct>=20)feedback.push('안정적인 저축·투자 비중을 유지하고 있습니다.');
+  else feedback.push('저축·투자 비중이 낮습니다. 수입의 10% 이상 저축·투자를 목표로 해보세요.');
+
+  // 필수지출 (수입 대비)
+  const 필수Pct=(natureMap['필수']||0)/totalIncome*100;
+  let 필수Pts=0;
+  if(필수Pct>=20&&필수Pct<=35)필수Pts=25;
+  else if(필수Pct>35&&필수Pct<=40)필수Pts=20;
+  else if(필수Pct>40&&필수Pct<=45)필수Pts=15;
+  else if(필수Pct>45&&필수Pct<=50)필수Pts=10;
+  else 필수Pts=0;
+  totalScore+=필수Pts;
+  detail['필수']={pct:Math.round(필수Pct),pts:필수Pts};
+  if(필수Pct>50)feedback.push('필수지출 비중이 수입의 50%를 넘습니다. 고정비 구조를 점검해 볼 필요가 있습니다.');
+  else if(필수Pct>35)feedback.push('필수지출 비중이 다소 높습니다. 고정비 절감 방법을 검토해보세요.');
+  else if(필수Pct<20)feedback.push('필수지출 비중이 낮습니다. 현재 소득 대비 고정비 부담이 크지 않습니다.');
+
+  // 생활지출 (수입 대비)
+  const 생활Pct=(natureMap['생활']||0)/totalIncome*100;
+  let 생활Pts=0;
+  if(생활Pct>=10&&생활Pct<=15)생활Pts=25;
+  else if(생활Pct>15&&생활Pct<=20)생활Pts=20;
+  else if(생활Pct>20&&생활Pct<=25)생활Pts=15;
+  else if(생활Pct>25&&생활Pct<=30)생활Pts=10;
+  else 생활Pts=0;
+  totalScore+=생활Pts;
+  detail['생활']={pct:Math.round(생활Pct),pts:생활Pts};
+  if(생활Pct>30)feedback.push('생활·여가 지출 비중이 높습니다. 소비 지출을 점검해보세요.');
+  else if(생활Pct<10)feedback.push('생활지출 비중이 낮습니다. 계획적인 소비 습관을 유지하고 있습니다.');
+
+  // 특별지출 (수입 대비)
+  const 특별Pct=(natureMap['특별']||0)/totalIncome*100;
+  let 특별Pts=0;
+  if(특별Pct<=5)특별Pts=25;
+  else if(특별Pct<=10)특별Pts=20;
+  else if(특별Pct<=15)특별Pts=15;
+  else if(특별Pct<=20)특별Pts=10;
+  else 특별Pts=0;
+  totalScore+=특별Pts;
+  detail['특별']={pct:Math.round(특별Pct),pts:특별Pts};
+  if(특별Pct>20)feedback.push('특별지출 비중이 높습니다. 일시적 지출이 과도하지 않은지 확인해보세요.');
+  else if(특별Pct>10)feedback.push('특별지출 비중이 다소 있습니다. 계획적인 지출인지 확인해보세요.');
+
+  if(feedback.length===0)feedback.push('전반적으로 균형 잡힌 재무 패턴을 유지하고 있습니다.');
   let grade,color;
-  if(totalScore>=90){grade='🌟 매우 균형적';color='#4CAF82';}
-  else if(totalScore>=80){grade='✅ 균형적';color='#64B5F6';}
-  else if(totalScore>=70){grade='🙂 양호';color='#A29BFE';}
-  else if(totalScore>=60){grade='⚠ 일부 치우침';color='#FFB347';}
-  else{grade='📌 소비 패턴 점검 필요';color='#F06292';}
+  if(totalScore>=90){grade='💎 매우 우수';color='#4CAF82';}
+  else if(totalScore>=80){grade='🌱 우수';color='#64B5F6';}
+  else if(totalScore>=70){grade='👍 양호';color='#A29BFE';}
+  else if(totalScore>=60){grade='📊 보통';color='#FFB347';}
+  else if(totalScore>=50){grade='⚠ 개선 필요';color='#FF8C42';}
+  else{grade='🚨 관리 필요';color='#F06292';}
   return{score:totalScore,grade,color,feedback,detail};
 }
 
 function _getPrevScore(y,m){
   let py=y,pm=m-1;if(pm<1){pm=12;py--;}
-  const{natureMap:pn,totalExpense:pt}=getMonthAnalysisData(py,pm);
-  if(pt<=0)return null;
-  return calcConsumeScore(pn,pt).score;
+  const{natureMap:pn,totalIncome:pi}=getMonthAnalysisData(py,pm);
+  if(!pi||pi<=0)return null;
+  return calcConsumeScore(pn,pi).score;
 }
 
 function _buildScoreBox(score,grade,color,feedback,prevScore){
@@ -5920,6 +5968,55 @@ function getDefaultNature(catName){
   return''; // 기타 = 미분류
 }
 
+// ── 분석 기간 계산 (급여일 기준) ──
+function getAnalysisPeriod(y,m){
+  const _p=n=>String(n).padStart(2,'0');
+  const payDay=S&&S.payDay;
+  if(!payDay||payDay<=1){
+    const lastDay=new Date(y,m,0).getDate();
+    return{startY:y,startM:m,startDay:1,endY:y,endM:m,endDay:lastDay,
+      label:`${y}.${_p(m)}.01 ~ ${y}.${_p(m)}.${_p(lastDay)}`};
+  }
+  let startY=y,startM=m-1;
+  if(startM<1){startM=12;startY--;}
+  const endDay=payDay-1;
+  return{startY,startM,startDay:payDay,endY:y,endM:m,endDay,
+    label:`${startY}.${_p(startM)}.${_p(payDay)} ~ ${y}.${_p(m)}.${_p(endDay)}`};
+}
+
+// ── 분석 기간 내 가계부 항목 필터링 ──
+function getAnalysisPeriodEntries(y,m){
+  const per=getAnalysisPeriod(y,m);
+  const _p=n=>String(n).padStart(2,'0');
+  const startStr=`${per.startY}-${_p(per.startM)}-${_p(per.startDay)}`;
+  const endStr=`${per.endY}-${_p(per.endM)}-${_p(per.endDay)}`;
+  const keys=new Set([mkey(per.startY,per.startM),mkey(per.endY,per.endM)]);
+  const entries=[];
+  keys.forEach(k=>{(S.ledger[k]||[]).forEach(e=>{
+    if(e.date&&e.date>=startStr&&e.date<=endStr)entries.push(e);
+  });});
+  return entries;
+}
+
+// ── 정기비용 태그 총합 계산 (이달 고정지출 카드용) ──
+function getFixed2Total(y,m){
+  const key=mkey(y,m);
+  const skipList=((S.subSkipMonths||{})[key]||[]);
+  const subs=(S.subscriptions||[]).filter(s=>!skipList.includes(s.name));
+  if(!subs.length)return 0;
+  const curLedger=(S.ledger[key]||[]).filter(e=>e.type==='expense');
+  return subs.reduce((tot,sub)=>{
+    if(!sub.name)return tot;
+    const nm=sub.name.trim().toLowerCase();
+    const amt=curLedger.filter(e=>{
+      const memo=(e.memo||'').toLowerCase();
+      const tags=(e.tags||[]).map(t=>t.toLowerCase());
+      return memo===nm||memo.includes(nm)||tags.includes(nm)||tags.includes(nm.replace(/^#/,''));
+    }).reduce((s,e)=>s+(e.amount||0),0);
+    return tot+amt;
+  },0);
+}
+
 function getMonthAnalysisData(y,m){
   const key=mkey(y,m);
   const md=S.monthlyData[key]||{};
@@ -5930,8 +6027,17 @@ function getMonthAnalysisData(y,m){
   const totalExpense=fixedTotal+varTotal;
 
   // ── 가계부(ledger) 카테고리 기반으로 지출 성격 계산 ──
-  const ledgerEntries=(S.ledger[key]||[]).filter(e=>e.type==='expense');
+  // 급여일 기준 기간 내 항목 사용
+  const allPeriodEntries=getAnalysisPeriodEntries(y,m);
+  const ledgerEntries=allPeriodEntries.filter(e=>e.type==='expense');
+  const ledgerIncomeEntries=allPeriodEntries.filter(e=>e.type==='income');
   const ledgerTotal=ledgerEntries.reduce((s,e)=>s+(e.amount||0),0);
+
+  // 총수입: 가계부 수입 합계 우선, 없으면 monthlyData 기반
+  const ledgerIncome=ledgerIncomeEntries.reduce((s,e)=>s+(e.amount||0),0);
+  const mdIncome=(md.income||[]).reduce((s,i)=>s+(i.amount||0),0);
+  const totalIncome=ledgerIncome||mdIncome||0;
+
   const ns=S.expenseNatureSettings||{};
   const natureMap={필수:0,생활:0,투자:0,특별:0};
   let unclassifiedTotal=0;
@@ -5943,10 +6049,8 @@ function getMonthAnalysisData(y,m){
   };
 
   if(ledgerTotal>0){
-    // 가계부 데이터가 있으면 ledger 기반
     ledgerEntries.forEach(e=>_applyNature(e.category||'',e.amount||0));
   } else {
-    // 가계부 미입력 시 monthlyData 기반 폴백
     [...fixed,...variable].forEach(e=>_applyNature(e.category||e.name||'',e.amount||0));
   }
   const scoreBase=ledgerTotal||totalExpense;
@@ -5957,7 +6061,7 @@ function getMonthAnalysisData(y,m){
     if(tags.length===0){tagMap['(태그 없음)']=(tagMap['(태그 없음)']||0)+(e.amount||0);}
     else{tags.forEach(t=>{tagMap[t]=(tagMap[t]||0)+(e.amount||0);});}
   });
-  return{fixed,variable,fixedTotal,varTotal,totalExpense:scoreBase,natureMap,tagMap,unclassifiedTotal,ledgerTotal,ledgerEntries};
+  return{fixed,variable,fixedTotal,varTotal,totalExpense:scoreBase,totalIncome,natureMap,tagMap,unclassifiedTotal,ledgerTotal,ledgerEntries};
 }
 
 function changeAnalysisYear(delta){
@@ -6386,71 +6490,76 @@ function _buildFixed2Section(y,m,fmt){
 // ── 분석 뷰 (현재 달 상세) ──
 function _buildAnalysisView(y,m){
   const fmt=n=>Math.round(n).toLocaleString('ko-KR')+'원';
-  const{fixed,fixedTotal,totalExpense,natureMap,ledgerEntries,ledgerTotal}=getMonthAnalysisData(y,m);
-  // 소비 균형 점수
-  const{score,grade,color:scoreColor,feedback}=calcConsumeScore(natureMap,totalExpense);
+  const{fixed,fixedTotal,totalExpense,totalIncome,natureMap,ledgerEntries,ledgerTotal}=getMonthAnalysisData(y,m);
+  const period=getAnalysisPeriod(y,m);
+  // 재무관리 점수 (수입 대비)
+  const{score,grade,color:scoreColor,feedback}=calcConsumeScore(natureMap,totalIncome);
   const prevScore=_getPrevScore(y,m);
-  // 성격별 카드
+  // 이달 고정지출 = 정기비용(태그 분석) 총합
+  const tagFixed2Total=getFixed2Total(y,m);
+  // 이번달 순수 지출 = 총 지출 - 필수지출 - 저축·투자
+  const 순수지출=(natureMap['생활']||0)+(natureMap['특별']||0);
+  // 성격별 카드 (수입 대비 %)
   const natureCardsHtml=ANA_NATURES.map(n=>{
     const amt=natureMap[n.key]||0;
-    const pct=totalExpense>0?Math.round(amt/totalExpense*100):0;
-    const range=NATURE_RANGES[n.key];
-    const inRange=pct>=range.min&&pct<=range.max;
+    const pct=totalIncome>0?Math.round(amt/totalIncome*100):0;
     return`<div class="ana2-nature-card" onclick="App._openNatureDetail('${n.key}',${y},${m})" style="background:${n.light};border:1.5px solid ${n.color}33;cursor:pointer;transition:transform .15s,box-shadow .15s;" onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 8px 20px ${n.color}22'" onmouseout="this.style.transform='';this.style.boxShadow=''">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;color:${n.color};">${n.svg||''}<span style="font-size:12px;font-weight:800;">${n.label}</span></div>
       <div style="font-size:18px;font-weight:900;color:${n.color};margin-bottom:3px;">${fmt(amt)}</div>
       <div style="font-size:13px;font-weight:700;color:${n.color};">${pct}%</div>
-      <div style="font-size:10px;color:${inRange?'#4CAF82':'#FFB347'};margin-top:3px;">${inRange?'✓ 권장 범위':'권장 '+range.min+'~'+range.max+'%'}</div>
+      <div style="font-size:10px;color:var(--text-sub);margin-top:3px;">수입 대비</div>
       <div style="font-size:10px;color:${n.color};margin-top:6px;opacity:.6;">▶ 상세 내역 보기</div>
     </div>`;
   }).join('');
-  // 고정비 구성 — ③ 섹션용 (가계부 카테고리별 집계)
+  // 카테고리 상세 분석 — ③ 섹션 (총 소비 대비 비율)
   const _catTotals={};
   (ledgerEntries||[]).forEach(e=>{const c=e.category||'기타';_catTotals[c]=(_catTotals[c]||0)+(e.amount||0);});
-  const _sortedCats=Object.entries(_catTotals).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  const survivalRows=_sortedCats.length>0?_sortedCats.map(([cat,amt])=>`
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px dashed var(--border);">
-      <span style="font-size:12px;color:var(--text-sub);font-weight:600;">${cat}</span>
-      <span style="font-size:13px;font-weight:800;color:var(--text-main);">${fmt(amt)}</span>
-    </div>`).join(''):'';
-  const natBarMax=Math.max(...ANA_NATURES.map(n=>natureMap[n.key]||0),1);
-  const natBars=ANA_NATURES.map(n=>{
-    const amt=natureMap[n.key]||0;
-    const pct=totalExpense>0?Math.round(amt/totalExpense*100):0;
-    const barPct=Math.round(amt/natBarMax*100);
-    return`<div style="margin-bottom:8px;">
-      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;">
-        <span style="font-weight:700;color:${n.color};">${n.label}</span>
-        <span style="color:var(--text-sub);">${pct}%</span>
+  const _sortedCats=Object.entries(_catTotals).sort((a,b)=>b[1]-a[1]);
+  const catDetailRows=_sortedCats.length>0?_sortedCats.map(([cat,amt])=>{
+    const catPct=totalExpense>0?Math.round(amt/totalExpense*100):0;
+    const catBarW=Math.max(2,catPct);
+    return`<div style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <span style="font-size:12.5px;font-weight:700;color:var(--text-main);">${cat}</span>
+        <span style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:12px;color:var(--text-sub);">${catPct}%</span>
+          <span style="font-size:13px;font-weight:800;color:var(--red);">${fmt(amt)}</span>
+        </span>
       </div>
       <div style="height:6px;background:var(--border);border-radius:4px;overflow:hidden;">
-        <div style="height:100%;width:${barPct||1}%;background:${n.color};border-radius:4px;transition:width .4s;"></div>
+        <div style="height:100%;width:${catBarW}%;background:linear-gradient(90deg,#A29BFE,#74B9FF);border-radius:4px;transition:width .4s;"></div>
       </div>
     </div>`;
-  }).join('');
+  }).join(''):'<div style="color:var(--text-sub);font-size:12px;padding:12px 0;text-align:center;">가계부 지출 내역 없음</div>';
   return`
+    <div style="background:#F0EEFF;border-radius:10px;padding:9px 16px;margin-bottom:16px;display:flex;align-items:center;gap:8px;border:1.5px solid #A29BFE33;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5E4BC4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <span style="font-size:12px;font-weight:700;color:#5E4BC4;">분석 기간 : ${period.label}</span>
+    </div>
+
     <div class="ana2-top-cards">
       <div class="ana2-top-card" style="background:linear-gradient(135deg,#F8BBD0,#FCE4EC);border-color:#F48FB133;">
         <div class="ana2-top-card-label" style="color:#C2185B;">💸 이번 달 총 지출</div>
         <div class="ana2-top-card-val" style="color:#880E4F;">${fmt(totalExpense)}</div>
+        ${totalIncome>0?`<div style="font-size:11px;color:#C2185B;margin-top:3px;">수입의 <b>${Math.round(totalExpense/totalIncome*100)}%</b></div>`:''}
       </div>
-      <div class="ana2-top-card" style="background:linear-gradient(135deg,#FFE0B2,#FFF3E0);border-color:#FFB34733;">
-        <div class="ana2-top-card-label" style="color:#E65100;">🔒 이번 달 정기 비용</div>
-        <div class="ana2-top-card-val" style="color:#BF360C;">${fmt(fixedTotal)}</div>
-        <div style="font-size:11px;color:#E65100;margin-top:3px;">총 지출의 <b>${totalExpense>0?Math.round(fixedTotal/totalExpense*100):0}%</b></div>
+      <div class="ana2-top-card" style="background:linear-gradient(135deg,#E8EAF6,#EDE7F6);border-color:#9FA8DA33;">
+        <div class="ana2-top-card-label" style="color:#3949AB;">🧾 이번 달 순수 지출</div>
+        <div class="ana2-top-card-val" style="color:#1A237E;">${fmt(순수지출)}</div>
+        <div style="font-size:11px;color:#3949AB;margin-top:3px;">필수·저축 제외 합산</div>
       </div>
       <div class="ana2-top-card" style="background:linear-gradient(135deg,#C8E6C9,#E8F5E9);border-color:#4CAF8233;">
         <div class="ana2-top-card-label" style="color:#2E7D32;">🏠 이달 고정 지출</div>
-        <div class="ana2-top-card-val" style="color:#1B5E20;">${fmt(fixedTotal)}</div>
-        <div style="font-size:11px;color:#388E3C;margin-top:3px;">정기 비용 기준</div>
+        <div class="ana2-top-card-val" style="color:#1B5E20;">${fmt(tagFixed2Total)}</div>
+        <div style="font-size:11px;color:#388E3C;margin-top:3px;">정기비용(태그) 기준</div>
       </div>
     </div>
 
     <div class="ana2-section-card">
       <div class="ana2-section-hd">
         <div>
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><span class="ana2-num-badge">①</span><span style="font-size:15px;font-weight:800;color:var(--text-main);">지출 성격 분석</span></div>
-          <div style="font-size:11px;color:var(--text-sub);margin-left:34px;">소비 목적에 따라 지출을 분류하고 성격별 비율을 확인합니다.</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><span class="ana2-num-badge">①</span><span style="font-size:15px;font-weight:800;color:var(--text-main);">재무 분석</span></div>
+          <div style="font-size:11px;color:var(--text-sub);margin-left:34px;">수입 대비 지출 성격별 비율을 분석합니다. ${totalIncome>0?`(분석 기준 수입 : ${fmt(totalIncome)})`:''}</div>
         </div>
       </div>
       <div class="ana2-nature-grid4">
@@ -6478,21 +6587,17 @@ function _buildAnalysisView(y,m){
     <div class="ana2-section-card">
       <div class="ana2-section-hd">
         <div>
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><span class="ana2-num-badge">③</span><span style="font-size:15px;font-weight:800;color:var(--text-main);">이달 고정비 구성</span></div>
-          <div style="font-size:11px;color:var(--text-sub);margin-left:34px;">가계부 기준 카테고리별 지출 현황과 성격 비율을 확인합니다.</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><span class="ana2-num-badge">③</span><span style="font-size:15px;font-weight:800;color:var(--text-main);">카테고리 상세 분석</span></div>
+          <div style="font-size:11px;color:var(--text-sub);margin-left:34px;">가계부 카테고리별 지출 현황 (총 소비 대비 비율)</div>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
         <div>
-          <div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:10px;">카테고리별 지출 (가계부 기준, 상위 5개)</div>
-          <div style="font-size:22px;font-weight:900;color:#4CAF82;margin-bottom:10px;">${fmt(ledgerTotal||0)}</div>
-          ${survivalRows||'<div style="color:var(--text-sub);font-size:12px;padding:10px 0;">가계부 항목 없음</div>'}
-        </div>
-        <div style="background:var(--bg);border-radius:12px;padding:14px 16px;">
-          <div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:10px;">지출 성격 비율</div>
-          ${natBars}
+          <div style="font-size:11px;color:var(--text-sub);margin-bottom:3px;">총 지출 합계</div>
+          <div style="font-size:22px;font-weight:900;color:var(--red);">${fmt(totalExpense)}</div>
         </div>
       </div>
+      ${catDetailRows}
     </div>
 `;
 }
@@ -6529,7 +6634,7 @@ function _buildClosedDetail(key){
       <div style="font-size:11px;color:var(--text-sub);">저축률</div>
       <div style="font-size:20px;font-weight:900;color:#A29BFE;">${savingsRate||0}%</div>
     </div>
-    <div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:8px;">지출 성격 요약</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">${natCards}</div></div>
+    <div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:8px;">재무 성격 요약</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">${natCards}</div></div>
     <div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:8px;">카테고리별 지출</div>${catRows||'<div style="color:var(--text-sub);font-size:12px;">기록 없음</div>'}</div>
     <div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:8px;">지출 TOP5 <span style="font-size:10px;font-weight:400;">(주거·공과금·금융 제외)</span></div>${top5||'<div style="color:var(--text-sub);font-size:12px;">기록 없음</div>'}</div>
     <div style="margin-bottom:14px;">
@@ -6584,8 +6689,8 @@ function renderAnalysis(){
   container.innerHTML=`
     <div class="page-header">
       <div>
-        <h1 class="page-title">${isAnalysis?'지출 성격 분석 📊':'월마감 📋'}</h1>
-        <p class="page-sub">${isAnalysis?'월별 지출 성격을 확인하고, 소비점수·태그·고정비 구성을 관리하세요.':'한 달의 결과를 요약해서 보여주는 보고서에요.'}</p>
+        <h1 class="page-title">${isAnalysis?'재무 분석 📊':'월마감 📋'}</h1>
+        <p class="page-sub">${isAnalysis?'수입 대비 지출 성격을 분석하고, 재무 점수·정기비용·카테고리 현황을 확인하세요.':'한 달의 결과를 요약해서 보여주는 보고서에요.'}</p>
       </div>
       <div style="display:flex;align-items:center;gap:10px;">
 
@@ -6791,6 +6896,7 @@ window.App={
   toggleFoodPanel,closeFoodPanel,saveFoodField,toggleFoodDirect,saveFoodDirect,
   toggleCalSpendMode,openLegendSettings,saveLegendSettings,_onLegendTypeChange,_refreshLegendPreview,_addLegendRow,_deleteLegendRow,
   saveThemeOpacity,toggleThemeOpacityLock,syncThemeSlider,
+  setPayDay,togglePayDayLock,_syncPayDayUI,
   toggleCardSettings,addCardSetting,deleteCardSetting,updateCardName,addRate,deleteRate,updateRate,
   calcInstallment,
   addLedgerEntry,deleteLedgerEntry,setLedgerFilter,setTagFilter,
