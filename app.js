@@ -5333,8 +5333,8 @@ async function downloadMonthlyReport(){
     const natDef=[
       {key:'필수',label:'필수지출',icon:'🏠',bg:'#F0EEFF',bar:'#A29BFE'},
       {key:'생활',label:'생활지출',icon:'🍴',bg:'#E8F8F0',bar:'#43C98A'},
-      {key:'투자',label:'투자지출',icon:'📈',bg:'#EBF5FF',bar:'#74B9FF'},
-      {key:'특별',label:'변동지출',icon:'✈',bg:'#FFF8E1',bar:'#FFB347'},
+      {key:'투자',label:'저축·투자',icon:'📈',bg:'#EBF5FF',bar:'#74B9FF'},
+      {key:'특별',label:'특별지출',icon:'✈',bg:'#FFF8E1',bar:'#FFB347'},
     ];
     // 소비 패턴 인사이트 (태그 기반)
     const tagCnt={};const tagAmt={};
@@ -5820,7 +5820,7 @@ let _anaMode='analysis';
 let _anaExpandedClose=null;
 
 // ── 소비 균형 점수 (소비·저축 균형 분석 기반) ──
-const NATURE_RANGES={필수:{min:20,max:50},생활:{min:10,max:30},투자:{min:20,max:60},특별:{min:0,max:15}};
+const NATURE_RANGES={필수:{min:20,max:50},생활:{min:10,max:30},투자:{min:20,max:60},특별:{min:0,max:10}};
 
 function calcConsumeScore(natureMap,totalExpense){
   if(totalExpense<=0)return{score:0,grade:'📌 소비 패턴 점검 필요',color:'#F06292',feedback:['지출 데이터가 없습니다.'],detail:{}};
