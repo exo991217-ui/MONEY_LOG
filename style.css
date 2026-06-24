@@ -1435,6 +1435,54 @@ body{font-family:var(--font);background:linear-gradient(145deg,#5E4BC422 0%,#D1C
   height:4px;
 }
 
+/* ===== 사이드바 통합 설정 블록 ===== */
+.sidebar-settings-block{
+  margin:0 16px 10px;
+  padding:10px 12px;
+  background:var(--bg);
+  border:1px solid var(--border);
+  border-radius:12px;
+}
+.ssb-title{
+  font-size:10px;font-weight:700;
+  color:var(--text-sub);letter-spacing:.5px;text-transform:uppercase;
+  margin-bottom:10px;opacity:.7;
+}
+.ssb-row{
+  display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:5px;
+}
+.ssb-label{
+  font-size:11px;font-weight:600;color:var(--text-sub);
+}
+.ssb-lock-btn{
+  background:none;border:none;cursor:pointer;
+  font-size:12px;padding:2px 4px;opacity:.5;
+  border-radius:4px;transition:opacity .15s;line-height:1;
+}
+.ssb-lock-btn:hover{opacity:1;}
+.ssb-slider{
+  width:100%;accent-color:var(--purple);cursor:pointer;height:4px;
+  display:block;
+}
+.ssb-divider{
+  height:1px;background:var(--border);margin:10px 0;
+}
+.ssb-select{
+  width:100%;
+  border:1.5px solid var(--border);
+  border-radius:8px;
+  padding:5px 8px;
+  font-size:12px;
+  background:var(--card-bg,#fff);
+  color:var(--text-main);
+  cursor:pointer;
+  outline:none;
+  transition:border-color .15s;
+}
+.ssb-select:focus{border-color:var(--purple);}
+.ssb-select:disabled{opacity:.45;cursor:not-allowed;}
+
 /* ===== 소비 캘린더 수정 버튼 ===== */
 .cal-event-edit{
   background:none;border:none;cursor:pointer;font-size:13px;
