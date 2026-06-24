@@ -1465,20 +1465,18 @@ body{font-family:var(--font);background:linear-gradient(145deg,#5E4BC422 0%,#D1C
   font-size:11.5px;font-weight:600;color:var(--text-sub);
 }
 .ssb-arrow{
-  font-size:14px;color:var(--text-sub);opacity:.5;
-  transition:transform .22s cubic-bezier(.4,0,.2,1);
-  display:inline-block;
+  font-size:13px;color:var(--text-sub);opacity:.45;
+  transition:transform .2s ease;
+  display:inline-block;line-height:1;
 }
 .ssb-arrow.open{transform:rotate(90deg);}
 .ssb-content{
-  max-height:0;overflow:hidden;
-  transition:max-height .25s cubic-bezier(.4,0,.2,1), padding .25s;
-  padding:0 4px;
+  display:none;
+  padding:2px 4px 8px;
+  animation:ssbFadeIn .18s ease;
 }
-.ssb-content.open{
-  max-height:120px;
-  padding:4px 4px 8px;
-}
+.ssb-content.open{display:block;}
+@keyframes ssbFadeIn{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:none;}}
 .ssb-lock-btn{
   background:none;border:none;cursor:pointer;
   font-size:12px;padding:2px 4px;opacity:.5;
