@@ -5242,6 +5242,21 @@ function changeMonth(dir,section){
 function changeCalYear(dir){S.calYear+=dir;saveState();renderCalendar();}
 
 // ===== MOBILE SIDEBAR =====
+function toggleSsbItem(id){
+  const content=document.getElementById(id);
+  const arrow=document.getElementById(id+'-arrow');
+  if(!content)return;
+  const isOpen=content.classList.contains('open');
+  // 모두 닫기
+  document.querySelectorAll('.ssb-content').forEach(el=>el.classList.remove('open'));
+  document.querySelectorAll('.ssb-arrow').forEach(el=>el.classList.remove('open'));
+  // 클릭한 것만 토글
+  if(!isOpen){
+    content.classList.add('open');
+    if(arrow)arrow.classList.add('open');
+  }
+}
+
 function toggleSidebar(){
   const sidebar=document.getElementById('sidebar');
   const overlay=document.getElementById('sidebar-overlay');
@@ -6927,6 +6942,7 @@ window.App={
     const dd=document.getElementById('ledger-filter-dropdown');
     if(dd)dd.style.display='none';
   },
+  toggleSsbItem,
   toggleSidebar,closeSidebar,
   editAuto,saveAuto,deleteAuto,toggleAuto,
   openAssetModal,promptAddAssetCategory,openStockModal,
