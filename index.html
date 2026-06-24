@@ -81,39 +81,39 @@
         <div class="sidebar-storage-fill" id="storage-fill"></div>
       </div>
     </div>
-    <div class="sidebar-theme-ctrl">
-      <div class="sidebar-theme-ctrl-header">
-        <span class="sidebar-storage-label">🎨 테마 진하기</span>
+    <div class="sidebar-settings-block">
+      <div class="ssb-title">설정</div>
+
+      <div class="ssb-row">
+        <span class="ssb-label">🎨 테마 진하기</span>
+        <button id="theme-lock-btn" onclick="App.toggleThemeOpacityLock()" class="ssb-lock-btn" title="잠금">🔓</button>
       </div>
       <input type="range" id="theme-opacity-slider" min="0" max="100" value="50"
         oninput="App.saveThemeOpacity(this.value)"
-        class="theme-opacity-slider"/>
-    </div>
-    <div class="sidebar-theme-ctrl" style="margin-top:10px;">
-      <div class="sidebar-theme-ctrl-header" style="margin-bottom:6px;">
-        <span class="sidebar-storage-label">📅 급여일 설정</span>
-        <button id="pay-day-lock-btn" onclick="App.togglePayDayLock()" class="theme-lock-btn" title="잠금">🔓</button>
+        class="theme-opacity-slider ssb-slider"/>
+
+      <div class="ssb-divider"></div>
+
+      <div class="ssb-row">
+        <span class="ssb-label">📅 급여일</span>
+        <button id="pay-day-lock-btn" onclick="App.togglePayDayLock()" class="ssb-lock-btn" title="잠금">🔓</button>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <select id="pay-day-select" onchange="App.setPayDay(this.value)"
-          style="flex:1;border:1.5px solid var(--border);border-radius:8px;padding:6px 10px;font-size:13px;background:var(--bg);color:var(--text-main);cursor:pointer;">
-          <option value="">설정 안 함</option>
-          <option value="1">매월 1일</option>
-          <option value="5">매월 5일</option>
-          <option value="10">매월 10일</option>
-          <option value="15">매월 15일</option>
-          <option value="20">매월 20일</option>
-          <option value="21">매월 21일</option>
-          <option value="22">매월 22일</option>
-          <option value="23">매월 23일</option>
-          <option value="24">매월 24일</option>
-          <option value="25">매월 25일</option>
-          <option value="26">매월 26일</option>
-          <option value="27">매월 27일</option>
-          <option value="28">매월 28일</option>
-        </select>
-      </div>
-      <div style="font-size:10px;color:var(--text-sub);margin-top:5px;line-height:1.4;">급여일 기준으로 분석 탭 집계 기간이 변경됩니다.</div>
+      <select id="pay-day-select" onchange="App.setPayDay(this.value)" class="ssb-select">
+        <option value="">설정 안 함</option>
+        <option value="1">매월 1일</option>
+        <option value="5">매월 5일</option>
+        <option value="10">매월 10일</option>
+        <option value="15">매월 15일</option>
+        <option value="20">매월 20일</option>
+        <option value="21">매월 21일</option>
+        <option value="22">매월 22일</option>
+        <option value="23">매월 23일</option>
+        <option value="24">매월 24일</option>
+        <option value="25">매월 25일</option>
+        <option value="26">매월 26일</option>
+        <option value="27">매월 27일</option>
+        <option value="28">매월 28일</option>
+      </select>
     </div>
     <div class="sidebar-footer fb-user-info">
       <img id="fb-sidebar-photo" src="" alt="" style="display:none;width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;">
