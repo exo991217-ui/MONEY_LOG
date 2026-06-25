@@ -6619,10 +6619,19 @@ function _buildAnalysisView(y,m){
     </div>`;
   }).join('');
 
+  const _hasPayDay=S.payDay&&S.payDay>1;
   return`
     <div style="background:#F0EEFF;border-radius:10px;padding:9px 16px;margin-bottom:16px;display:flex;align-items:center;gap:8px;border:1.5px solid #A29BFE33;">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5E4BC4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       <span style="font-size:12px;font-weight:700;color:#5E4BC4;">분석 기간 : ${period.label}</span>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:6px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5E4BC4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span style="font-size:11px;font-weight:700;color:#5E4BC4;white-space:nowrap;">분석 기준</span>
+        <select onchange="App.setAnalysisBaseMode(this.value)" style="border:1.5px solid #A29BFE55;border-radius:8px;padding:3px 8px;font-size:11px;font-weight:700;color:#5E4BC4;background:white;cursor:pointer;outline:none;">
+          <option value="payday" ${_analysisBaseMode==='payday'?'selected':''} ${!_hasPayDay?'disabled':''}>📅 월급일 기준${!_hasPayDay?' (미설정)':''}</option>
+          <option value="lastday" ${_analysisBaseMode==='lastday'?'selected':''}>📆 말일 기준</option>
+        </select>
+      </div>
     </div>
 
     <div class="ana2-top-cards">
@@ -6777,18 +6786,6 @@ function renderAnalysis(){
   const nowY=new Date().getFullYear(),nowM=new Date().getMonth()+1;
   const bodyHtml=isAnalysis?_buildAnalysisView(y,m):_buildCloseView(y);
   const naturePanelHtml=isAnalysis&&_anaNaturePanelOpen?_buildNaturePanel(y):'';
-  // ── 분석 기준 드롭다운 (분석 탭 전용) ──
-  const hasPayDay=S.payDay&&S.payDay>1;
-  const analysisCriteriaHtml=isAnalysis?`
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px 16px;background:#F8F7FF;border-radius:12px;border:1.5px solid #A29BFE33;">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5E4BC4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-      <span style="font-size:12px;font-weight:700;color:#5E4BC4;white-space:nowrap;">분석 기준</span>
-      <select onchange="App.setAnalysisBaseMode(this.value)" style="border:1.5px solid #A29BFE55;border-radius:8px;padding:4px 10px;font-size:12px;font-weight:700;color:#5E4BC4;background:white;cursor:pointer;outline:none;">
-        <option value="payday" ${_analysisBaseMode==='payday'?'selected':''} ${!hasPayDay?'disabled':''}>📅 월급일 기준${!hasPayDay?' (급여일 미설정)':''}</option>
-        <option value="lastday" ${_analysisBaseMode==='lastday'?'selected':''}>📆 말일 기준</option>
-      </select>
-      ${!hasPayDay&&_analysisBaseMode==='payday'?`<span style="font-size:11px;color:#F06292;font-weight:600;">⚠ 사이드바에서 급여일을 설정해 주세요</span>`:''}
-    </div>`:'';
   container.innerHTML=`
     <div class="page-header">
       <div>
@@ -6808,7 +6805,6 @@ function renderAnalysis(){
       <button class="ana2-mode-btn${isAnalysis?' active':''}" onclick="App.changeAnalysisMode('analysis')">📊 분석</button>
       <button class="ana2-mode-btn${!isAnalysis?' active':''}" onclick="App.changeAnalysisMode('close')">📋 월마감</button>
     </div>
-    ${analysisCriteriaHtml}
     ${naturePanelHtml}
     ${isAnalysis?`<div class="ana2-month-nav"><button class="month-btn" onclick="App.changeAnalysisMonth(-1)">‹</button><span class="month-label">${y}년 ${m}월</span><button class="month-btn" onclick="App.changeAnalysisMonth(1)">›</button><button onclick="App.deleteMonthAnalysisData(${y},${m})" style="margin-left:10px;font-size:11px;color:#F06292;background:#FFF0F5;border:1.5px solid #F0629244;border-radius:8px;padding:4px 10px;cursor:pointer;font-weight:600;">이 달 삭제</button></div>`:''}
     ${bodyHtml}
