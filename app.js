@@ -6119,10 +6119,10 @@ function getMonthAnalysisData(y,m){
   const ledgerIncomeEntries=allPeriodEntries.filter(e=>e.type==='income');
   const ledgerTotal=ledgerEntries.reduce((s,e)=>s+(e.amount||0),0);
 
-  // 총수입: 가계부 수입 합계 우선, 없으면 monthlyData 기반
+  // 총수입: 수입/지출 탭 monthlyData 기준 우선 — 가계부 수입 입력이 없어도 올바른 기준 유지
   const ledgerIncome=ledgerIncomeEntries.reduce((s,e)=>s+(e.amount||0),0);
   const mdIncome=(md.income||[]).reduce((s,i)=>s+(i.amount||0),0);
-  const totalIncome=ledgerIncome||mdIncome||0;
+  const totalIncome=mdIncome||ledgerIncome||0;
 
   const ns=S.expenseNatureSettings||{};
   const natureMap={필수:0,생활:0,투자:0,특별:0};
@@ -6150,12 +6150,6 @@ function getMonthAnalysisData(y,m){
   return{fixed,variable,fixedTotal,varTotal,totalExpense:scoreBase,totalIncome,natureMap,tagMap,unclassifiedTotal,ledgerTotal,ledgerEntries};
 }
 
-function changeAnalysisYear(delta){
-  if(!S.analysisYear)S.analysisYear=new Date().getFullYear();
-  S.analysisYear+=delta;
-  _anaExpandedMonth=null;
-  saveState();renderAnalysis();
-}
 function changeAnalysisMode(mode){
   _anaMode=mode;_anaExpandedClose=null;renderAnalysis();
 }
@@ -6919,19 +6913,19 @@ function renderAnalysis(){
     }
   }
   const y=S.analysisYear, m=S.analysisMonth;
+  // 통계 모드 제거 — 분석 모드로 리디렉션
+  if(_anaMode==='stats')_anaMode='analysis';
   const isAnalysis=_anaMode==='analysis';
   const isClose=_anaMode==='close';
-  const isStats=_anaMode==='stats';
   const nowY=new Date().getFullYear(),nowM=new Date().getMonth()+1;
   let bodyHtml='';
   if(isAnalysis)bodyHtml=_buildAnalysisView(y,m);
   else if(isClose)bodyHtml=_buildCloseView();
-  else bodyHtml=_buildStatsView();
+  else bodyHtml=_buildAnalysisView(y,m);
   const naturePanelHtml=isAnalysis&&_anaNaturePanelOpen?_buildNaturePanel(y):'';
   let pageTitle='재무 분석 📊';
   let pageSub='수입 대비 지출 성격을 분석하고, 재무 점수·정기비용·카테고리 현황을 확인하세요.';
   if(isClose){pageTitle='월마감 📋';pageSub='한 달의 결과를 요약해서 보여주는 보고서에요.';}
-  if(isStats){pageTitle='연간 통계 📈';pageSub='월별 수입·지출·저축 현황을 한눈에 비교해보세요.';}
   container.innerHTML=`
     <div class="page-header">
       <div>
@@ -6949,7 +6943,6 @@ function renderAnalysis(){
     <div class="ana2-mode-tabs">
       <button class="ana2-mode-btn${isAnalysis?' active':''}" onclick="App.changeAnalysisMode('analysis')">📊 분석</button>
       <button class="ana2-mode-btn${isClose?' active':''}" onclick="App.changeAnalysisMode('close')">📋 월마감</button>
-      <button class="ana2-mode-btn${isStats?' active':''}" onclick="App.changeAnalysisMode('stats')">📈 통계</button>
     </div>
     ${naturePanelHtml}
     ${isAnalysis?`<div class="ana2-month-nav"><button class="month-btn" onclick="App.changeAnalysisMonth(-1)">‹</button><span class="month-label">${y}년 ${m}월</span><button class="month-btn" onclick="App.changeAnalysisMonth(1)">›</button><button onclick="App.deleteMonthAnalysisData(${y},${m})" style="margin-left:10px;font-size:11px;color:#F06292;background:#FFF0F5;border:1.5px solid #F0629244;border-radius:8px;padding:4px 10px;cursor:pointer;font-weight:600;">이 달 삭제</button></div>`:''}
@@ -6957,81 +6950,7 @@ function renderAnalysis(){
   `;
 }
 
-// ── 통계 뷰 (연간 표 형식) ──
-function _buildStatsView(){
-  const fmt=n=>Math.round(n).toLocaleString('ko-KR')+'원';
-  const fmtDiff=n=>n===null?'-':(n>=0?'+':'')+Math.round(n).toLocaleString('ko-KR')+'원';
-  const cy=S.analysisYear||new Date().getFullYear();
-  const _now=new Date();const _nowY=_now.getFullYear(),_nowM=_now.getMonth()+1;
-  // 해당 연도 모든 월 저축액 맵 (순자산 증감 계산용)
-  const allSavingsMap={};
-  for(let mo=1;mo<=12;mo++){
-    const key=mkey(cy,mo);
-    const arch=(S.monthClosedArchive||{})[key];
-    if(arch){allSavingsMap[mo]=arch.savings||0;}
-    else if(S.monthlyData&&S.monthlyData[key]){allSavingsMap[mo]=Math.max(0,getTotalSavings(cy,mo));}
-  }
-  // 전년도 12월 저축액 (1월 증감 계산용)
-  const prevYearKey=mkey(cy-1,12);
-  const prevYearArch=(S.monthClosedArchive||{})[prevYearKey];
-  if(prevYearArch)allSavingsMap[0]=prevYearArch.savings||0;
-  // 해당 연도의 모든 월 데이터 수집
-  const rows=[];
-  for(let mo=1;mo<=12;mo++){
-    // 마감된 달만 표시, 미래 달 제외
-    if(cy>_nowY||(cy===_nowY&&mo>_nowM))continue;
-    const key=mkey(cy,mo);
-    const arch=(S.monthClosedArchive||{})[key];
-    if(!arch)continue;
-    const income=arch?(arch.budgetIncome||getTotalIncome(cy,mo)):getTotalIncome(cy,mo);
-    const savings=arch?(arch.savings||Math.max(0,getTotalSavings(cy,mo))):Math.max(0,getTotalSavings(cy,mo));
-    const expense=Math.max(0,income-savings);
-    const rate=income>0?Math.round(savings/income*100):0;
-    // 순자산 증감 = 이번달 저축액 - 전달 저축액 (원)
-    const prevSav=allSavingsMap[mo-1];
-    const netDiff=(prevSav!==undefined)?savings-prevSav:null;
-    rows.push({mo,income,expense,savings,rate,netDiff});
-  }
-  const yearNav=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-    <button class="month-btn" onclick="App.changeAnalysisYear(-1)">‹</button>
-    <span style="font-size:16px;font-weight:800;min-width:70px;text-align:center;">${cy}년</span>
-    <button class="month-btn" onclick="App.changeAnalysisYear(1)">›</button>
-  </div>`;
-  if(rows.length===0){
-    return yearNav+`<div class="ana-empty"><div style="font-size:36px;margin-bottom:12px;">📭</div>${cy}년 데이터가 없어요.<br><span style="font-size:12px;">수입/지출을 입력하거나 월 마감을 진행하면 여기에 표시됩니다.</span></div>`;
-  }
-  const totIncome=rows.reduce((s,r)=>s+r.income,0);
-  const totExpense=rows.reduce((s,r)=>s+r.expense,0);
-  const totSavings=rows.reduce((s,r)=>s+r.savings,0);
-  const avgRate=rows.length>0?Math.round(rows.reduce((s,r)=>s+r.rate,0)/rows.length):0;
-  const summaryCards=`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
-    ${[
-      {label:'연 총수입',val:fmt(totIncome),color:'#4CAF82'},
-      {label:'연 총지출',val:fmt(totExpense),color:'#F06292'},
-      {label:'연 총저축',val:fmt(totSavings),color:'#5E4BC4'},
-      {label:'평균 저축률',val:avgRate+'%',color:avgRate>=50?'#4CAF82':'#FFB347'},
-    ].map(c=>`<div style="background:white;border-radius:14px;border:1.5px solid var(--border);padding:14px 16px;box-shadow:0 2px 10px rgba(160,140,220,.08);">
-      <div style="font-size:11px;color:var(--text-sub);margin-bottom:6px;">${c.label}</div>
-      <div style="font-size:18px;font-weight:900;color:${c.color};">${c.val}</div>
-    </div>`).join('')}
-  </div>`;
-  const tableHeader=`<div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr 70px 1fr;gap:8px;padding:8px 16px;margin-bottom:4px;font-size:11px;font-weight:700;color:var(--text-sub);text-transform:uppercase;letter-spacing:.4px;">
-    <span>월</span><span>수입</span><span>지출</span><span>저축액</span><span style="text-align:center;">저축률</span><span style="text-align:right;color:#5E4BC4;">순자산 증감</span>
-  </div>`;
-  const tableRows=rows.map(r=>{
-    const rateColor=r.rate>=50?'#4CAF82':r.rate>=30?'#FFB347':'#F06292';
-    const diffColor=r.netDiff===null?'var(--text-sub)':r.netDiff>=0?'#4CAF82':'#F06292';
-    return`<div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr 70px 1fr;gap:8px;align-items:center;padding:13px 16px;background:white;border-radius:12px;border:1.5px solid var(--border);margin-bottom:8px;box-shadow:0 1px 6px rgba(160,140,220,.06);">
-      <span style="font-size:14px;font-weight:800;color:var(--text-main);">${r.mo}월</span>
-      <span style="font-size:13px;font-weight:700;color:#4CAF82;">${fmt(r.income)}</span>
-      <span style="font-size:13px;font-weight:700;color:#F06292;">${fmt(r.expense)}</span>
-      <span style="font-size:13px;font-weight:700;color:#5E4BC4;">${fmt(r.savings)}</span>
-      <span style="text-align:center;font-size:14px;font-weight:900;color:${rateColor};">${r.rate}%</span>
-      <span style="text-align:right;font-size:13px;font-weight:900;color:${diffColor};">${fmtDiff(r.netDiff)}</span>
-    </div>`;
-  }).join('');
-  return yearNav+summaryCards+tableHeader+tableRows;
-}
+
 
 function toggleLedgerSubmenu(e){
   e.stopPropagation();
@@ -7221,19 +7140,28 @@ function renderArchive(){
   const totExpense=archived.reduce((s,[,d])=>s+(d.ledgerExpense||0),0);
   const totSavings=archived.reduce((s,[,d])=>s+(d.savings||0),0);
   const avgRate=archived.length>0?Math.round(archived.reduce((s,[,d])=>s+(d.savingsRate||0),0)/archived.length):0;
-  const summaryHtml=`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;">
-    ${[
-      {label:'마감 완료',val:archived.length+'개월',color:'#5E4BC4'},
-      {label:'평균 저축률',val:avgRate+'%',color:'#4CAF82'},
-      {label:'총 저축 누계',val:fmt(totSavings),color:'#5E4BC4'},
-      {label:'총 지출 누계',val:fmt(totExpense),color:'#F06292'},
-    ].map(c=>`<div style="background:white;border-radius:14px;border:1.5px solid var(--border);padding:14px 18px;box-shadow:0 2px 10px rgba(160,140,220,.08);">
-      <div style="font-size:11px;color:var(--text-sub);margin-bottom:6px;">${c.label}</div>
-      <div style="font-size:18px;font-weight:900;color:${c.color};">${c.val}</div>
-    </div>`).join('')}
+  const totNetChange=totIncome-totExpense;
+  const netPct=totIncome>0?(totNetChange/totIncome*100).toFixed(1):0;
+  const netColor=totNetChange>=0?'#4CAF82':'#F06292';
+  const netVal=`${fmt(totNetChange)} (${netPct>0?'+':''}${netPct}%)`;
+  const card=(label,val,color,sub)=>`<div style="background:white;border-radius:14px;border:1.5px solid var(--border);padding:14px 18px;box-shadow:0 2px 10px rgba(160,140,220,.08);">
+      <div style="font-size:11px;color:var(--text-sub);margin-bottom:4px;">${label}</div>
+      <div style="font-size:18px;font-weight:900;color:${color};">${val}</div>
+      ${sub?`<div style="font-size:10px;color:var(--text-sub);margin-top:2px;">${sub}</div>`:''}
+    </div>`;
+  const summaryHtml=`
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:10px;">
+    ${card('마감 완료',archived.length+'개월','#5E4BC4','')}
+    ${card('총 수입 누계',fmt(totIncome),'#4CAF82','')}
+    ${card('총 지출 누계',fmt(totExpense),'#F06292','')}
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;">
+    ${card('총 저축 누계',fmt(totSavings),'#5E4BC4','')}
+    ${card('평균 저축률',avgRate+'%',avgRate>=30?'#4CAF82':'#FFB347','')}
+    ${card('순 자산 증감 누계',netVal,netColor,'')}
   </div>`;
-  const headerRow=`<div style="display:grid;grid-template-columns:100px 1fr 1fr 1fr 70px 70px 28px;gap:8px;padding:8px 16px;font-size:11px;font-weight:700;color:var(--text-sub);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">
-    <span>월</span><span>수입</span><span>지출</span><span>저축액</span><span style="text-align:center;">저축률</span><span style="text-align:center;">재무점수</span><span></span>
+  const headerRow=`<div style="display:grid;grid-template-columns:100px 1fr 1fr 1fr 70px 90px 28px;gap:8px;padding:8px 16px;font-size:11px;font-weight:700;color:var(--text-sub);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">
+    <span>월</span><span>수입</span><span>지출</span><span>저축액</span><span style="text-align:center;">저축률</span><span style="text-align:right;">순자산 증감</span><span></span>
   </div>`;
   const rowsHtml=archived.map(([key,data])=>{
     const{year:y,month:mo,ledgerIncome:income,ledgerExpense:expense,savings,savingsRate,note,categories}=data;
@@ -7268,14 +7196,17 @@ function renderArchive(){
         ${note?`<div style="background:white;border-radius:10px;border:1.5px solid var(--border);padding:10px 12px;font-size:13px;color:var(--text-main);">${note}</div>`:'<div style="color:var(--text-sub);font-size:12px;">소감 없음</div>'}
       </div>
     </div>`:'' ;
+    const netChange=(income||0)-(expense||0);
+    const netChgColor=netChange>=0?'#4CAF82':'#F06292';
+    const netChgStr=(netChange>=0?'+':'')+fmt(netChange);
     return`<div style="margin-bottom:8px;">
-      <div onclick="App._toggleArchiveRow('${key}')" style="display:grid;grid-template-columns:100px 1fr 1fr 1fr 70px 70px 28px;gap:8px;align-items:center;padding:14px 16px;background:white;border-radius:${isOpen?'14px 14px 0 0':'14px'};border:1.5px solid ${isOpen?'#A29BFE':'var(--border)'};cursor:pointer;box-shadow:0 1px 8px rgba(160,140,220,.07);">
+      <div onclick="App._toggleArchiveRow('${key}')" style="display:grid;grid-template-columns:100px 1fr 1fr 1fr 70px 90px 28px;gap:8px;align-items:center;padding:14px 16px;background:white;border-radius:${isOpen?'14px 14px 0 0':'14px'};border:1.5px solid ${isOpen?'#A29BFE':'var(--border)'};cursor:pointer;box-shadow:0 1px 8px rgba(160,140,220,.07);">
         <span style="font-size:14px;font-weight:800;">${y}년 ${mo}월</span>
         <span style="font-size:13px;font-weight:700;color:#4CAF82;">${fmt(income||0)}</span>
         <span style="font-size:13px;font-weight:700;color:#F06292;">${fmt(expense||0)}</span>
         <span style="font-size:13px;font-weight:700;color:#5E4BC4;">${fmt(savings||0)}</span>
         <span style="text-align:center;font-size:14px;font-weight:900;color:${rateColor};">${savingsRate||0}%</span>
-        <span style="text-align:center;font-size:14px;font-weight:900;color:${score>=70?'#4CAF82':score>=50?'#FFB347':'#F06292'};">${score}점</span>
+        <span style="text-align:right;font-size:13px;font-weight:900;color:${netChgColor};">${netChgStr}</span>
         <span style="text-align:center;font-size:14px;color:var(--text-sub);transition:transform .18s;display:inline-block;transform:${isOpen?'rotate(90deg)':'rotate(0)'};">›</span>
       </div>
       ${detailHtml}
@@ -7528,7 +7459,7 @@ window.App={
   openCloseMonthModal,closeMonth,reopenMonth,
   renderMonthlyArchive,deleteArchiveEntry,_toggleArchiveCard,toggleLedgerSubmenu,
   _toggleCatDetail,
-  renderAnalysis,changeAnalysisYear,changeAnalysisMode,changeAnalysisMonth,setAnalysisBaseMode,_toggleAnaMonth,_toggleClosedMonth,_toggleAnalysisMenu,_openNatureSettings,_setNature,calcConsumeScore,
+  renderAnalysis,changeAnalysisMode,changeAnalysisMonth,setAnalysisBaseMode,_toggleAnaMonth,_toggleClosedMonth,_toggleAnalysisMenu,_openNatureSettings,_setNature,calcConsumeScore,
   _selectNatureKey,_nsPickIcon,_nsToggleCat,openTagMgmtModal,_tagMgmtRender,_addSub,_deleteSub,_deleteSubThisMonth,_deleteSubPermanent,_updateSubName,_updateSubAmount,_openTagSuggest,_applyTagSuggest,_applyTagSuggestPopup,deleteMonthAnalysisData,_openNatureDetail,_closeNatureDetail,closeMonthDirect,reopenMonthDirect,
   fetchStockPrices,
   downloadMonthlyReport,
