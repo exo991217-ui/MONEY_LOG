@@ -662,12 +662,16 @@ function renderBudget(y,m){
   }
 
   el.innerHTML=cats.map(cat=>{
-    const spent=getCatSpent(cat);
+    let spent=getCatSpent(cat);
     // For 식비: use food calendar total as budget if not manually set
     let effectiveBudget=cat.budget;
     let foodBadge='';
     if(cat.name==='식비'){
-      if(!cat.foodBudgetManual&&foodTotal>0){
+      // 캘린더 연동: 예산 목표를 식비 캘린더 합계로 반영 (지출은 항상 가계부/변동지출 기준)
+      if(cat.calSync&&foodTotal>0){
+        effectiveBudget=foodTotal;
+        foodBadge='<span style="font-size:10px;color:var(--green);background:#E8F5EE;border-radius:4px;padding:1px 5px;margin-left:4px;font-weight:700;">🗓️캘린더</span>';
+      } else if(!cat.foodBudgetManual&&foodTotal>0){
         effectiveBudget=foodTotal;
         foodBadge='<span style="font-size:10px;color:var(--blue);margin-left:4px;">(캘린더예산)</span>';
       } else {
@@ -777,6 +781,7 @@ function openBudgetModal(id){
   const syncEl=document.getElementById('mb-synced');
   const foodManualRow=document.getElementById('mb-food-manual-row');
   const foodManualChk=document.getElementById('mb-food-budget-manual');
+  const calSyncChk=document.getElementById('mb-food-cal-sync');
   if(id){
     const cat=(S.budgetCategories||[]).find(c=>c.id==id);if(!cat)return;
     document.getElementById('mb-name').value=cat.name;
@@ -786,6 +791,7 @@ function openBudgetModal(id){
     // Show food manual option only for 식비
     if(foodManualRow)foodManualRow.style.display=cat.name==='식비'?'flex':'none';
     if(foodManualChk)foodManualChk.checked=!!cat.foodBudgetManual;
+    if(calSyncChk)calSyncChk.checked=!!cat.calSync;
   } else {
     document.getElementById('mb-name').value='';
     document.getElementById('mb-budget').value='';
@@ -793,6 +799,7 @@ function openBudgetModal(id){
     document.getElementById('modal-budget-edit-label').textContent='추가';
     if(foodManualRow)foodManualRow.style.display='none';
     if(foodManualChk)foodManualChk.checked=false;
+    if(calSyncChk)calSyncChk.checked=false;
   }
   openModal('budget');
 }
@@ -809,10 +816,12 @@ function saveBudgetCategory(){
   if(!S.budgetCategories)S.budgetCategories=[];
   if(!S.monthBudgets)S.monthBudgets={};
   const foodManualChk=document.getElementById('mb-food-budget-manual');
+  const foodCalSyncChk=document.getElementById('mb-food-cal-sync');
   if(id){
     const c=S.budgetCategories.find(c=>c.id==id);
     if(c){
       if(c.name==='식비'&&foodManualChk)c.foodBudgetManual=foodManualChk.checked;
+      if(c.name==='식비'&&foodCalSyncChk)c.calSync=foodCalSyncChk.checked;
       c.name=name;c.budget=budget;
       const wasSynced=c.synced!==false;
       c.synced=synced;
