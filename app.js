@@ -6028,7 +6028,6 @@ function getDefaultNature(catName){
   return''; // 기타 = 미분류
 }
 
-// ── 분석 기간 계산 ──
 // ── 분석 기간: 항상 해당 달 1일~말일 기준 ──
 function getAnalysisPeriod(y,m){
   const _p=n=>String(n).padStart(2,'0');
