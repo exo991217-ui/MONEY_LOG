@@ -5834,6 +5834,8 @@ function switchTab(tab){
     renderLedger();
   }
   if(resolvedTab==='analysis') renderAnalysis();
+  if(resolvedTab==='archive') renderArchive();
+  if(resolvedTab==='settings') renderSettings();
   if(window.innerWidth<=680)closeSidebar();
 }
 
@@ -6783,32 +6785,125 @@ function renderAnalysis(){
   }
   const y=S.analysisYear, m=S.analysisMonth;
   const isAnalysis=_anaMode==='analysis';
+  const isClose=_anaMode==='close';
+  const isStats=_anaMode==='stats';
   const nowY=new Date().getFullYear(),nowM=new Date().getMonth()+1;
-  const bodyHtml=isAnalysis?_buildAnalysisView(y,m):_buildCloseView(y);
+  let bodyHtml='';
+  if(isAnalysis)bodyHtml=_buildAnalysisView(y,m);
+  else if(isClose)bodyHtml=_buildCloseView(y);
+  else bodyHtml=_buildStatsView();
   const naturePanelHtml=isAnalysis&&_anaNaturePanelOpen?_buildNaturePanel(y):'';
+  let pageTitle='재무 분석 📊';
+  let pageSub='수입 대비 지출 성격을 분석하고, 재무 점수·정기비용·카테고리 현황을 확인하세요.';
+  if(isClose){pageTitle='월마감 📋';pageSub='한 달의 결과를 요약해서 보여주는 보고서에요.';}
+  if(isStats){pageTitle='연간 통계 📈';pageSub='월별 수입·지출·저축 현황을 한눈에 비교해보세요.';}
   container.innerHTML=`
     <div class="page-header">
       <div>
-        <h1 class="page-title">${isAnalysis?'재무 분석 📊':'월마감 📋'}</h1>
-        <p class="page-sub">${isAnalysis?'수입 대비 지출 성격을 분석하고, 재무 점수·정기비용·카테고리 현황을 확인하세요.':'한 달의 결과를 요약해서 보여주는 보고서에요.'}</p>
+        <h1 class="page-title">${pageTitle}</h1>
+        <p class="page-sub">${pageSub}</p>
       </div>
       <div style="display:flex;align-items:center;gap:10px;">
-
         ${isAnalysis?`<button class="nsp-open-btn${_anaNaturePanelOpen?' active':''}" onclick="App._openNatureSettings()">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           성격 설정 관리
         </button>`:''}
-        ${!isAnalysis?`<button class="add-btn" onclick="App.openCloseMonthModal()" style="font-size:12px;">+ ${nowY}년 ${nowM}월 마감하기</button>`:''}
+        ${isClose?`<button class="add-btn" onclick="App.openCloseMonthModal()" style="font-size:12px;">+ ${nowY}년 ${nowM}월 마감하기</button>`:''}
       </div>
     </div>
     <div class="ana2-mode-tabs">
       <button class="ana2-mode-btn${isAnalysis?' active':''}" onclick="App.changeAnalysisMode('analysis')">📊 분석</button>
-      <button class="ana2-mode-btn${!isAnalysis?' active':''}" onclick="App.changeAnalysisMode('close')">📋 월마감</button>
+      <button class="ana2-mode-btn${isClose?' active':''}" onclick="App.changeAnalysisMode('close')">📋 월마감</button>
+      <button class="ana2-mode-btn${isStats?' active':''}" onclick="App.changeAnalysisMode('stats')">📈 통계</button>
     </div>
     ${naturePanelHtml}
     ${isAnalysis?`<div class="ana2-month-nav"><button class="month-btn" onclick="App.changeAnalysisMonth(-1)">‹</button><span class="month-label">${y}년 ${m}월</span><button class="month-btn" onclick="App.changeAnalysisMonth(1)">›</button><button onclick="App.deleteMonthAnalysisData(${y},${m})" style="margin-left:10px;font-size:11px;color:#F06292;background:#FFF0F5;border:1.5px solid #F0629244;border-radius:8px;padding:4px 10px;cursor:pointer;font-weight:600;">이 달 삭제</button></div>`:''}
     ${bodyHtml}
   `;
+}
+
+// ── 통계 뷰 (연간 표 형식) ──
+function _buildStatsView(){
+  const fmt=n=>Math.round(n).toLocaleString('ko-KR')+'원';
+  const fmtPct=n=>n===null?'-':(n>=0?'+':'')+n.toFixed(1)+'%';
+  const cy=S.analysisYear||new Date().getFullYear();
+  // 해당 연도 모든 월 저축액 맵 (순자산증감률 계산용)
+  const allSavingsMap={};
+  for(let mo=1;mo<=12;mo++){
+    const key=mkey(cy,mo);
+    const arch=(S.monthClosedArchive||{})[key];
+    if(arch){allSavingsMap[mo]=arch.savings||0;}
+    else if(S.monthlyData&&S.monthlyData[key]){allSavingsMap[mo]=Math.max(0,getTotalSavings(cy,mo));}
+  }
+  // 전년도 12월 저축액 (1월 증감률 계산용)
+  const prevYearKey=mkey(cy-1,12);
+  const prevYearArch=(S.monthClosedArchive||{})[prevYearKey];
+  if(prevYearArch)allSavingsMap[0]=prevYearArch.savings||0;
+  // 해당 연도의 모든 월 데이터 수집
+  const rows=[];
+  for(let mo=1;mo<=12;mo++){
+    const key=mkey(cy,mo);
+    const arch=(S.monthClosedArchive||{})[key];
+    const hasMonthData=arch||(S.monthlyData&&S.monthlyData[key]);
+    if(!hasMonthData)continue;
+    const income=arch?(arch.ledgerIncome||getTotalIncome(cy,mo)):getTotalIncome(cy,mo);
+    const expense=arch?(arch.ledgerExpense||0):(getTotalFixed(cy,mo)+getTotalVariable(cy,mo));
+    const savings=arch?(arch.savings||Math.max(0,income-expense)):Math.max(0,getTotalSavings(cy,mo));
+    const rate=income>0?Math.round(savings/income*100):0;
+    const isClosed=!!arch;
+    // 재무관리 점수
+    const{natureMap}=getMonthAnalysisData(cy,mo);
+    const{score,grade,color:scoreColor}=calcConsumeScore(natureMap,income);
+    // 순자산증감률 = (이번달 저축액 - 전달 저축액) / |전달 저축액| * 100
+    const prevSav=allSavingsMap[mo-1];
+    let netAssetRate=null;
+    if(prevSav!==undefined&&prevSav!==0){netAssetRate=(savings-prevSav)/Math.abs(prevSav)*100;}
+    rows.push({mo,income,expense,savings,rate,isClosed,score,grade,scoreColor,netAssetRate});
+  }
+  const yearNav=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+    <button class="month-btn" onclick="App.changeAnalysisYear(-1)">‹</button>
+    <span style="font-size:16px;font-weight:800;min-width:70px;text-align:center;">${cy}년</span>
+    <button class="month-btn" onclick="App.changeAnalysisYear(1)">›</button>
+  </div>`;
+  if(rows.length===0){
+    return yearNav+`<div class="ana-empty"><div style="font-size:36px;margin-bottom:12px;">📭</div>${cy}년 데이터가 없어요.<br><span style="font-size:12px;">수입/지출을 입력하거나 월 마감을 진행하면 여기에 표시됩니다.</span></div>`;
+  }
+  const totIncome=rows.reduce((s,r)=>s+r.income,0);
+  const totExpense=rows.reduce((s,r)=>s+r.expense,0);
+  const totSavings=rows.reduce((s,r)=>s+r.savings,0);
+  const avgRate=rows.length>0?Math.round(rows.reduce((s,r)=>s+r.rate,0)/rows.length):0;
+  const avgScore=rows.length>0?Math.round(rows.reduce((s,r)=>s+r.score,0)/rows.length):0;
+  const summaryCards=`<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;">
+    ${[
+      {label:'연 총수입',val:fmt(totIncome),color:'#4CAF82'},
+      {label:'연 총지출',val:fmt(totExpense),color:'#F06292'},
+      {label:'연 총저축',val:fmt(totSavings),color:'#5E4BC4'},
+      {label:'평균 저축률',val:avgRate+'%',color:avgRate>=50?'#4CAF82':'#FFB347'},
+      {label:'평균 재무점수',val:avgScore+'점',color:avgScore>=70?'#4CAF82':avgScore>=50?'#FFB347':'#F06292'},
+    ].map(c=>`<div style="background:white;border-radius:14px;border:1.5px solid var(--border);padding:14px 16px;box-shadow:0 2px 10px rgba(160,140,220,.08);">
+      <div style="font-size:11px;color:var(--text-sub);margin-bottom:6px;">${c.label}</div>
+      <div style="font-size:18px;font-weight:900;color:${c.color};">${c.val}</div>
+    </div>`).join('')}
+  </div>`;
+  const tableHeader=`<div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr 70px 70px 90px 80px;gap:8px;padding:8px 16px;margin-bottom:4px;font-size:11px;font-weight:700;color:var(--text-sub);text-transform:uppercase;letter-spacing:.4px;">
+    <span>월</span><span>수입</span><span>지출</span><span>저축액</span><span style="text-align:center;">저축률</span><span style="text-align:center;">재무점수</span><span style="text-align:center;">순자산증감률</span><span style="text-align:right;">상태</span>
+  </div>`;
+  const tableRows=rows.map(r=>{
+    const rateColor=r.rate>=50?'#4CAF82':r.rate>=30?'#FFB347':'#F06292';
+    const scoreColor=r.score>=70?'#4CAF82':r.score>=50?'#FFB347':'#F06292';
+    const narColor=r.netAssetRate===null?'var(--text-sub)':r.netAssetRate>=0?'#4CAF82':'#F06292';
+    return`<div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr 70px 70px 90px 80px;gap:8px;align-items:center;padding:13px 16px;background:white;border-radius:12px;border:1.5px solid var(--border);margin-bottom:8px;box-shadow:0 1px 6px rgba(160,140,220,.06);">
+      <span style="font-size:14px;font-weight:800;color:var(--text-main);">${r.mo}월</span>
+      <span style="font-size:13px;font-weight:700;color:#4CAF82;">${fmt(r.income)}</span>
+      <span style="font-size:13px;font-weight:700;color:#F06292;">${fmt(r.expense)}</span>
+      <span style="font-size:13px;font-weight:700;color:#5E4BC4;">${fmt(r.savings)}</span>
+      <span style="text-align:center;font-size:14px;font-weight:900;color:${rateColor};">${r.rate}%</span>
+      <span style="text-align:center;font-size:14px;font-weight:900;color:${scoreColor};">${r.score}점</span>
+      <span style="text-align:center;font-size:13px;font-weight:900;color:${narColor};">${fmtPct(r.netAssetRate)}</span>
+      <span style="text-align:right;"><span style="font-size:11px;padding:3px 8px;border-radius:8px;font-weight:700;background:${r.isClosed?'#E8F5EE':'#F0EEFF'};color:${r.isClosed?'#4CAF82':'#5E4BC4'};">${r.isClosed?'✅ 마감':'진행중'}</span></span>
+    </div>`;
+  }).join('');
+  return yearNav+summaryCards+tableHeader+tableRows;
 }
 
 function toggleLedgerSubmenu(e){
@@ -6980,6 +7075,302 @@ function _closeNatureDetail(){
 }
 
 
+// ===== 마감 아카이브 페이지 =====
+function renderArchive(){
+  const container=document.getElementById('archive-content');
+  if(!container)return;
+  const fmt=n=>Math.round(n).toLocaleString('ko-KR')+'원';
+  const archived=Object.entries(S.monthClosedArchive||{}).sort((a,b)=>b[0].localeCompare(a[0]));
+  if(archived.length===0){
+    container.innerHTML=`<div class="page-header"><div><h1 class="page-title">마감 아카이브 🗂️</h1><p class="page-sub">월별 마감 기록을 조회하고 재무 변화를 비교해보세요.</p></div></div><div class="ana-empty"><div style="font-size:36px;margin-bottom:12px;">📭</div>아직 마감된 달이 없어요.<br><span style="font-size:12px;">분석 → 월마감 탭에서 마감하면 여기에 기록됩니다.</span></div>`;
+    return;
+  }
+  const totIncome=archived.reduce((s,[,d])=>s+(d.ledgerIncome||0),0);
+  const totExpense=archived.reduce((s,[,d])=>s+(d.ledgerExpense||0),0);
+  const totSavings=archived.reduce((s,[,d])=>s+(d.savings||0),0);
+  const avgRate=archived.length>0?Math.round(archived.reduce((s,[,d])=>s+(d.savingsRate||0),0)/archived.length):0;
+  const summaryHtml=`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;">
+    ${[
+      {label:'마감 완료',val:archived.length+'개월',color:'#5E4BC4'},
+      {label:'평균 저축률',val:avgRate+'%',color:'#4CAF82'},
+      {label:'총 저축 누계',val:fmt(totSavings),color:'#5E4BC4'},
+      {label:'총 지출 누계',val:fmt(totExpense),color:'#F06292'},
+    ].map(c=>`<div style="background:white;border-radius:14px;border:1.5px solid var(--border);padding:14px 18px;box-shadow:0 2px 10px rgba(160,140,220,.08);">
+      <div style="font-size:11px;color:var(--text-sub);margin-bottom:6px;">${c.label}</div>
+      <div style="font-size:18px;font-weight:900;color:${c.color};">${c.val}</div>
+    </div>`).join('')}
+  </div>`;
+  const headerRow=`<div style="display:grid;grid-template-columns:100px 1fr 1fr 1fr 70px 70px 28px;gap:8px;padding:8px 16px;font-size:11px;font-weight:700;color:var(--text-sub);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">
+    <span>월</span><span>수입</span><span>지출</span><span>저축액</span><span style="text-align:center;">저축률</span><span style="text-align:center;">재무점수</span><span></span>
+  </div>`;
+  const rowsHtml=archived.map(([key,data])=>{
+    const{year:y,month:mo,ledgerIncome:income,ledgerExpense:expense,savings,savingsRate,note,categories}=data;
+    const isOpen=(_archExpandedKey===key);
+    const rateColor=(savingsRate||0)>=50?'#4CAF82':(savingsRate||0)>=30?'#FFB347':'#F06292';
+    const{natureMap,totalIncome:closedIncome}=getMonthAnalysisData(y,mo);
+    const incomeBase=closedIncome||income||0;
+    const{score,grade,color:scoreColor,feedback}=calcConsumeScore(natureMap,incomeBase);
+    const prevScore=_getPrevScore(y,mo);
+    const cats=(categories||[]);
+    const maxCat=cats.length>0?Math.max(...cats.map(c=>c.amount)):1;
+    const catRows=cats.map(c=>`<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span style="font-weight:600;">${c.name}</span><span style="font-weight:700;">${fmt(c.amount)}</span></div><div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;"><div style="height:100%;width:${Math.min(100,c.amount/(maxCat||1)*100)}%;background:linear-gradient(90deg,#A29BFE,#74B9FF);border-radius:3px;"></div></div></div>`).join('');
+    const natCards=ANA_NATURES.map(n=>{const amt=natureMap[n.key]||0;const pct=incomeBase>0?Math.round(amt/incomeBase*100):0;return`<div class="ana2-closed-nature-card" style="background:${n.light};border:1.5px solid ${n.color}22;"><div style="font-size:10px;color:var(--text-sub);">${n.label}</div><div style="font-size:15px;font-weight:900;color:${n.color};">${pct}%</div><div style="font-size:10px;color:var(--text-sub);">${fmt(amt)}</div></div>`;}).join('');
+    const scoreHtml=_buildScoreBox(score,grade,scoreColor,feedback,prevScore);
+    const detailHtml=isOpen?`<div class="ana2-closed-detail" style="margin-top:0;border-top:none;border-radius:0 0 14px 14px;border:1.5px solid #A29BFE44;border-top:none;">
+      <div class="ana2-closed-kpi-grid">
+        <div class="ana2-kpi-box" style="border-color:#4CAF8244;"><div class="ana2-kpi-label">총 수입</div><div class="ana2-kpi-val" style="color:#4CAF82;">${fmt(income||0)}</div></div>
+        <div class="ana2-kpi-box" style="border-color:#F0629244;"><div class="ana2-kpi-label">총 지출</div><div class="ana2-kpi-val" style="color:#F06292;">${fmt(expense||0)}</div></div>
+        <div class="ana2-kpi-box" style="border-color:#A29BFE44;"><div class="ana2-kpi-label">저축액</div><div class="ana2-kpi-val" style="color:#A29BFE;">${fmt(savings||0)}</div></div>
+        <div class="ana2-kpi-box" style="border-color:#A29BFE44;"><div class="ana2-kpi-label">저축률</div><div class="ana2-kpi-val" style="color:#A29BFE;">${savingsRate||0}%</div></div>
+      </div>
+      ${scoreHtml}
+      <div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:8px;">재무 성격 요약</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">${natCards}</div></div>
+      <div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:8px;">카테고리별 지출</div>${catRows||'<div style="color:var(--text-sub);font-size:12px;">기록 없음</div>'}</div>
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <div style="font-size:12px;font-weight:700;color:var(--text-sub);">이번 달 소감</div>
+          <button onclick="App.deleteArchiveEntry('${key}')" style="font-size:11px;color:#F06292;background:#FFF0F5;border:1.5px solid #F0629244;border-radius:8px;padding:4px 10px;cursor:pointer;font-weight:600;">🗑 이 마감 삭제</button>
+        </div>
+        ${note?`<div style="background:white;border-radius:10px;border:1.5px solid var(--border);padding:10px 12px;font-size:13px;color:var(--text-main);">${note}</div>`:'<div style="color:var(--text-sub);font-size:12px;">소감 없음</div>'}
+      </div>
+    </div>`:'' ;
+    return`<div style="margin-bottom:8px;">
+      <div onclick="App._toggleArchiveRow('${key}')" style="display:grid;grid-template-columns:100px 1fr 1fr 1fr 70px 70px 28px;gap:8px;align-items:center;padding:14px 16px;background:white;border-radius:${isOpen?'14px 14px 0 0':'14px'};border:1.5px solid ${isOpen?'#A29BFE':'var(--border)'};cursor:pointer;box-shadow:0 1px 8px rgba(160,140,220,.07);">
+        <span style="font-size:14px;font-weight:800;">${y}년 ${mo}월</span>
+        <span style="font-size:13px;font-weight:700;color:#4CAF82;">${fmt(income||0)}</span>
+        <span style="font-size:13px;font-weight:700;color:#F06292;">${fmt(expense||0)}</span>
+        <span style="font-size:13px;font-weight:700;color:#5E4BC4;">${fmt(savings||0)}</span>
+        <span style="text-align:center;font-size:14px;font-weight:900;color:${rateColor};">${savingsRate||0}%</span>
+        <span style="text-align:center;font-size:14px;font-weight:900;color:${score>=70?'#4CAF82':score>=50?'#FFB347':'#F06292'};">${score}점</span>
+        <span style="text-align:center;font-size:14px;color:var(--text-sub);transition:transform .18s;display:inline-block;transform:${isOpen?'rotate(90deg)':'rotate(0)'};">›</span>
+      </div>
+      ${detailHtml}
+    </div>`;
+  }).join('');
+  container.innerHTML=`
+    <div class="page-header"><div>
+      <h1 class="page-title">마감 아카이브 🗂️</h1>
+      <p class="page-sub">월별 마감 기록을 조회하고 재무 변화를 비교해보세요.</p>
+    </div></div>
+    ${summaryHtml}
+    ${headerRow}
+    ${rowsHtml}
+  `;
+}
+
+let _archExpandedKey=null;
+function _toggleArchiveRow(key){
+  _archExpandedKey=(_archExpandedKey===key)?null:key;
+  renderArchive();
+}
+
+// ===== 설정 페이지 =====
+function renderSettings(){
+  const container=document.getElementById('settings-content');
+  if(!container)return;
+  const opacity=S.themeOpacity!==undefined?S.themeOpacity:50;
+  const payDay=S.payDay||'';
+  const storageRaw=localStorage.getItem('kakeibo_v4')||'';
+  const storagePct=Math.min(100,Math.round(storageRaw.length/51200*100));
+  const storageKB=Math.round(storageRaw.length/1024);
+  container.innerHTML=`
+    <div class="page-header"><div>
+      <h1 class="page-title">설정 ⚙️</h1>
+      <p class="page-sub">앱 환경 설정, 데이터 관리, 저장 용량을 관리하세요.</p>
+    </div></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">
+      <div>
+        <!-- 테마 진하기 -->
+        <div class="card" style="margin-bottom:16px;">
+          <div style="font-size:15px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px;">🎨 테마 진하기</div>
+          <div style="font-size:12px;color:var(--text-sub);margin-bottom:10px;">배경 색상의 진하기를 조절합니다.</div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+            <span style="font-size:12px;color:var(--text-sub);">밝게</span>
+            <input type="range" id="settings-opacity-slider" min="0" max="100" value="${opacity}" oninput="App.saveThemeOpacity(this.value)" class="theme-opacity-slider" style="flex:1;accent-color:#A29BFE;"/>
+            <span style="font-size:12px;color:var(--text-sub);">진하게</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:11px;color:var(--text-sub);">현재 값: ${opacity}</span>
+            <button id="settings-theme-lock-btn" onclick="App.toggleThemeOpacityLock();App.renderSettings();" class="ssb-lock-btn">${S.themeOpacityLocked?'🔒':'🔓'}</button>
+          </div>
+        </div>
+        <!-- 급여일 -->
+        <div class="card" style="margin-bottom:16px;">
+          <div style="font-size:15px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px;">📅 급여일 설정</div>
+          <div style="font-size:12px;color:var(--text-sub);margin-bottom:12px;">분석 탭의 기준 기간을 급여일 기준으로 설정합니다.</div>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <select id="settings-payday-select" onchange="App.setPayDay(this.value)" class="form-input" style="flex:1;">
+              <option value="" ${!payDay?'selected':''}>설정 안 함</option>
+              ${[1,5,10,15,20,21,22,23,24,25,26,27,28].map(d=>`<option value="${d}" ${String(payDay)===String(d)?'selected':''}>매월 ${d}일</option>`).join('')}
+            </select>
+            <button id="settings-payday-lock-btn" onclick="App.togglePayDayLock();App.renderSettings();" class="ssb-lock-btn">${S.payDayLocked?'🔒':'🔓'}</button>
+          </div>
+          ${payDay?`<div style="margin-top:10px;padding:8px 12px;background:#F0EEFF;border-radius:10px;font-size:12px;color:#5E4BC4;">📅 매월 ${payDay}일 기준으로 분석 기간이 설정됩니다.</div>`:''}
+        </div>
+        <!-- 저장 용량 -->
+        <div class="card">
+          <div style="font-size:15px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px;">💾 저장 용량</div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px;">
+            <span style="color:var(--text-sub);">사용 중</span>
+            <span style="font-weight:700;color:${storagePct>80?'#F06292':'#5E4BC4'};">${storagePct}%</span>
+          </div>
+          <div style="height:10px;background:var(--border);border-radius:5px;overflow:hidden;margin-bottom:10px;">
+            <div style="width:${storagePct}%;height:100%;background:${storagePct>80?'#F06292':'#A29BFE'};border-radius:5px;transition:width .5s;"></div>
+          </div>
+          <div style="font-size:11px;color:var(--text-sub);">약 ${storageKB} KB / 5,000 KB (localStorage)</div>
+        </div>
+      </div>
+      <!-- 데이터 관리 -->
+      <div class="card">
+        <div style="font-size:15px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:8px;">📊 데이터 관리</div>
+        <div style="font-size:12px;color:var(--text-sub);margin-bottom:16px;">데이터를 Excel 파일로 내보내거나 가져올 수 있습니다.</div>
+        <div style="margin-bottom:20px;">
+          <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text-main);">📥 내보내기 (Excel)</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            ${[
+              {id:'export-all',label:'전체 데이터 내보내기',desc:'수입·지출·자산·구독 전체',fn:'exportAllExcel()'},
+              {id:'export-month',label:'이달 수입/지출',desc:'현재 달 거래 내역',fn:'exportMonthExcel()'},
+              {id:'export-stats',label:'연간 통계 요약',desc:'월별 수입·지출·저축 집계',fn:'exportStatsExcel()'},
+              {id:'export-analysis',label:'분석 데이터 내보내기',desc:'재무 성격·점수·카테고리 분석',fn:'exportAnalysisExcel()'},
+            ].map(b=>`<button onclick="App.${b.fn}" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-radius:12px;border:1.5px solid var(--border);background:white;cursor:pointer;text-align:left;width:100%;transition:background .15s;" onmouseover="this.style.background='#F5EEFF'" onmouseout="this.style.background='white'">
+              <div><div style="font-size:13px;font-weight:600;color:#5E4BC4;">📤 ${b.label}</div><div style="font-size:11px;color:var(--text-sub);">${b.desc}</div></div>
+              <span style="font-size:11px;color:var(--text-sub);">xlsx ↓</span>
+            </button>`).join('')}
+          </div>
+        </div>
+        <div style="margin-bottom:20px;">
+          <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text-main);">📤 가져오기 (Excel)</div>
+          <label style="display:flex;align-items:center;justify-content:space-between;padding:14px;border-radius:12px;border:1.5px dashed #A29BFE;background:#F5EEFF;cursor:pointer;">
+            <div><div style="font-size:13px;font-weight:600;color:#5E4BC4;">📂 Excel 파일 선택</div><div style="font-size:11px;color:var(--text-sub);margin-top:2px;">.xlsx 파일로 저장된 전체 백업을 복원합니다</div></div>
+            <span style="font-size:20px;">⬆️</span>
+            <input type="file" accept=".xlsx,.xls" onchange="App.importExcel(this)" style="display:none;"/>
+          </label>
+          <div style="font-size:11px;color:var(--text-sub);margin-top:6px;">⚠️ 가져오기 시 현재 데이터가 덮어쓰기됩니다. 먼저 백업을 권장합니다.</div>
+        </div>
+        <div style="padding-top:14px;border-top:1.5px solid var(--border);">
+          <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text-main);">🗑 데이터 삭제</div>
+          <div style="font-size:12px;color:var(--text-sub);margin-bottom:10px;">삭제할 달을 선택하여 해당 월 데이터만 개별 삭제합니다.</div>
+          <button onclick="App.openDeleteModal()" style="width:100%;padding:12px;border-radius:12px;border:1.5px solid var(--border);background:white;cursor:pointer;font-size:13px;font-weight:600;color:var(--text-sub);display:flex;align-items:center;justify-content:center;gap:8px;transition:background .15s;" onmouseover="this.style.background='#FFF0F5';this.style.color='#F06292'" onmouseout="this.style.background='white';this.style.color='var(--text-sub)'">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+            월별 데이터 삭제
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ===== EXCEL 내보내기/가져오기 =====
+function exportAllExcel(){
+  if(!window.XLSX){alert('엑셀 라이브러리를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');return;}
+  const wb=XLSX.utils.book_new();
+  // 월별 수입/지출 시트
+  const incRows=[];const expRows=[];
+  Object.entries(S.monthlyData||{}).sort().forEach(([key,d])=>{
+    const[y,m]=key.split('-').map(Number);
+    (d.income||[]).forEach(i=>incRows.push({연도:y,월:m,항목:i.name,카테고리:i.category||'',금액:i.amount||0}));
+    (d.fixed||[]).forEach(f=>expRows.push({연도:y,월:m,유형:'고정',항목:f.name,카테고리:f.category||'',금액:f.amount||0,저축여부:f.isSavings?'Y':'N'}));
+    (d.variable||[]).forEach(v=>expRows.push({연도:y,월:m,유형:'변동',항목:v.name,카테고리:v.category||'',금액:v.amount||0,저축여부:'N'}));
+  });
+  // 가계부 시트
+  const ledRows=[];
+  Object.entries(S.ledger||{}).sort().forEach(([key,entries])=>{
+    const[y,m]=key.split('-').map(Number);
+    (entries||[]).forEach(e=>ledRows.push({연도:y,월:m,날짜:e.date||'',유형:e.type==='income'?'수입':'지출',카테고리:e.category||'',메모:e.memo||'',태그:(e.tags||[]).join(','),금액:e.amount||0}));
+  });
+  if(incRows.length>0)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(incRows),'수입');
+  if(expRows.length>0)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(expRows),'수입지출');
+  if(ledRows.length>0)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(ledRows),'가계부');
+  // 자산 시트
+  if((S.assets||[]).length>0){
+    const assetRows=(S.assets||[]).map(a=>({이름:a.name,카테고리:a.category||'',금액:a.amount||0,메모:a.note||''}));
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(assetRows),'자산');
+  }
+  // 구독 시트
+  if((S.subscriptions||[]).length>0){
+    const subRows=(S.subscriptions||[]).map(s=>({이름:s.name,금액:s.amount||0,주기:s.cycle||'월',카테고리:s.category||''}));
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(subRows),'구독');
+  }
+  if(wb.SheetNames.length===0)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet([{메시지:'데이터 없음'}]),'데이터없음');
+  XLSX.writeFile(wb,'가계부_전체백업_'+new Date().toISOString().slice(0,10)+'.xlsx');
+}
+
+function exportMonthExcel(){
+  if(!window.XLSX){alert('엑셀 라이브러리를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');return;}
+  const cm=S.currentMonths.dashboard;const y=cm.y,m=cm.m;
+  const key=mkey(y,m);
+  const rows=[];
+  (S.ledger[key]||[]).forEach(e=>{
+    rows.push({날짜:e.date||'',유형:e.type==='income'?'수입':'지출',카테고리:e.category||'',메모:e.memo||'',태그:(e.tags||[]).join(','),'금액(원)':e.amount||0});
+  });
+  if(rows.length===0){alert('이달 가계부 내역이 없습니다.');return;}
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.json_to_sheet(rows,{header:['날짜','유형','카테고리','메모','태그','금액(원)']});
+  XLSX.utils.book_append_sheet(wb,ws,y+'년 '+m+'월');
+  XLSX.writeFile(wb,'가계부_'+y+'년_'+m+'월.xlsx');
+}
+
+function exportStatsExcel(){
+  if(!window.XLSX){alert('엑셀 라이브러리를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');return;}
+  const rows=[];
+  const archived=Object.entries(S.monthClosedArchive||{}).sort();
+  archived.forEach(([key,d])=>{
+    rows.push({연도:d.year,월:d.month,'총수입(원)':d.ledgerIncome||0,'총지출(원)':d.ledgerExpense||0,'저축액(원)':d.savings||0,'저축률(%)':d.savingsRate||0,소감:d.note||''});
+  });
+  if(rows.length===0){alert('마감된 달이 없습니다. 월마감을 먼저 진행해주세요.');return;}
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'연간통계');
+  XLSX.writeFile(wb,'가계부_연간통계_'+new Date().getFullYear()+'.xlsx');
+}
+
+function exportAnalysisExcel(){
+  if(!window.XLSX){alert('엑셀 라이브러리를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');return;}
+  const rows=[];
+  const archived=Object.entries(S.monthClosedArchive||{}).sort();
+  archived.forEach(([key,d])=>{
+    const{y,m}={y:d.year,m:d.month};
+    const{natureMap,totalIncome}=getMonthAnalysisData(y,m);
+    const incomeBase=totalIncome||d.ledgerIncome||0;
+    const{score,grade}=calcConsumeScore(natureMap,incomeBase);
+    const pct=amt=>incomeBase>0?Math.round(amt/incomeBase*100):0;
+    rows.push({
+      연도:y,월:m,
+      '총수입(원)':d.ledgerIncome||0,
+      '총지출(원)':d.ledgerExpense||0,
+      '저축률(%)':d.savingsRate||0,
+      '재무관리점수':score,
+      등급:grade,
+      '필수지출(원)':natureMap['필수']||0,'필수지출(%)':pct(natureMap['필수']||0),
+      '생활지출(원)':natureMap['생활']||0,'생활지출(%)':pct(natureMap['생활']||0),
+      '저축투자(원)':natureMap['투자']||0,'저축투자(%)':pct(natureMap['투자']||0),
+      '특별지출(원)':natureMap['특별']||0,'특별지출(%)':pct(natureMap['특별']||0),
+    });
+  });
+  if(rows.length===0){alert('마감된 달이 없습니다. 월마감을 먼저 진행해주세요.');return;}
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'분석데이터');
+  XLSX.writeFile(wb,'가계부_분석데이터_'+new Date().getFullYear()+'.xlsx');
+}
+
+function importExcel(input){
+  if(!window.XLSX){alert('엑셀 라이브러리를 불러오는 중입니다.');return;}
+  const file=input.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const sheet=wb.Sheets['가계부']||wb.Sheets[wb.SheetNames[0]];
+      if(!sheet){alert('올바른 형식의 파일이 아닙니다.');return;}
+      alert('가져오기 기능: 전체 백업 파일의 경우 개발자에게 문의하거나 직접 데이터를 입력해주세요.\n(현재 버전은 가계부 시트 가져오기를 지원합니다)');
+    }catch(err){
+      alert('파일을 읽는 중 오류가 발생했습니다: '+err.message);
+    }
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
 window.App={
   changeMonth,changeCalYear,toggleDashSection,toggleDashVarSection,applyMonthTheme,setDashVarMode,
   showDonutTip,hideDonutTip,_donutOtherToggle,_openIconPicker,_saveLcatIcon,_openColorPicker,_saveLcatColor,switchTab,
@@ -7037,6 +7428,10 @@ window.App={
   numInputFmt,numInputParse,
   _dmDragStart,_dmDragOver,_dmDragLeave,_dmDrop,_dmDragEnd,_dmTouchStart,_dmTouchMove,_dmTouchEnd,
   renderAll,
+  renderArchive,renderSettings,
+  _toggleArchiveRow,
+  exportAllExcel,exportMonthExcel,exportStatsExcel,exportAnalysisExcel,
+  importExcel,
 };
 
 // ===== INIT =====
