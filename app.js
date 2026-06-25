@@ -29,6 +29,7 @@ const DEFAULT_DATA=()=>{
   ],
   analysisYear:_y,
   analysisMonth:_m,
+  analysisCriteriaMode:null,
   expenseNatureSettings:{},
   consumptionCalendar:{},savingsGoals:{},foodCalendar:{},foodDirectSet:{},
   cardSettings:[{
@@ -143,6 +144,7 @@ function loadState(){
       }
       if(S.analysisYear===undefined)S.analysisYear=new Date().getFullYear();
       if(S.analysisMonth===undefined)S.analysisMonth=new Date().getMonth()+1;
+      if(S.analysisCriteriaMode===undefined)S.analysisCriteriaMode=null;
       if(!S.expenseNatureSettings)S.expenseNatureSettings={};
       if(S.ledgerFilter===undefined)S.ledgerFilter=null;
       S.ledgerTagFilter=null;
@@ -287,6 +289,7 @@ window.FB_MERGE = function(fbData) {
     if(!S.calFoodSync)S.calFoodSync={};
     if(S.analysisYear===undefined)S.analysisYear=new Date().getFullYear();
     if(S.analysisMonth===undefined)S.analysisMonth=new Date().getMonth()+1;
+    if(S.analysisCriteriaMode===undefined)S.analysisCriteriaMode=null;
     if(!S.expenseNatureSettings)S.expenseNatureSettings={};
     // 가계부 카테고리 이모지 버전으로 재설정 (v2)
     if(!S._lcat_reset_v2){
@@ -6095,6 +6098,8 @@ function changeAnalysisMonth(delta){
 // ── 분석 기준 변경 (분석 탭 전용) ──
 function setAnalysisBaseMode(mode){
   _analysisBaseMode=mode; // 'payday' 또는 'lastday'
+  S.analysisCriteriaMode=mode; // localStorage에 영구 저장
+  saveState();
   renderAnalysis();
 }
 function _toggleAnaMonth(m){
@@ -6685,7 +6690,6 @@ function _buildClosedDetail(key){
   const cats=(categories||[]);
   const maxCat=cats.length>0?Math.max(...cats.map(c=>c.amount)):1;
   const catRows=cats.map(c=>`<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span style="font-weight:600;">${c.name}</span><span style="font-weight:700;">${fmt(c.amount)}</span></div><div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;"><div style="height:100%;width:${Math.min(100,c.amount/(maxCat||1)*100)}%;background:linear-gradient(90deg,#A29BFE,#74B9FF);border-radius:3px;"></div></div></div>`).join('');
-  const top5=cats.slice(0,5).map((c,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;background:white;border-radius:8px;border:1px solid var(--border);margin-bottom:4px;"><span style="width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0;background:${i<3?'linear-gradient(135deg,#A29BFE,#74B9FF)':'var(--border)'};color:${i<3?'white':'var(--text-sub)'};">${i+1}</span><span style="flex:1;font-size:13px;font-weight:600;">${c.name}</span><span style="font-size:13px;font-weight:800;color:var(--red);">${fmt(c.amount)}</span></div>`).join('');
   // ★ % 기준: 수입 대비 (분석 탭과 동일)
   const incomeBase=closedIncome||income||0;
   const natCards=ANA_NATURES.map(n=>{
@@ -6707,7 +6711,6 @@ function _buildClosedDetail(key){
     </div>
     <div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:8px;">재무 성격 요약</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">${natCards}</div></div>
     <div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:8px;">카테고리별 지출</div>${catRows||'<div style="color:var(--text-sub);font-size:12px;">기록 없음</div>'}</div>
-    <div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:8px;">지출 TOP5 <span style="font-size:10px;font-weight:400;">(주거·공과금·금융 제외)</span></div>${top5||'<div style="color:var(--text-sub);font-size:12px;">기록 없음</div>'}</div>
     <div style="margin-bottom:14px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
         <div style="font-size:12px;font-weight:700;color:var(--text-sub);">이번 달 소감</div>
@@ -6752,9 +6755,13 @@ function renderAnalysis(){
   if(!S.analysisYear)S.analysisYear=new Date().getFullYear();
   if(!S.analysisMonth)S.analysisMonth=new Date().getMonth()+1;
   if(!S.expenseNatureSettings)S.expenseNatureSettings={};
-  // ── 분석 기준 초기화: 첫 진입 시 사용자 급여일 설정에 따라 자동 결정 ──
+  // ── 분석 기준 초기화: 저장된 값 우선, 없으면 급여일 설정 기반 자동 결정 ──
   if(_analysisBaseMode===null){
-    _analysisBaseMode=(S.payDay&&S.payDay>1)?'payday':'lastday';
+    if(S.analysisCriteriaMode){
+      _analysisBaseMode=S.analysisCriteriaMode;
+    } else {
+      _analysisBaseMode=(S.payDay&&S.payDay>1)?'payday':'lastday';
+    }
   }
   const y=S.analysisYear, m=S.analysisMonth;
   const isAnalysis=_anaMode==='analysis';
