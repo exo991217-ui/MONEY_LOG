@@ -5840,6 +5840,7 @@ let _anaExpandedMonth=null;
 let _anaNaturePanelOpen=false;
 let _anaMode='analysis';
 let _anaExpandedClose=null;
+let _analysisBaseMode=null; // 'payday'=월급일 기준, 'lastday'=말일 기준, null=미초기화
 
 // ── 재무관리 점수 (수입 대비 비율 기준) ──
 // ※ 부동소수점 오차 방지를 위해 Math.round(pct*10)/10 (소수점 1자리) 기준으로 판단
@@ -5973,15 +5974,20 @@ function getDefaultNature(catName){
   return''; // 기타 = 미분류
 }
 
-// ── 분석 기간 계산 (급여일 기준) ──
+// ── 분석 기간 계산 ──
+// _analysisBaseMode: 'payday'=월급일 기준, 'lastday'=말일 기준
+// ※ 이 함수는 분석 탭에서만 사용됩니다. 다른 탭(대시보드, 가계부 등)에는 영향 없음.
 function getAnalysisPeriod(y,m){
   const _p=n=>String(n).padStart(2,'0');
   const payDay=S&&S.payDay;
-  if(!payDay||payDay<=1){
+  // 말일 기준 또는 월급일 미설정 시 → 1일~말일
+  const useLastDay=(_analysisBaseMode==='lastday')||!payDay||payDay<=1;
+  if(useLastDay){
     const lastDay=new Date(y,m,0).getDate();
     return{startY:y,startM:m,startDay:1,endY:y,endM:m,endDay:lastDay,
       label:`${y}.${_p(m)}.01 ~ ${y}.${_p(m)}.${_p(lastDay)}`};
   }
+  // 월급일 기준 → 전월 급여일 ~ 당월 (급여일-1)일
   let startY=y,startM=m-1;
   if(startM<1){startM=12;startY--;}
   const endDay=payDay-1;
@@ -6085,6 +6091,11 @@ function changeAnalysisMonth(delta){
   if(m>12){m=1;y++;}if(m<1){m=12;y--;}
   S.analysisYear=y;S.analysisMonth=m;
   saveState();renderAnalysis();
+}
+// ── 분석 기준 변경 (분석 탭 전용) ──
+function setAnalysisBaseMode(mode){
+  _analysisBaseMode=mode; // 'payday' 또는 'lastday'
+  renderAnalysis();
 }
 function _toggleAnaMonth(m){
   _anaExpandedMonth=_anaExpandedMonth===m?null:m;
@@ -6741,11 +6752,27 @@ function renderAnalysis(){
   if(!S.analysisYear)S.analysisYear=new Date().getFullYear();
   if(!S.analysisMonth)S.analysisMonth=new Date().getMonth()+1;
   if(!S.expenseNatureSettings)S.expenseNatureSettings={};
+  // ── 분석 기준 초기화: 첫 진입 시 사용자 급여일 설정에 따라 자동 결정 ──
+  if(_analysisBaseMode===null){
+    _analysisBaseMode=(S.payDay&&S.payDay>1)?'payday':'lastday';
+  }
   const y=S.analysisYear, m=S.analysisMonth;
   const isAnalysis=_anaMode==='analysis';
   const nowY=new Date().getFullYear(),nowM=new Date().getMonth()+1;
   const bodyHtml=isAnalysis?_buildAnalysisView(y,m):_buildCloseView(y);
   const naturePanelHtml=isAnalysis&&_anaNaturePanelOpen?_buildNaturePanel(y):'';
+  // ── 분석 기준 드롭다운 (분석 탭 전용) ──
+  const hasPayDay=S.payDay&&S.payDay>1;
+  const analysisCriteriaHtml=isAnalysis?`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px 16px;background:#F8F7FF;border-radius:12px;border:1.5px solid #A29BFE33;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5E4BC4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <span style="font-size:12px;font-weight:700;color:#5E4BC4;white-space:nowrap;">분석 기준</span>
+      <select onchange="App.setAnalysisBaseMode(this.value)" style="border:1.5px solid #A29BFE55;border-radius:8px;padding:4px 10px;font-size:12px;font-weight:700;color:#5E4BC4;background:white;cursor:pointer;outline:none;">
+        <option value="payday" ${_analysisBaseMode==='payday'?'selected':''} ${!hasPayDay?'disabled':''}>📅 월급일 기준${!hasPayDay?' (급여일 미설정)':''}</option>
+        <option value="lastday" ${_analysisBaseMode==='lastday'?'selected':''}>📆 말일 기준</option>
+      </select>
+      ${!hasPayDay&&_analysisBaseMode==='payday'?`<span style="font-size:11px;color:#F06292;font-weight:600;">⚠ 사이드바에서 급여일을 설정해 주세요</span>`:''}
+    </div>`:'';
   container.innerHTML=`
     <div class="page-header">
       <div>
@@ -6765,6 +6792,7 @@ function renderAnalysis(){
       <button class="ana2-mode-btn${isAnalysis?' active':''}" onclick="App.changeAnalysisMode('analysis')">📊 분석</button>
       <button class="ana2-mode-btn${!isAnalysis?' active':''}" onclick="App.changeAnalysisMode('close')">📋 월마감</button>
     </div>
+    ${analysisCriteriaHtml}
     ${naturePanelHtml}
     ${isAnalysis?`<div class="ana2-month-nav"><button class="month-btn" onclick="App.changeAnalysisMonth(-1)">‹</button><span class="month-label">${y}년 ${m}월</span><button class="month-btn" onclick="App.changeAnalysisMonth(1)">›</button><button onclick="App.deleteMonthAnalysisData(${y},${m})" style="margin-left:10px;font-size:11px;color:#F06292;background:#FFF0F5;border:1.5px solid #F0629244;border-radius:8px;padding:4px 10px;cursor:pointer;font-weight:600;">이 달 삭제</button></div>`:''}
     ${bodyHtml}
@@ -6968,7 +6996,7 @@ window.App={
   openCloseMonthModal,closeMonth,reopenMonth,
   renderMonthlyArchive,deleteArchiveEntry,_toggleArchiveCard,toggleLedgerSubmenu,
   _toggleCatDetail,
-  renderAnalysis,changeAnalysisYear,changeAnalysisMode,changeAnalysisMonth,_toggleAnaMonth,_toggleClosedMonth,_toggleAnalysisMenu,_openNatureSettings,_setNature,calcConsumeScore,
+  renderAnalysis,changeAnalysisYear,changeAnalysisMode,changeAnalysisMonth,setAnalysisBaseMode,_toggleAnaMonth,_toggleClosedMonth,_toggleAnalysisMenu,_openNatureSettings,_setNature,calcConsumeScore,
   _selectNatureKey,_nsPickIcon,_nsToggleCat,openTagMgmtModal,_tagMgmtRender,_addSub,_deleteSub,_deleteSubThisMonth,_deleteSubPermanent,_updateSubName,_updateSubAmount,_openTagSuggest,_applyTagSuggest,_applyTagSuggestPopup,deleteMonthAnalysisData,_openNatureDetail,_closeNatureDetail,
   fetchStockPrices,
   downloadMonthlyReport,
