@@ -466,17 +466,6 @@ function getFoodTotal(y,m){
   return Object.values(days).reduce((s,d)=>s+(parseFloat(d.amount)||0),0);
 }
 
-function getCreditMonthTotal(y,m){
-  let total=0;
-  for(const card of S.creditCards){
-    if(isCardDueInMonth(card,y,m)){
-      const monthly=Math.ceil(card.amount/card.months);
-      if(!(card.paidMonths||[]).includes(mkey(y,m)))total+=monthly;
-    }
-  }
-  return total;
-}
-
 function isCardDueInMonth(card,y,m){
   for(let i=0;i<card.months;i++){
     let mm=card.startMonth+i,yy=card.startYear;
@@ -1266,19 +1255,7 @@ function toggleDashSection(section){
 }
 
 // ===== DASHBOARD VARIABLE EXPENSE DONUT CHART =====
-// 카테고리별 안정적 색상 — 골든앵글(137.5°) 기반으로 최대한 다른 색 보장
-function _catColorStable(name){
-  const cats=S.ledgerCategories||[];
-  const found=cats.find(c=>c.name===name);
-  if(found&&found.color)return found.color;
-  let idx=cats.findIndex(c=>c.name===name);
-  if(idx<0){let h=0;for(let i=0;i<name.length;i++)h=((h<<5)-h+name.charCodeAt(i))|0;idx=Math.abs(h)%60+20;}
-  const hue=Math.round((idx*137.508)%360);
-  const sat=65+((idx*11)%20); // 65~84%, 더 선명하게
-  const lit=46+((idx*7)%14); // 46~59%, 더 진하게
-  return `hsl(${hue},${sat}%,${lit}%)`;
-}
-// ===== SVG 카테고리 아이콘 시스템 (filled/solid) =====
+// 카테고리별 안정적 색상 — 골든앵글(137.5°) 기반으로 최대한 다른 색 보장// ===== SVG 카테고리 아이콘 시스템 (filled/solid) =====
 function _stripCatEmoji(name){
   if(!name)return'';
   // 앞의 이모지 + 공백 제거 (예: "🍚 식비" → "식비")
@@ -1328,7 +1305,7 @@ function _getCatSVG(name){
   if(n.includes('기타')||n.includes('📦'))return _SVG_ICONS.box;
   return _SVG_ICONS.pin;
 }
-function _categoryIcon(name){return _getCatSVG(name);}
+
 
 // ── 아이콘 피커: 이름 ↔ 표시 레이블
 const _ICON_LABELS={
@@ -6150,10 +6127,6 @@ const DEFAULT_NATURES_DEF=[
   {key:'투자',label:'투자지출',icon:'📈',desc:'미래를 위한 자기계발 및 자산 투자',defCats:['건강','교육','금융']},
   {key:'특별',label:'특별지출',icon:'✈',desc:'비정기적이고 특별한 상황의 지출',defCats:['여행','경조사']},
 ];
-
-function _getNatureIcon(key){const d=DEFAULT_NATURES_DEF.find(n=>n.key===key);return d?d.icon:'⚙';}
-function _getNatureDesc(key){const d=DEFAULT_NATURES_DEF.find(n=>n.key===key);return d?d.desc:'';}
-
 function _buildNaturePanel(y){
   const ns=S.expenseNatureSettings||{};
   // 가계부 카테고리 목록 기반 (저축 제외)
@@ -6515,6 +6488,87 @@ function _buildFixed2Section(y,m,fmt){
     ※ 가계부 항목의 태그 또는 메모에 등록된 태그명이 포함된 경우 자동 집계${skipList.length>0?` | 이번달 제외: ${skipList.join(', ')}` : ''}
   </div>`;
 }
+// ── 카테고리 유형 판별 ──
+function _getCatType(cat){
+  const n=(cat||'').toLowerCase();
+  if(n.includes('주거')||n.includes('공과')||n.includes('금융')||n.includes('통신')||n.includes('카드'))return'고정지출';
+  if(n.includes('여행')||n.includes('경조')||n.includes('기타'))return'기타';
+  return'변동지출';
+}
+// ── 카테고리 상세 분석 카드 토글 ──
+function _toggleCatDetail(id){
+  const el=document.getElementById('catd-'+id);
+  const btn=document.getElementById('catd-btn-'+id);
+  if(!el)return;
+  const open=el.style.display==='none'||!el.style.display;
+  el.style.display=open?'block':'none';
+  if(btn)btn.textContent=open?'상세 내역 접기 ▴':'상세 내역 보기 ▾';
+}
+// ── 카테고리 상세 분석 카드 그리드 ──
+function _buildCatAnalysisSection(y,m,ledgerEntries,fmt){
+  const prevY=m===1?y-1:y,prevM=m===1?12:m-1;
+  const prevEntries=(getMonthAnalysisData(prevY,prevM).ledgerEntries)||[];
+  const prevCat={};
+  prevEntries.forEach(e=>{if(e.type==='expense'){const c=e.category||'기타';prevCat[c]=(prevCat[c]||0)+(e.amount||0);}});
+  const catMap={};
+  (ledgerEntries||[]).forEach(e=>{
+    if(e.type==='expense'){
+      const c=e.category||'기타';
+      if(!catMap[c])catMap[c]={amount:0,count:0,entries:[],placeMap:{}};
+      catMap[c].amount+=(e.amount||0);
+      catMap[c].count++;
+      catMap[c].entries.push(e);
+      const place=(e.memo||'기타').trim()||'기타';
+      catMap[c].placeMap[place]=(catMap[c].placeMap[place]||0)+(e.amount||0);
+    }
+  });
+  const sorted=Object.entries(catMap).sort((a,b)=>b[1].amount-a[1].amount);
+  if(!sorted.length)return'<div style="color:var(--text-sub);font-size:12px;padding:24px;text-align:center;">가계부 지출 내역 없음</div>';
+  const typeColors={고정지출:['#EBF5FF','#0984E3'],변동지출:['#FFF3EF','#E17055'],기타:['#F5F6FA','#636E72']};
+  return`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:13px;">${
+    sorted.map(([cat,data],idx)=>{
+      const cc=getCategoryColor(cat);
+      const color=cc.strip,light=cc.bg;
+      const icon=_getCatSVG(cat);
+      const type=_getCatType(cat);
+      const prev=prevCat[cat]||0;
+      const diff=data.amount-prev;
+      const diffPct=prev>0?Math.round(diff/prev*100):0;
+      const avg=data.count>0?Math.round(data.amount/data.count):0;
+      const places=Object.entries(data.placeMap).sort((a,b)=>b[1]-a[1]).slice(0,3);
+      const [tbg,tc]=typeColors[type]||typeColors['기타'];
+      const diffHtml=prev>0?(diff===0
+        ?`<span style="font-size:11px;color:#B2BEC3;font-weight:500;">— 변동없음</span>`
+        :`<span style="font-size:11px;font-weight:700;color:${diff>0?'#E17055':'#00B894'};background:${diff>0?'#FFF3EF':'#E8FBF5'};border-radius:5px;padding:1px 7px;">${diff>0?'▲':'▼'} ${Math.abs(diffPct)}%</span><span style="font-size:11px;font-weight:600;color:${diff>0?'#E17055':'#00B894'};margin-left:3px;">${diff>0?'+':''}${fmt(diff)}</span>`
+      ):`<span style="font-size:11px;color:#B2BEC3;">전월 데이터 없음</span>`;
+      const detailRows=data.entries.slice().sort((a,b)=>(a.date||'')>(b.date||'')?1:-1).map(e=>{
+        const ds=(e.date||'').slice(5).replace('-','/');
+        return`<div style="display:flex;align-items:center;gap:8px;padding:7px 13px;border-bottom:1px dashed #F3F3F3;"><span style="min-width:32px;font-size:10px;font-weight:700;color:${color};background:${light};border-radius:5px;padding:1px 4px;text-align:center;">${ds}</span><span style="flex:1;font-size:12px;color:#4A4A6A;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e.memo||''}</span><span style="font-size:12px;font-weight:700;color:#1A1A2E;white-space:nowrap;">${fmt(e.amount)}</span></div>`;
+      }).join('');
+      return`<div style="background:white;border-radius:15px;border:1.5px solid ${color}18;box-shadow:0 2px 12px rgba(0,0,0,0.04);overflow:hidden;display:flex;flex-direction:column;">
+        <div style="height:3px;background:linear-gradient(90deg,${color},${color}55);"></div>
+        <div style="padding:13px 14px 0;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div style="width:30px;height:30px;border-radius:9px;background:${light};display:flex;align-items:center;justify-content:center;flex-shrink:0;color:${color};">${icon}</div>
+              <span style="font-size:13px;font-weight:700;color:var(--text-main);">${cat}</span>
+            </div>
+            <span style="font-size:9.5px;font-weight:700;background:${tbg};color:${tc};border-radius:5px;padding:2px 6px;">${type}</span>
+          </div>
+          <div style="font-size:20px;font-weight:900;color:${color};letter-spacing:-0.5px;margin-bottom:4px;line-height:1.2;">${fmt(data.amount)}</div>
+          <div style="display:flex;align-items:center;gap:5px;margin-bottom:10px;">${diffHtml}</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;background:#F8F9FB;border-radius:9px;padding:8px 10px;margin-bottom:10px;">
+            <div><div style="font-size:9px;color:#B2BEC3;font-weight:600;margin-bottom:2px;">거래 건수</div><div style="font-size:12.5px;font-weight:700;color:var(--text-main);">${data.count}건</div></div>
+            <div><div style="font-size:9px;color:#B2BEC3;font-weight:600;margin-bottom:2px;">평균 결제</div><div style="font-size:12.5px;font-weight:700;color:var(--text-main);">${fmt(avg)}</div></div>
+          </div>
+          ${places.length?`<div style="margin-bottom:11px;"><div style="font-size:9px;font-weight:700;color:#B2BEC3;margin-bottom:5px;letter-spacing:0.2px;">주요 사용처</div>${places.map(([name,amt],i)=>`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;"><div style="display:flex;align-items:center;gap:6px;min-width:0;"><span style="width:15px;height:15px;border-radius:4px;background:${i===0?color:i===1?color+'88':color+'44'};display:flex;align-items:center;justify-content:center;font-size:8.5px;color:white;font-weight:800;flex-shrink:0;">${i+1}</span><span style="font-size:11px;color:#4A4A6A;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</span></div><span style="font-size:11.5px;font-weight:700;color:var(--text-main);white-space:nowrap;margin-left:6px;">${fmt(amt)}</span></div>`).join('')}</div>`:''}
+        </div>
+        <button id="catd-btn-${idx}" onclick="App._toggleCatDetail(${idx})" style="width:100%;background:#F8F9FB;border:none;border-top:1px dashed #EBEBEB;padding:8px 0;font-size:11px;font-weight:600;color:#B2BEC3;cursor:pointer;">상세 내역 보기 ▾</button>
+        <div id="catd-${idx}" style="display:none;border-top:1.5px solid ${light||'#F8F9FB'};">${detailRows||'<div style="padding:12px;color:var(--text-sub);font-size:12px;text-align:center;">내역 없음</div>'}</div>
+      </div>`;
+    }).join('')
+  }</div>`;
+}
 // ── 분석 뷰 (현재 달 상세) ──
 function _buildAnalysisView(y,m){
   const fmt=n=>Math.round(n).toLocaleString('ko-KR')+'원';
@@ -6539,26 +6593,7 @@ function _buildAnalysisView(y,m){
       <div style="font-size:10px;color:${n.color};margin-top:6px;opacity:.6;">▶ 상세 내역 보기</div>
     </div>`;
   }).join('');
-  // 카테고리 상세 분석 — ③ 섹션 (총 소비 대비 비율)
-  const _catTotals={};
-  (ledgerEntries||[]).forEach(e=>{const c=e.category||'기타';_catTotals[c]=(_catTotals[c]||0)+(e.amount||0);});
-  const _sortedCats=Object.entries(_catTotals).sort((a,b)=>b[1]-a[1]);
-  const catDetailRows=_sortedCats.length>0?_sortedCats.map(([cat,amt])=>{
-    const catPct=totalExpense>0?Math.round(amt/totalExpense*100):0;
-    const catBarW=Math.max(2,catPct);
-    return`<div style="margin-bottom:10px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-        <span style="font-size:12.5px;font-weight:700;color:var(--text-main);">${cat}</span>
-        <span style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:12px;color:var(--text-sub);">${catPct}%</span>
-          <span style="font-size:13px;font-weight:800;color:var(--red);">${fmt(amt)}</span>
-        </span>
-      </div>
-      <div style="height:6px;background:var(--border);border-radius:4px;overflow:hidden;">
-        <div style="height:100%;width:${catBarW}%;background:linear-gradient(90deg,#A29BFE,#74B9FF);border-radius:4px;transition:width .4s;"></div>
-      </div>
-    </div>`;
-  }).join(''):'<div style="color:var(--text-sub);font-size:12px;padding:12px 0;text-align:center;">가계부 지출 내역 없음</div>';
+
   return`
     <div style="background:#F0EEFF;border-radius:10px;padding:9px 16px;margin-bottom:16px;display:flex;align-items:center;gap:8px;border:1.5px solid #A29BFE33;">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5E4BC4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -6616,16 +6651,11 @@ function _buildAnalysisView(y,m){
       <div class="ana2-section-hd">
         <div>
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><span class="ana2-num-badge">③</span><span style="font-size:15px;font-weight:800;color:var(--text-main);">카테고리 상세 분석</span></div>
-          <div style="font-size:11px;color:var(--text-sub);margin-left:34px;">가계부 카테고리별 지출 현황 (총 소비 대비 비율)</div>
+          <div style="font-size:11px;color:var(--text-sub);margin-left:34px;">카테고리별 소비 패턴과 전월 대비 변화를 확인하세요.</div>
         </div>
+        <div style="font-size:20px;font-weight:900;color:var(--red);">${fmt(totalExpense)}</div>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-        <div>
-          <div style="font-size:11px;color:var(--text-sub);margin-bottom:3px;">총 지출 합계</div>
-          <div style="font-size:22px;font-weight:900;color:var(--red);">${fmt(totalExpense)}</div>
-        </div>
-      </div>
-      ${catDetailRows}
+      ${_buildCatAnalysisSection(y,m,ledgerEntries,fmt)}
     </div>
 `;
 }
@@ -6937,6 +6967,7 @@ window.App={
   exportLedgerExcel,
   openCloseMonthModal,closeMonth,reopenMonth,
   renderMonthlyArchive,deleteArchiveEntry,_toggleArchiveCard,toggleLedgerSubmenu,
+  _toggleCatDetail,
   renderAnalysis,changeAnalysisYear,changeAnalysisMode,changeAnalysisMonth,_toggleAnaMonth,_toggleClosedMonth,_toggleAnalysisMenu,_openNatureSettings,_setNature,calcConsumeScore,
   _selectNatureKey,_nsPickIcon,_nsToggleCat,openTagMgmtModal,_tagMgmtRender,_addSub,_deleteSub,_deleteSubThisMonth,_deleteSubPermanent,_updateSubName,_updateSubAmount,_openTagSuggest,_applyTagSuggest,_applyTagSuggestPopup,deleteMonthAnalysisData,_openNatureDetail,_closeNatureDetail,
   fetchStockPrices,
