@@ -3828,6 +3828,8 @@ function setPayDay(val){
   const d=parseInt(val)||0;
   S.payDay=(d>=1&&d<=31)?d:null;
   saveState();renderAnalysis();_syncPayDayUI();
+  // 설정 탭이 열려 있으면 확인 메시지 즉시 반영
+  if(document.getElementById('settings-content'))renderSettings();
 }
 function togglePayDayLock(){
   S.payDayLocked=!S.payDayLocked;
@@ -3845,6 +3847,9 @@ function saveThemeOpacity(val){
   saveState();
   applyMonthTheme(S.currentMonths.dashboard.m);
   renderFood();
+  // 설정 탭이 열려 있을 때 현재 값 텍스트 즉시 반영
+  const span=document.getElementById('opacity-val-span');
+  if(span)span.textContent=S.themeOpacity;
 }
 
 function toggleThemeOpacityLock(){
@@ -4744,7 +4749,15 @@ function openCloseMonthModal(){
 }
 
 function closeMonth(){
-  const cm=S.currentMonths.ledger;const key=mkey(cm.y,cm.m);
+  const cm=S.currentMonths.ledger;
+  // 아직 지나지 않은 달은 마감 불가
+  const _now=new Date();
+  const _nowY=_now.getFullYear(),_nowM=_now.getMonth()+1;
+  if(cm.y>_nowY||(cm.y===_nowY&&cm.m>_nowM)){
+    alert('아직 지나지 않은 달은 마감할 수 없어요.\n해당 월이 끝난 후 마감해 주세요.');
+    return;
+  }
+  const key=mkey(cm.y,cm.m);
   const entries=S.ledger[key]||[];
   const budIn=getTotalIncome(cm.y,cm.m);
   const budOut=getTotalFixed(cm.y,cm.m)+getTotalVariable(cm.y,cm.m)+getFoodTotal(cm.y,cm.m);
@@ -4787,6 +4800,13 @@ function reopenMonth(){
 
 
 function closeMonthDirect(y,m){
+  // 아직 지나지 않은 달은 마감 불가
+  const _now=new Date();
+  const _nowY=_now.getFullYear(),_nowM=_now.getMonth()+1;
+  if(y>_nowY||(y===_nowY&&m>_nowM)){
+    alert('아직 지나지 않은 달은 마감할 수 없어요.\n해당 월이 끝난 후 마감해 주세요.');
+    return;
+  }
   const key=mkey(y,m);
   const note=document.getElementById('close-note-inline')?.value?.trim()||'';
   const entries=S.ledger[key]||[];
@@ -4818,13 +4838,14 @@ function closeMonthDirect(y,m){
   renderLedger();
 }
 function reopenMonthDirect(y,m){
-  if(!confirm('마감을 취소하고 다시 편집 가능하게 할까요?'))return;
+  if(!confirm(`${m}월 마감을 취소할까요? 연간 통계와 마감 아카이브에서도 삭제됩니다.`))return;
   const key=mkey(y,m);
   delete S.closedMonths[key];
   delete S.monthClosedArchive[key];
   saveState();
   renderAnalysis();
   renderLedger();
+  if(typeof renderMonthlyArchive==='function')renderMonthlyArchive();
 }
 
 // ===== MONTHLY ARCHIVE TAB =====
@@ -6737,13 +6758,14 @@ function _buildClosedDetail(key){
   const net=(income||0)-(expense||0);
   const netColor=net>=0?'#4CAF82':'#F06292';
   const{natureMap,totalIncome:closedIncome,totalExpense}=getMonthAnalysisData(y,m);
-  const{score,grade,color:scoreColor,feedback}=calcConsumeScore(natureMap,closedIncome||income||0);
+  // ★ 수입 기준: 마감 시점에 기록된 예산수입(budgetIncome) 우선 사용 → 재무성격 % 왜곡 방지
+  // ?? 사용: budgetIncome=0인 경우도 올바르게 처리 (|| 는 0을 falsy로 취급)
+  const incomeBase=(arch.budgetIncome??income??closedIncome)??0;
+  const{score,grade,color:scoreColor,feedback}=calcConsumeScore(natureMap,incomeBase);
   const prevScore=_getPrevScore(y,m);
   const cats=(categories||[]);
   const maxCat=cats.length>0?Math.max(...cats.map(c=>c.amount)):1;
   const catRows=cats.map(c=>`<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span style="font-weight:600;">${c.name}</span><span style="font-weight:700;">${fmt(c.amount)}</span></div><div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;"><div style="height:100%;width:${Math.min(100,c.amount/(maxCat||1)*100)}%;background:linear-gradient(90deg,#A29BFE,#74B9FF);border-radius:3px;"></div></div></div>`).join('');
-  // ★ % 기준: 수입 대비 (분석 탭과 동일)
-  const incomeBase=closedIncome||income||0;
   const natCards=ANA_NATURES.map(n=>{
     const amt=natureMap[n.key]||0;
     const pct=incomeBase>0?Math.round(amt/incomeBase*100):0;
@@ -6781,13 +6803,21 @@ function _buildCloseView(){
   const key=mkey(y,m);
   const arch=(S.monthClosedArchive||{})[key];
   const isClosed=!!arch;
+  // 미래 달은 마감 불가
+  const _now=new Date();const _nowY=_now.getFullYear(),_nowM=_now.getMonth()+1;
+  const isFuture=y>_nowY||(y===_nowY&&m>_nowM);
 
   const monthNav=`<div class="ana2-month-nav" style="margin-bottom:20px;">
     <button class="month-btn" onclick="App.changeAnalysisMonth(-1)">‹</button>
     <span class="month-label">${y}년 ${m}월</span>
     <button class="month-btn" onclick="App.changeAnalysisMonth(1)">›</button>
-    ${isClosed?'<span style="margin-left:12px;font-size:11px;background:#E8F5EE;color:#4CAF82;border-radius:8px;padding:3px 10px;font-weight:700;">✅ 마감완료</span>':'<span style="margin-left:12px;font-size:11px;background:#FFF0F5;color:#F06292;border-radius:8px;padding:3px 10px;font-weight:700;">미마감</span>'}
+    ${isFuture?'<span style="margin-left:12px;font-size:11px;background:#F7F4FF;color:#9490A8;border-radius:8px;padding:3px 10px;font-weight:700;">📅 미래 달</span>':isClosed?'<span style="margin-left:12px;font-size:11px;background:#E8F5EE;color:#4CAF82;border-radius:8px;padding:3px 10px;font-weight:700;">✅ 마감완료</span>':'<span style="margin-left:12px;font-size:11px;background:#FFF0F5;color:#F06292;border-radius:8px;padding:3px 10px;font-weight:700;">미마감</span>'}
   </div>`;
+
+  // 미래 달이면 안내 메시지만 표시
+  if(isFuture){
+    return monthNav+`<div class="ana-empty"><div style="font-size:36px;margin-bottom:12px;">📅</div><b>${y}년 ${m}월</b>은 아직 지나지 않은 달이에요.<br><span style="font-size:12px;">해당 월이 끝난 후 마감을 진행해 주세요.</span></div>`;
+  }
 
   const entries=S.ledger[key]||[];
   const ledIn=entries.filter(e=>e.type==='income').reduce((s,e)=>s+e.amount,0);
@@ -6795,8 +6825,8 @@ function _buildCloseView(){
   const budIn=isClosed?(arch.budgetIncome||arch.ledgerIncome||0):getTotalIncome(y,m);
   const budOut=isClosed?(arch.budgetExpense||arch.ledgerExpense||0):(getTotalFixed(y,m)+getTotalVariable(y,m)+getFoodTotal(y,m));
   const savingsAmt=isClosed?(arch.savings||0):getTotalSavings(y,m);
-  const dispIn=isClosed?(arch.ledgerIncome||ledIn):ledIn||budIn;
-  const dispOut=isClosed?(arch.ledgerExpense||ledOut):ledOut||budOut;
+  const dispIn=isClosed?(arch.budgetIncome||arch.ledgerIncome||ledIn):budIn||ledIn;
+  const dispOut=isClosed?Math.max(0,(arch.budgetIncome||0)-(arch.savings||0)):Math.max(0,budIn-savingsAmt);
   const sr=budIn>0?(savingsAmt/budIn*100).toFixed(1):0;
   const srColor=parseFloat(sr)>=30?'#43C98A':parseFloat(sr)>=15?'#FFB347':'#F06292';
 
@@ -6862,7 +6892,7 @@ function _buildCloseView(){
       <div style="font-size:14px;font-weight:800;color:#4CAF82;margin-bottom:6px;">✅ ${m}월 마감완료</div>
       <div style="font-size:11px;color:var(--text-sub);margin-bottom:12px;">${closedDate} 확정됨</div>
       ${noteText}
-      <button onclick="App.reopenMonthDirect(${y},${m})" style="font-size:12px;padding:8px 18px;background:#FFF0F5;border:1.5px solid #F0629266;border-radius:10px;cursor:pointer;color:#F06292;font-weight:600;">🔓 마감 재오픈</button>
+      <button onclick="App.reopenMonthDirect(${y},${m})" style="font-size:12px;padding:8px 18px;background:#FFF0F5;border:1.5px solid #F0629266;border-radius:10px;cursor:pointer;color:#F06292;font-weight:600;">마감 취소</button>
     </div>`;
   }else{
     actionHtml=`<div style="background:white;border-radius:14px;border:1.5px solid var(--border);padding:20px;box-shadow:0 2px 10px rgba(160,140,220,.07);">
@@ -6932,6 +6962,7 @@ function _buildStatsView(){
   const fmt=n=>Math.round(n).toLocaleString('ko-KR')+'원';
   const fmtDiff=n=>n===null?'-':(n>=0?'+':'')+Math.round(n).toLocaleString('ko-KR')+'원';
   const cy=S.analysisYear||new Date().getFullYear();
+  const _now=new Date();const _nowY=_now.getFullYear(),_nowM=_now.getMonth()+1;
   // 해당 연도 모든 월 저축액 맵 (순자산 증감 계산용)
   const allSavingsMap={};
   for(let mo=1;mo<=12;mo++){
@@ -6947,12 +6978,14 @@ function _buildStatsView(){
   // 해당 연도의 모든 월 데이터 수집
   const rows=[];
   for(let mo=1;mo<=12;mo++){
+    // 마감된 달만 표시, 미래 달 제외
+    if(cy>_nowY||(cy===_nowY&&mo>_nowM))continue;
     const key=mkey(cy,mo);
     const arch=(S.monthClosedArchive||{})[key];
     if(!arch)continue;
-    const income=arch?(arch.ledgerIncome||getTotalIncome(cy,mo)):getTotalIncome(cy,mo);
-    const expense=arch?(arch.ledgerExpense||0):(getTotalFixed(cy,mo)+getTotalVariable(cy,mo));
-    const savings=arch?(arch.savings||Math.max(0,income-expense)):Math.max(0,getTotalSavings(cy,mo));
+    const income=arch?(arch.budgetIncome||getTotalIncome(cy,mo)):getTotalIncome(cy,mo);
+    const savings=arch?(arch.savings||Math.max(0,getTotalSavings(cy,mo))):Math.max(0,getTotalSavings(cy,mo));
+    const expense=Math.max(0,income-savings);
     const rate=income>0?Math.round(savings/income*100):0;
     // 순자산 증감 = 이번달 저축액 - 전달 저축액 (원)
     const prevSav=allSavingsMap[mo-1];
@@ -7174,7 +7207,12 @@ function renderArchive(){
   const container=document.getElementById('archive-content');
   if(!container)return;
   const fmt=n=>Math.round(n).toLocaleString('ko-KR')+'원';
-  const archived=Object.entries(S.monthClosedArchive||{}).sort((a,b)=>b[0].localeCompare(a[0]));
+  // 미래 달 제외: 오늘 이후 달의 마감 항목은 표시하지 않음 (숫자 비교 — mkey는 "YYYY-M" 비패딩)
+  const _now=new Date();
+  const _nowY=_now.getFullYear(),_nowM=_now.getMonth()+1;
+  const archived=Object.entries(S.monthClosedArchive||{})
+    .filter(([key])=>{const[ky,km]=key.split('-').map(Number);return ky<_nowY||(ky===_nowY&&km<=_nowM);})
+    .sort((a,b)=>{const[ay,am]=a[0].split('-').map(Number);const[by,bm]=b[0].split('-').map(Number);return by!==ay?by-ay:bm-am;});
   if(archived.length===0){
     container.innerHTML=`<div class="page-header"><div><h1 class="page-title">마감 아카이브 🗂️</h1><p class="page-sub">월별 마감 기록을 조회하고 재무 변화를 비교해보세요.</p></div></div><div class="ana-empty"><div style="font-size:36px;margin-bottom:12px;">📭</div>아직 마감된 달이 없어요.<br><span style="font-size:12px;">분석 → 월마감 탭에서 마감하면 여기에 기록됩니다.</span></div>`;
     return;
@@ -7202,7 +7240,9 @@ function renderArchive(){
     const isOpen=(_archExpandedKey===key);
     const rateColor=(savingsRate||0)>=50?'#4CAF82':(savingsRate||0)>=30?'#FFB347':'#F06292';
     const{natureMap,totalIncome:closedIncome}=getMonthAnalysisData(y,mo);
-    const incomeBase=closedIncome||income||0;
+    // ★ 수입 기준: 마감 시점에 기록된 예산수입(budgetIncome) 우선 사용 → 재무성격 % 왜곡 방지
+    // ?? 사용: budgetIncome=0인 경우도 올바르게 처리 (|| 는 0을 falsy로 취급)
+    const incomeBase=(data.budgetIncome??income??closedIncome)??0;
     const{score,grade,color:scoreColor,feedback}=calcConsumeScore(natureMap,incomeBase);
     const prevScore=_getPrevScore(y,mo);
     const cats=(categories||[]);
@@ -7284,7 +7324,7 @@ function renderSettings(){
             <input type="range" id="settings-opacity-slider" min="0" max="100" value="${opacity}" oninput="App.saveThemeOpacity(this.value)" class="theme-opacity-slider" style="flex:1;accent-color:#A29BFE;"/>
             <span style="font-size:12px;color:var(--text-sub);">진하게</span>
           </div>
-          <span style="font-size:11px;color:var(--text-sub);">현재 값: ${opacity}</span>
+          <span style="font-size:11px;color:var(--text-sub);">현재 값: <span id="opacity-val-span">${opacity}</span></span>
         </div>
         <!-- 급여일 -->
         <div class="card" style="margin-bottom:16px;">
