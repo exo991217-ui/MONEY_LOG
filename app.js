@@ -6645,9 +6645,11 @@ function _buildClosedDetail(key){
   const maxCat=cats.length>0?Math.max(...cats.map(c=>c.amount)):1;
   const catRows=cats.map(c=>`<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span style="font-weight:600;">${c.name}</span><span style="font-weight:700;">${fmt(c.amount)}</span></div><div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;"><div style="height:100%;width:${Math.min(100,c.amount/(maxCat||1)*100)}%;background:linear-gradient(90deg,#A29BFE,#74B9FF);border-radius:3px;"></div></div></div>`).join('');
   const top5=cats.slice(0,5).map((c,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;background:white;border-radius:8px;border:1px solid var(--border);margin-bottom:4px;"><span style="width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0;background:${i<3?'linear-gradient(135deg,#A29BFE,#74B9FF)':'var(--border)'};color:${i<3?'white':'var(--text-sub)'};">${i+1}</span><span style="flex:1;font-size:13px;font-weight:600;">${c.name}</span><span style="font-size:13px;font-weight:800;color:var(--red);">${fmt(c.amount)}</span></div>`).join('');
+  // ★ % 기준: 수입 대비 (분석 탭과 동일)
+  const incomeBase=closedIncome||income||0;
   const natCards=ANA_NATURES.map(n=>{
     const amt=natureMap[n.key]||0;
-    const pct=totalExpense>0?Math.round(amt/totalExpense*100):0;
+    const pct=incomeBase>0?Math.round(amt/incomeBase*100):0;
     return`<div class="ana2-closed-nature-card" style="background:${n.light};border:1.5px solid ${n.color}22;"><div style="font-size:10px;color:var(--text-sub);">${n.label}</div><div style="font-size:15px;font-weight:900;color:${n.color};">${pct}%</div><div style="font-size:10px;color:var(--text-sub);">${fmt(amt)}</div></div>`;
   }).join('');
   return`<div class="ana2-closed-detail">
@@ -6824,16 +6826,18 @@ function _openNatureDetail(key,y,m){
   const fmt=n=>Math.round(n).toLocaleString('ko-KR')+'원';
   const nature=ANA_NATURES.find(n=>n.key===key);
   if(!nature)return;
-  const mKey=mkey(y,m);
   const ns=S.expenseNatureSettings||{};
-  const entries=(S.ledger[mKey]||[]).filter(e=>e.type==='expense');
+  // ★ 분석 기간 필터 적용 (분석 카드와 동일한 소스)
+  const {totalIncome,ledgerEntries}=getMonthAnalysisData(y,m);
+  const entries=ledgerEntries; // 이미 expense 만 필터됨
   const matched=entries.filter(e=>{
     const n=ns.hasOwnProperty(e.category||'')?ns[e.category||'']:getDefaultNature(e.category||'');
     return n===key;
   });
   const total=matched.reduce((s,e)=>s+(e.amount||0),0);
-  const totalAll=entries.reduce((s,e)=>s+(e.amount||0),0);
-  const pct=totalAll>0?Math.round(total/totalAll*100):0;
+  // ★ % 기준: 수입 대비 (분석 카드와 동일)
+  const pct=totalIncome>0?Math.round(total/totalIncome*100):0;
+  const period=getAnalysisPeriod(y,m);
 
   // 카테고리 목록
   const cats=[...new Set(matched.map(e=>e.category||'기타'))];
@@ -6869,11 +6873,11 @@ function _openNatureDetail(key,y,m){
             <div style="display:flex;align-items:flex-start;justify-content:space-between;">
               <div>
                 <div style="display:flex;align-items:center;gap:8px;color:${nature.color};margin-bottom:4px;">${nature.svg||''}<span style="font-size:15px;font-weight:900;">${nature.label} 상세</span></div>
-                <div style="font-size:11px;color:var(--text-sub);">${y}년 ${m}월 · ${matched.length}건</div>
+                <div style="font-size:11px;color:var(--text-sub);">${period.label} · ${matched.length}건</div>
               </div>
               <div style="text-align:right;">
                 <div style="font-size:22px;font-weight:900;color:${nature.color};">${fmt(catTotal)}</div>
-                <div style="font-size:11px;color:var(--text-sub);">총 지출의 ${pct}%</div>
+                <div style="font-size:11px;color:var(--text-sub);">수입 대비 ${pct}%</div>
               </div>
             </div>
             ${cats.length>1?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px dashed ${nature.color}22;">
