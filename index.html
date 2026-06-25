@@ -79,61 +79,7 @@
         설정
       </li>
     </ul>
-    <button class="sidebar-delete-btn" onclick="App.openDeleteModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg> 데이터 삭제</button>
-    <div class="sidebar-storage">
-      <div class="sidebar-storage-info">
-        <span class="sidebar-storage-label">💾 저장 용량</span>
-        <span class="sidebar-storage-pct" id="storage-pct-text">—</span>
-      </div>
-      <div class="sidebar-storage-track">
-        <div class="sidebar-storage-fill" id="storage-fill"></div>
-      </div>
-    </div>
-    <div class="sidebar-settings-block">
-      <!-- 테마 진하기 -->
-      <div class="ssb-row" onclick="App.toggleSsbItem('ssb-theme')">
-        <span class="ssb-label">🎨 테마 진하기</span>
-        <span class="ssb-arrow" id="ssb-theme-arrow">›</span>
-      </div>
-      <div id="ssb-theme" style="display:none;padding:2px 0 8px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
-          <span style="font-size:10px;color:var(--text-sub);">밝기 조절</span>
-          <button id="theme-lock-btn" onclick="App.toggleThemeOpacityLock();event.stopPropagation();" class="ssb-lock-btn">🔓</button>
-        </div>
-        <input type="range" id="theme-opacity-slider" min="0" max="100" value="50"
-          oninput="App.saveThemeOpacity(this.value)" class="theme-opacity-slider ssb-slider"/>
-      </div>
 
-      <div class="ssb-divider"></div>
-
-      <!-- 급여일 -->
-      <div class="ssb-row" onclick="App.toggleSsbItem('ssb-payday')">
-        <span class="ssb-label">📅 급여일</span>
-        <span class="ssb-arrow" id="ssb-payday-arrow">›</span>
-      </div>
-      <div id="ssb-payday" style="display:none;padding:2px 0 6px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
-          <span style="font-size:10px;color:var(--text-sub);">분석 탭 기준 기간</span>
-          <button id="pay-day-lock-btn" onclick="App.togglePayDayLock();event.stopPropagation();" class="ssb-lock-btn">🔓</button>
-        </div>
-        <select id="pay-day-select" onchange="App.setPayDay(this.value)" class="ssb-select">
-          <option value="">설정 안 함</option>
-          <option value="1">매월 1일</option>
-          <option value="5">매월 5일</option>
-          <option value="10">매월 10일</option>
-          <option value="15">매월 15일</option>
-          <option value="20">매월 20일</option>
-          <option value="21">매월 21일</option>
-          <option value="22">매월 22일</option>
-          <option value="23">매월 23일</option>
-          <option value="24">매월 24일</option>
-          <option value="25">매월 25일</option>
-          <option value="26">매월 26일</option>
-          <option value="27">매월 27일</option>
-          <option value="28">매월 28일</option>
-        </select>
-      </div>
-    </div>
     <div class="sidebar-footer fb-user-info">
       <img id="fb-sidebar-photo" src="" alt="" style="display:none;width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;">
       <span id="fb-sidebar-name" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">로그인 중...</span>
@@ -562,7 +508,6 @@
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <button class="ledger-search-btn" onclick="App.toggleSearchPanel()">🔍 검색</button>
           <button class="close-month-btn" onclick="App.exportLedgerExcel()" style="background:var(--green-light);color:var(--green);">📥 내보내기</button>
-          <button class="close-month-btn" onclick="App.openCloseMonthModal()">📋 월 마감</button>
           <div class="month-nav">
             <button class="month-btn" onclick="App.changeMonth(-1,'ledger')">‹</button>
             <span class="month-label" id="ledger-month-label"></span>
