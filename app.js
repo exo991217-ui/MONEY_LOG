@@ -3823,25 +3823,6 @@ function saveFoodDirect(val){
   saveState();renderFood();renderIncome();renderDashboard();
 }
 
-// ── 급여일 설정 ──
-function setPayDay(val){
-  const d=parseInt(val)||0;
-  S.payDay=(d>=1&&d<=31)?d:null;
-  saveState();renderAnalysis();_syncPayDayUI();
-  // 설정 탭이 열려 있으면 확인 메시지 즉시 반영
-  if(document.getElementById('settings-content'))renderSettings();
-}
-function togglePayDayLock(){
-  S.payDayLocked=!S.payDayLocked;
-  saveState();_syncPayDayUI();
-}
-function _syncPayDayUI(){
-  const sel=document.getElementById('pay-day-select');
-  const lockBtn=document.getElementById('pay-day-lock-btn');
-  if(sel){sel.value=S.payDay||'';sel.disabled=!!S.payDayLocked;}
-  if(lockBtn){lockBtn.textContent=S.payDayLocked?'🔒':'🔓';}
-}
-
 function saveThemeOpacity(val){
   S.themeOpacity=Math.max(0,Math.min(100,parseInt(val)||50));
   saveState();
@@ -3872,7 +3853,6 @@ function syncThemeSlider(){
     lockBtn.textContent=locked?'🔒':'🔓';
     lockBtn.title=locked?'잠금 해제':'잠금';
   }
-  _syncPayDayUI();
 }
 
 // Card settings
@@ -5298,7 +5278,7 @@ function toggleSsbItem(id){
   if(!content)return;
   const isOpen=content.style.display==='block';
   // 모두 닫기
-  ['ssb-theme','ssb-payday'].forEach(k=>{
+  ['ssb-theme'].forEach(k=>{
     const el=document.getElementById(k);
     const ar=document.getElementById(k+'-arrow');
     if(el)el.style.display='none';
@@ -5915,7 +5895,6 @@ let _anaExpandedMonth=null;
 let _anaNaturePanelOpen=false;
 let _anaMode='analysis';
 let _anaExpandedClose=null;
-let _analysisBaseMode=null; // 'payday'=월급일 기준, 'lastday'=말일 기준, null=미초기화
 
 // ── 재무관리 점수 (수입 대비 비율 기준) ──
 // ※ 부동소수점 오차 방지를 위해 Math.round(pct*10)/10 (소수점 1자리) 기준으로 판단
@@ -6050,38 +6029,17 @@ function getDefaultNature(catName){
 }
 
 // ── 분석 기간 계산 ──
-// _analysisBaseMode: 'payday'=월급일 기준, 'lastday'=말일 기준
-// ※ 이 함수는 분석 탭에서만 사용됩니다. 다른 탭(대시보드, 가계부 등)에는 영향 없음.
+// ── 분석 기간: 항상 해당 달 1일~말일 기준 ──
 function getAnalysisPeriod(y,m){
   const _p=n=>String(n).padStart(2,'0');
-  const payDay=S&&S.payDay;
-  // 말일 기준 또는 월급일 미설정 시 → 1일~말일
-  const useLastDay=(_analysisBaseMode==='lastday')||!payDay||payDay<=1;
-  if(useLastDay){
-    const lastDay=new Date(y,m,0).getDate();
-    return{startY:y,startM:m,startDay:1,endY:y,endM:m,endDay:lastDay,
-      label:`${y}.${_p(m)}.01 ~ ${y}.${_p(m)}.${_p(lastDay)}`};
-  }
-  // 월급일 기준 → 전월 급여일 ~ 당월 (급여일-1)일
-  let startY=y,startM=m-1;
-  if(startM<1){startM=12;startY--;}
-  const endDay=payDay-1;
-  return{startY,startM,startDay:payDay,endY:y,endM:m,endDay,
-    label:`${startY}.${_p(startM)}.${_p(payDay)} ~ ${y}.${_p(m)}.${_p(endDay)}`};
+  const lastDay=new Date(y,m,0).getDate();
+  return{startY:y,startM:m,startDay:1,endY:y,endM:m,endDay:lastDay,
+    label:`${y}.${_p(m)}.01 ~ ${y}.${_p(m)}.${_p(lastDay)}`};
 }
 
-// ── 분석 기간 내 가계부 항목 필터링 ──
+// ── 분석 기간 내 가계부 항목 (해당 달 전체) ──
 function getAnalysisPeriodEntries(y,m){
-  const per=getAnalysisPeriod(y,m);
-  const _p=n=>String(n).padStart(2,'0');
-  const startStr=`${per.startY}-${_p(per.startM)}-${_p(per.startDay)}`;
-  const endStr=`${per.endY}-${_p(per.endM)}-${_p(per.endDay)}`;
-  const keys=new Set([mkey(per.startY,per.startM),mkey(per.endY,per.endM)]);
-  const entries=[];
-  keys.forEach(k=>{(S.ledger[k]||[]).forEach(e=>{
-    if(e.date&&e.date>=startStr&&e.date<=endStr)entries.push(e);
-  });});
-  return entries;
+  return S.ledger[mkey(y,m)]||[];
 }
 
 // ── 정기비용 태그 총합 계산 (이달 고정지출 카드용) ──
@@ -6113,13 +6071,12 @@ function getMonthAnalysisData(y,m){
   const totalExpense=fixedTotal+varTotal;
 
   // ── 가계부(ledger) 카테고리 기반으로 지출 성격 계산 ──
-  // 급여일 기준 기간 내 항목 사용
   const allPeriodEntries=getAnalysisPeriodEntries(y,m);
   const ledgerEntries=allPeriodEntries.filter(e=>e.type==='expense');
   const ledgerIncomeEntries=allPeriodEntries.filter(e=>e.type==='income');
   const ledgerTotal=ledgerEntries.reduce((s,e)=>s+(e.amount||0),0);
 
-  // 총수입: 수입/지출 탭 monthlyData 기준 우선 — 가계부 수입 입력이 없어도 올바른 기준 유지
+  // 총수입: 해당 달 monthlyData 수입 기준, 없으면 가계부 수입 합산
   const ledgerIncome=ledgerIncomeEntries.reduce((s,e)=>s+(e.amount||0),0);
   const mdIncome=(md.income||[]).reduce((s,i)=>s+(i.amount||0),0);
   const totalIncome=mdIncome||ledgerIncome||0;
@@ -6160,13 +6117,6 @@ function changeAnalysisMonth(delta){
   if(m>12){m=1;y++;}if(m<1){m=12;y--;}
   S.analysisYear=y;S.analysisMonth=m;
   saveState();renderAnalysis();
-}
-// ── 분석 기준 변경 (분석 탭 전용) ──
-function setAnalysisBaseMode(mode){
-  _analysisBaseMode=mode; // 'payday' 또는 'lastday'
-  S.analysisCriteriaMode=mode; // localStorage에 영구 저장
-  saveState();
-  renderAnalysis();
 }
 function _toggleAnaMonth(m){
   _anaExpandedMonth=_anaExpandedMonth===m?null:m;
@@ -6674,19 +6624,10 @@ function _buildAnalysisView(y,m){
     </div>`;
   }).join('');
 
-  const _hasPayDay=S.payDay&&S.payDay>1;
   return`
     <div style="background:#F0EEFF;border-radius:10px;padding:9px 16px;margin-bottom:16px;display:flex;align-items:center;gap:8px;border:1.5px solid #A29BFE33;">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5E4BC4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       <span style="font-size:12px;font-weight:700;color:#5E4BC4;">분석 기간 : ${period.label}</span>
-      <div style="margin-left:auto;display:flex;align-items:center;gap:6px;">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5E4BC4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        <span style="font-size:11px;font-weight:700;color:#5E4BC4;white-space:nowrap;">분석 기준</span>
-        <select onchange="App.setAnalysisBaseMode(this.value)" style="border:1.5px solid #A29BFE55;border-radius:8px;padding:3px 8px;font-size:11px;font-weight:700;color:#5E4BC4;background:white;cursor:pointer;outline:none;">
-          <option value="payday" ${_analysisBaseMode==='payday'?'selected':''} ${!_hasPayDay?'disabled':''}>📅 월급일 기준${!_hasPayDay?' (미설정)':''}</option>
-          <option value="lastday" ${_analysisBaseMode==='lastday'?'selected':''}>📆 말일 기준</option>
-        </select>
-      </div>
     </div>
 
     <div class="ana2-top-cards">
@@ -6904,14 +6845,6 @@ function renderAnalysis(){
   if(!S.analysisYear)S.analysisYear=new Date().getFullYear();
   if(!S.analysisMonth)S.analysisMonth=new Date().getMonth()+1;
   if(!S.expenseNatureSettings)S.expenseNatureSettings={};
-  // ── 분석 기준 초기화: 저장된 값 우선, 없으면 급여일 설정 기반 자동 결정 ──
-  if(_analysisBaseMode===null){
-    if(S.analysisCriteriaMode){
-      _analysisBaseMode=S.analysisCriteriaMode;
-    } else {
-      _analysisBaseMode=(S.payDay&&S.payDay>1)?'payday':'lastday';
-    }
-  }
   const y=S.analysisYear, m=S.analysisMonth;
   // 통계 모드 제거 — 분석 모드로 리디렉션
   if(_anaMode==='stats')_anaMode='analysis';
@@ -7234,7 +7167,6 @@ function renderSettings(){
   const container=document.getElementById('settings-content');
   if(!container)return;
   const opacity=S.themeOpacity!==undefined?S.themeOpacity:50;
-  const payDay=S.payDay||'';
   const storageRaw=localStorage.getItem('kakeibo_v4')||'';
   const _storageBytes=new Blob([storageRaw]).size;
   const storagePct=Math.min(100,Math.round(_storageBytes/(5*1024*1024)*100));
@@ -7256,16 +7188,6 @@ function renderSettings(){
             <span style="font-size:12px;color:var(--text-sub);">진하게</span>
           </div>
           <span style="font-size:11px;color:var(--text-sub);">현재 값: <span id="opacity-val-span">${opacity}</span></span>
-        </div>
-        <!-- 급여일 -->
-        <div class="card" style="margin-bottom:16px;">
-          <div style="font-size:15px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px;">📅 급여일 설정</div>
-          <div style="font-size:12px;color:var(--text-sub);margin-bottom:12px;">분석 탭의 기준 기간을 급여일 기준으로 설정합니다.</div>
-          <select id="settings-payday-select" onchange="App.setPayDay(this.value)" class="form-input" style="width:100%;">
-              <option value="" ${!payDay?'selected':''}>설정 안 함</option>
-              ${[1,5,10,15,20,21,22,23,24,25,26,27,28].map(d=>`<option value="${d}" ${String(payDay)===String(d)?'selected':''}>매월 ${d}일</option>`).join('')}
-            </select>
-          ${payDay?`<div style="margin-top:10px;padding:8px 12px;background:#F0EEFF;border-radius:10px;font-size:12px;color:#5E4BC4;">📅 매월 ${payDay}일 기준으로 분석 기간이 설정됩니다.</div>`:''}
         </div>
         <!-- 저장 용량 -->
         <div class="card">
@@ -7449,7 +7371,6 @@ window.App={
   toggleFoodPanel,closeFoodPanel,saveFoodField,toggleFoodDirect,saveFoodDirect,
   toggleCalSpendMode,openLegendSettings,saveLegendSettings,_onLegendTypeChange,_refreshLegendPreview,_addLegendRow,_deleteLegendRow,
   saveThemeOpacity,toggleThemeOpacityLock,syncThemeSlider,
-  setPayDay,togglePayDayLock,_syncPayDayUI,
   toggleCardSettings,addCardSetting,deleteCardSetting,updateCardName,addRate,deleteRate,updateRate,
   calcInstallment,
   addLedgerEntry,deleteLedgerEntry,setLedgerFilter,setTagFilter,
@@ -7459,7 +7380,7 @@ window.App={
   openCloseMonthModal,closeMonth,reopenMonth,
   renderMonthlyArchive,deleteArchiveEntry,_toggleArchiveCard,toggleLedgerSubmenu,
   _toggleCatDetail,
-  renderAnalysis,changeAnalysisMode,changeAnalysisMonth,setAnalysisBaseMode,_toggleAnaMonth,_toggleClosedMonth,_toggleAnalysisMenu,_openNatureSettings,_setNature,calcConsumeScore,
+  renderAnalysis,changeAnalysisMode,changeAnalysisMonth,_toggleAnaMonth,_toggleClosedMonth,_toggleAnalysisMenu,_openNatureSettings,_setNature,calcConsumeScore,
   _selectNatureKey,_nsPickIcon,_nsToggleCat,openTagMgmtModal,_tagMgmtRender,_addSub,_deleteSub,_deleteSubThisMonth,_deleteSubPermanent,_updateSubName,_updateSubAmount,_openTagSuggest,_applyTagSuggest,_applyTagSuggestPopup,deleteMonthAnalysisData,_openNatureDetail,_closeNatureDetail,closeMonthDirect,reopenMonthDirect,
   fetchStockPrices,
   downloadMonthlyReport,
