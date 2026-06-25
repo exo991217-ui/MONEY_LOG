@@ -6825,9 +6825,9 @@ function renderAnalysis(){
 // ── 통계 뷰 (연간 표 형식) ──
 function _buildStatsView(){
   const fmt=n=>Math.round(n).toLocaleString('ko-KR')+'원';
-  const fmtPct=n=>n===null?'-':(n>=0?'+':'')+n.toFixed(1)+'%';
+  const fmtDiff=n=>n===null?'-':(n>=0?'+':'')+Math.round(n).toLocaleString('ko-KR')+'원';
   const cy=S.analysisYear||new Date().getFullYear();
-  // 해당 연도 모든 월 저축액 맵 (순자산증감률 계산용)
+  // 해당 연도 모든 월 저축액 맵 (순자산 증감 계산용)
   const allSavingsMap={};
   for(let mo=1;mo<=12;mo++){
     const key=mkey(cy,mo);
@@ -6835,7 +6835,7 @@ function _buildStatsView(){
     if(arch){allSavingsMap[mo]=arch.savings||0;}
     else if(S.monthlyData&&S.monthlyData[key]){allSavingsMap[mo]=Math.max(0,getTotalSavings(cy,mo));}
   }
-  // 전년도 12월 저축액 (1월 증감률 계산용)
+  // 전년도 12월 저축액 (1월 증감 계산용)
   const prevYearKey=mkey(cy-1,12);
   const prevYearArch=(S.monthClosedArchive||{})[prevYearKey];
   if(prevYearArch)allSavingsMap[0]=prevYearArch.savings||0;
@@ -6850,15 +6850,10 @@ function _buildStatsView(){
     const expense=arch?(arch.ledgerExpense||0):(getTotalFixed(cy,mo)+getTotalVariable(cy,mo));
     const savings=arch?(arch.savings||Math.max(0,income-expense)):Math.max(0,getTotalSavings(cy,mo));
     const rate=income>0?Math.round(savings/income*100):0;
-    const isClosed=!!arch;
-    // 재무관리 점수
-    const{natureMap}=getMonthAnalysisData(cy,mo);
-    const{score,grade,color:scoreColor}=calcConsumeScore(natureMap,income);
-    // 순자산증감률 = (이번달 저축액 - 전달 저축액) / |전달 저축액| * 100
+    // 순자산 증감 = 이번달 저축액 - 전달 저축액 (원)
     const prevSav=allSavingsMap[mo-1];
-    let netAssetRate=null;
-    if(prevSav!==undefined&&prevSav!==0){netAssetRate=(savings-prevSav)/Math.abs(prevSav)*100;}
-    rows.push({mo,income,expense,savings,rate,isClosed,score,grade,scoreColor,netAssetRate});
+    const netDiff=(prevSav!==undefined)?savings-prevSav:null;
+    rows.push({mo,income,expense,savings,rate,netDiff});
   }
   const yearNav=`<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
     <button class="month-btn" onclick="App.changeAnalysisYear(-1)">‹</button>
@@ -6872,35 +6867,30 @@ function _buildStatsView(){
   const totExpense=rows.reduce((s,r)=>s+r.expense,0);
   const totSavings=rows.reduce((s,r)=>s+r.savings,0);
   const avgRate=rows.length>0?Math.round(rows.reduce((s,r)=>s+r.rate,0)/rows.length):0;
-  const avgScore=rows.length>0?Math.round(rows.reduce((s,r)=>s+r.score,0)/rows.length):0;
-  const summaryCards=`<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;">
+  const summaryCards=`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
     ${[
       {label:'연 총수입',val:fmt(totIncome),color:'#4CAF82'},
       {label:'연 총지출',val:fmt(totExpense),color:'#F06292'},
       {label:'연 총저축',val:fmt(totSavings),color:'#5E4BC4'},
       {label:'평균 저축률',val:avgRate+'%',color:avgRate>=50?'#4CAF82':'#FFB347'},
-      {label:'평균 재무점수',val:avgScore+'점',color:avgScore>=70?'#4CAF82':avgScore>=50?'#FFB347':'#F06292'},
     ].map(c=>`<div style="background:white;border-radius:14px;border:1.5px solid var(--border);padding:14px 16px;box-shadow:0 2px 10px rgba(160,140,220,.08);">
       <div style="font-size:11px;color:var(--text-sub);margin-bottom:6px;">${c.label}</div>
       <div style="font-size:18px;font-weight:900;color:${c.color};">${c.val}</div>
     </div>`).join('')}
   </div>`;
-  const tableHeader=`<div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr 70px 70px 90px 80px;gap:8px;padding:8px 16px;margin-bottom:4px;font-size:11px;font-weight:700;color:var(--text-sub);text-transform:uppercase;letter-spacing:.4px;">
-    <span>월</span><span>수입</span><span>지출</span><span>저축액</span><span style="text-align:center;">저축률</span><span style="text-align:center;">재무점수</span><span style="text-align:center;">순자산증감률</span><span style="text-align:right;">상태</span>
+  const tableHeader=`<div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr 70px 1fr;gap:8px;padding:8px 16px;margin-bottom:4px;font-size:11px;font-weight:700;color:var(--text-sub);text-transform:uppercase;letter-spacing:.4px;">
+    <span>월</span><span>수입</span><span>지출</span><span>저축액</span><span style="text-align:center;">저축률</span><span style="text-align:right;color:#5E4BC4;">순자산 증감</span>
   </div>`;
   const tableRows=rows.map(r=>{
     const rateColor=r.rate>=50?'#4CAF82':r.rate>=30?'#FFB347':'#F06292';
-    const scoreColor=r.score>=70?'#4CAF82':r.score>=50?'#FFB347':'#F06292';
-    const narColor=r.netAssetRate===null?'var(--text-sub)':r.netAssetRate>=0?'#4CAF82':'#F06292';
-    return`<div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr 70px 70px 90px 80px;gap:8px;align-items:center;padding:13px 16px;background:white;border-radius:12px;border:1.5px solid var(--border);margin-bottom:8px;box-shadow:0 1px 6px rgba(160,140,220,.06);">
+    const diffColor=r.netDiff===null?'var(--text-sub)':r.netDiff>=0?'#4CAF82':'#F06292';
+    return`<div style="display:grid;grid-template-columns:60px 1fr 1fr 1fr 70px 1fr;gap:8px;align-items:center;padding:13px 16px;background:white;border-radius:12px;border:1.5px solid var(--border);margin-bottom:8px;box-shadow:0 1px 6px rgba(160,140,220,.06);">
       <span style="font-size:14px;font-weight:800;color:var(--text-main);">${r.mo}월</span>
       <span style="font-size:13px;font-weight:700;color:#4CAF82;">${fmt(r.income)}</span>
       <span style="font-size:13px;font-weight:700;color:#F06292;">${fmt(r.expense)}</span>
       <span style="font-size:13px;font-weight:700;color:#5E4BC4;">${fmt(r.savings)}</span>
       <span style="text-align:center;font-size:14px;font-weight:900;color:${rateColor};">${r.rate}%</span>
-      <span style="text-align:center;font-size:14px;font-weight:900;color:${scoreColor};">${r.score}점</span>
-      <span style="text-align:center;font-size:13px;font-weight:900;color:${narColor};">${fmtPct(r.netAssetRate)}</span>
-      <span style="text-align:right;"><span style="font-size:11px;padding:3px 8px;border-radius:8px;font-weight:700;background:${r.isClosed?'#E8F5EE':'#F0EEFF'};color:${r.isClosed?'#4CAF82':'#5E4BC4'};">${r.isClosed?'✅ 마감':'진행중'}</span></span>
+      <span style="text-align:right;font-size:13px;font-weight:900;color:${diffColor};">${fmtDiff(r.netDiff)}</span>
     </div>`;
   }).join('');
   return yearNav+summaryCards+tableHeader+tableRows;
@@ -7189,22 +7179,16 @@ function renderSettings(){
             <input type="range" id="settings-opacity-slider" min="0" max="100" value="${opacity}" oninput="App.saveThemeOpacity(this.value)" class="theme-opacity-slider" style="flex:1;accent-color:#A29BFE;"/>
             <span style="font-size:12px;color:var(--text-sub);">진하게</span>
           </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-size:11px;color:var(--text-sub);">현재 값: ${opacity}</span>
-            <button id="settings-theme-lock-btn" onclick="App.toggleThemeOpacityLock();App.renderSettings();" class="ssb-lock-btn">${S.themeOpacityLocked?'🔒':'🔓'}</button>
-          </div>
+          <span style="font-size:11px;color:var(--text-sub);">현재 값: ${opacity}</span>
         </div>
         <!-- 급여일 -->
         <div class="card" style="margin-bottom:16px;">
           <div style="font-size:15px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px;">📅 급여일 설정</div>
           <div style="font-size:12px;color:var(--text-sub);margin-bottom:12px;">분석 탭의 기준 기간을 급여일 기준으로 설정합니다.</div>
-          <div style="display:flex;gap:10px;align-items:center;">
-            <select id="settings-payday-select" onchange="App.setPayDay(this.value)" class="form-input" style="flex:1;">
+          <select id="settings-payday-select" onchange="App.setPayDay(this.value)" class="form-input" style="width:100%;">
               <option value="" ${!payDay?'selected':''}>설정 안 함</option>
               ${[1,5,10,15,20,21,22,23,24,25,26,27,28].map(d=>`<option value="${d}" ${String(payDay)===String(d)?'selected':''}>매월 ${d}일</option>`).join('')}
             </select>
-            <button id="settings-payday-lock-btn" onclick="App.togglePayDayLock();App.renderSettings();" class="ssb-lock-btn">${S.payDayLocked?'🔒':'🔓'}</button>
-          </div>
           ${payDay?`<div style="margin-top:10px;padding:8px 12px;background:#F0EEFF;border-radius:10px;font-size:12px;color:#5E4BC4;">📅 매월 ${payDay}일 기준으로 분석 기간이 설정됩니다.</div>`:''}
         </div>
         <!-- 저장 용량 -->
