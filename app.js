@@ -666,7 +666,7 @@ function renderBudget(y,m){
     // For 식비: use food calendar total as budget if not manually set
     let effectiveBudget=cat.budget;
     let foodBadge='';
-    if(cat.name==='식비'){
+    if(cat.name.includes('식비')){
       // 캘린더 연동: 예산 목표를 식비 캘린더 합계로 반영 (지출은 항상 가계부/변동지출 기준)
       if(cat.calSync&&foodTotal>0){
         effectiveBudget=foodTotal;
@@ -722,7 +722,7 @@ function renderBudget(y,m){
 
   if(footer){
     const totalBudget=cats.reduce((s,c)=>{
-      if(c.name==='식비'&&!c.foodBudgetManual&&foodTotal>0)return s+foodTotal;
+      if(c.name.includes('식비')&&!c.foodBudgetManual&&foodTotal>0)return s+foodTotal;
       return s+c.budget;
     },0);
     const totalSpent=cats.reduce((s,c)=>s+getCatSpent(c),0);
@@ -789,7 +789,7 @@ function openBudgetModal(id){
     if(syncEl)syncEl.checked=cat.synced!==false;
     document.getElementById('modal-budget-edit-label').textContent='수정';
     // Show food manual option only for 식비
-    if(foodManualRow)foodManualRow.style.display=cat.name==='식비'?'flex':'none';
+    if(foodManualRow)foodManualRow.style.display=cat.name.includes('식비')?'flex':'none';
     if(foodManualChk)foodManualChk.checked=!!cat.foodBudgetManual;
     if(calSyncChk)calSyncChk.checked=!!cat.calSync;
   } else {
@@ -820,8 +820,8 @@ function saveBudgetCategory(){
   if(id){
     const c=S.budgetCategories.find(c=>c.id==id);
     if(c){
-      if(c.name==='식비'&&foodManualChk)c.foodBudgetManual=foodManualChk.checked;
-      if(c.name==='식비'&&foodCalSyncChk)c.calSync=foodCalSyncChk.checked;
+      if(c.name.includes('식비')&&foodManualChk)c.foodBudgetManual=foodManualChk.checked;
+      if(c.name.includes('식비')&&foodCalSyncChk)c.calSync=foodCalSyncChk.checked;
       c.name=name;c.budget=budget;
       const wasSynced=c.synced!==false;
       c.synced=synced;
@@ -869,7 +869,7 @@ function saveRemainingBudget(val){
 // ===== STOCK→ASSET AUTO SYNC =====
 function getFoodBudgetAmount(y,m){
   const key=mkey(y,m);
-  const foodCat=(S.budgetCategories||[]).find(c=>c.name==='식비');
+  const foodCat=(S.budgetCategories||[]).find(c=>c.name.includes('식비'));
   if(!foodCat)return 0;
   // per-month override first
   if(S.monthBudgets&&S.monthBudgets[key]&&S.monthBudgets[key][foodCat.id]!==undefined){
