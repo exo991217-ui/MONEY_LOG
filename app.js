@@ -6775,7 +6775,7 @@ function _buildCloseView(){
   const budOut=isClosed?(arch.budgetExpense||arch.ledgerExpense||0):(getTotalFixed(y,m)+getTotalVariable(y,m)+getFoodTotal(y,m));
   const savingsAmt=isClosed?(arch.savings||0):getTotalSavings(y,m);
   const dispIn=isClosed?(arch.budgetIncome||arch.ledgerIncome||ledIn):budIn||ledIn;
-  const dispOut=isClosed?Math.max(0,(arch.budgetIncome||0)-(arch.savings||0)):Math.max(0,budIn-savingsAmt);
+  const dispOut=Math.max(0,ledOut-savingsAmt);
   const sr=budIn>0?(savingsAmt/budIn*100).toFixed(1):0;
   const srColor=parseFloat(sr)>=30?'#43C98A':parseFloat(sr)>=15?'#FFB347':'#F06292';
 
@@ -6822,8 +6822,8 @@ function _buildCloseView(){
     }).join('');
 
   const summaryHtml=`<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px;">
-    <div class="cm-stat-box"><div class="cm-stat-label">💰 총 수입</div><div class="cm-stat-val green">${fmt(dispIn)}</div></div>
-    <div class="cm-stat-box"><div class="cm-stat-label">💸 총 지출</div><div class="cm-stat-val red">${fmt(budOut)}</div></div>
+    <div class="cm-stat-box"><div class="cm-stat-label">💰 총 수입</div><div class="cm-stat-val green">${fmt(ledIn)}</div><div style="font-size:10px;color:var(--text-sub);margin-top:3px;">가계부 기준</div></div>
+    <div class="cm-stat-box"><div class="cm-stat-label">💸 총 지출</div><div class="cm-stat-val red">${fmt(ledOut)}</div><div style="font-size:10px;color:var(--text-sub);margin-top:3px;">가계부 기준</div></div>
     <div class="cm-stat-box"><div class="cm-stat-label">🧾 순수 지출</div><div class="cm-stat-val red">${fmt(dispOut)}</div><div style="font-size:10px;color:var(--text-sub);margin-top:3px;">*저축/투자 제외</div></div>
     <div class="cm-stat-box"><div class="cm-stat-label">🏦 저축액</div><div class="cm-stat-val" style="color:#5E4BC4;">${fmt(savingsAmt)}</div></div>
     <div class="cm-stat-box"><div class="cm-stat-label">📈 저축률</div><div class="cm-stat-val" style="color:${srColor};">${sr}%</div></div>
