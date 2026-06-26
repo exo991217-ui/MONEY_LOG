@@ -18,8 +18,6 @@ const DEFAULT_DATA=()=>{
   return ({
   themeOpacity:50,
   themeOpacityLocked:false,
-  payDay:null,
-  payDayLocked:false,
   monthlyData:{},creditCards:[],assets:[],
   stocks:[
     {id:1,name:'삼성전자우',ticker:'005935',sector:'반도체',buyPrice:109472,currentPrice:109472,targetPrice:0,quantity:1,stockType:'domestic'},
@@ -29,7 +27,6 @@ const DEFAULT_DATA=()=>{
   ],
   analysisYear:_y,
   analysisMonth:_m,
-  analysisCriteriaMode:null,
   expenseNatureSettings:{},
   consumptionCalendar:{},savingsGoals:{},foodCalendar:{},foodDirectSet:{},
   cardSettings:[{
@@ -144,15 +141,12 @@ function loadState(){
       }
       if(S.analysisYear===undefined)S.analysisYear=new Date().getFullYear();
       if(S.analysisMonth===undefined)S.analysisMonth=new Date().getMonth()+1;
-      if(S.analysisCriteriaMode===undefined)S.analysisCriteriaMode=null;
       if(!S.expenseNatureSettings)S.expenseNatureSettings={};
       if(S.ledgerFilter===undefined)S.ledgerFilter=null;
       S.ledgerTagFilter=null;
       if(!S.currentMonths.ledger)S.currentMonths.ledger={...S.currentMonths.dashboard};
       if(S.themeOpacity===undefined)S.themeOpacity=50;
       if(S.themeOpacityLocked===undefined)S.themeOpacityLocked=false;
-      if(S.payDay===undefined)S.payDay=null;
-      if(S.payDayLocked===undefined)S.payDayLocked=false;
       // 가계부 카테고리 기본값 재설정 (v1: 식비/생활/주거/교통/문화/저축투자/기타)
       if(!S._lcat_reset_v1){
         S.ledgerCategories=[
@@ -289,7 +283,6 @@ window.FB_MERGE = function(fbData) {
     if(!S.calFoodSync)S.calFoodSync={};
     if(S.analysisYear===undefined)S.analysisYear=new Date().getFullYear();
     if(S.analysisMonth===undefined)S.analysisMonth=new Date().getMonth()+1;
-    if(S.analysisCriteriaMode===undefined)S.analysisCriteriaMode=null;
     if(!S.expenseNatureSettings)S.expenseNatureSettings={};
     // 가계부 카테고리 이모지 버전으로 재설정 (v2)
     if(!S._lcat_reset_v2){
@@ -6419,14 +6412,6 @@ function _applyTagSuggestPopup(){
 }
 
 // ── 미니 성격 바 (아코디언 헤더용) ──
-function _buildMiniNatureBar(natureMap,total){
-  const segs=ANA_NATURES.map(n=>{
-    const pct=total>0?(natureMap[n.key]||0)/total*100:0;
-    return pct>0?`<div style="width:${pct}%;background:${n.barColor};height:100%;"></div>`:'';
-  }).join('');
-  return`<div class="ana-mini-bar-wrap"><div class="ana-mini-bar">${segs}</div></div>`;
-}
-
 // ── 정기비용 섹션 2 빌더 (가계부 기반) — 사진2 레이아웃 ──
 function _buildFixed2Section(y,m,fmt){
   const key=mkey(y,m);
