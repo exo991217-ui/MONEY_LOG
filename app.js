@@ -6352,17 +6352,42 @@ function _deleteSubPermanent(i){
 function _updateSubName(i,v){if(!S.subscriptions||!S.subscriptions[i])return;S.subscriptions[i].name=v.trim();saveState();}
 function _updateSubAmount(i,v){if(!S.subscriptions||!S.subscriptions[i])return;S.subscriptions[i].amount=parseInt(v)||0;saveState();}
 function _openTagSuggest(){
-  const tagCount={};
-  Object.values(S.ledger||{}).forEach(entries=>{
+  // 태그별로 등장한 월(monthNum) 집합 수집
+  const tagMonths={};// tag -> Set of monthNum (y*12+m)
+  const tagCount={};// tag -> 총 건수
+  Object.entries(S.ledger||{}).forEach(([key,entries])=>{
+    const parts=key.split('-');
+    const mn=parseInt(parts[0])*12+parseInt(parts[1]);
     (entries||[]).filter(e=>e.type==='expense').forEach(e=>{
-      (e.tags||[]).filter(t=>t&&t.trim()).forEach(t=>{tagCount[t]=(tagCount[t]||0)+1;});
+      (e.tags||[]).filter(t=>t&&t.trim()).forEach(t=>{
+        if(!tagMonths[t])tagMonths[t]=new Set();
+        tagMonths[t].add(mn);
+        tagCount[t]=(tagCount[t]||0)+1;
+      });
     });
   });
   const existing=new Set((S.subscriptions||[]).map(s=>s.name));
-  const sorted=Object.entries(tagCount)
+  // 3개월 연속 조건 필터
+  const result=Object.entries(tagMonths)
     .filter(([t])=>!existing.has(t)&&t.length>0)
-    .sort((a,b)=>b[1]-a[1])
-    .slice(0,20);
+    .filter(([,months])=>{
+      const sorted=[...months].sort((a,b)=>a-b);
+      for(let i=0;i<=sorted.length-3;i++){
+        if(sorted[i+1]===sorted[i]+1&&sorted[i+2]===sorted[i]+2)return true;
+      }
+      return false;
+    })
+    .map(([t,months])=>{
+      const sorted=[...months].sort((a,b)=>a-b);
+      // 가장 최근 연속 3개월 구간 시작점 찾기
+      let streak=1,maxStreak=1;
+      for(let i=1;i<sorted.length;i++){
+        streak=sorted[i]===sorted[i-1]+1?streak+1:1;
+        if(streak>maxStreak)maxStreak=streak;
+      }
+      return[t,maxStreak,tagCount[t]||0];
+    })
+    .sort((a,b)=>b[1]-a[1]||b[2]-a[2]);
   document.getElementById('tag-suggest-popup')?.remove();
   const popup=document.createElement('div');
   popup.id='tag-suggest-popup';
@@ -6372,14 +6397,14 @@ function _openTagSuggest(){
       <div style="font-size:14px;font-weight:800;color:#5E4BC4;">✨ 반복 지출 감지 결과</div>
       <button onclick="document.getElementById('tag-suggest-popup').remove()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--text-sub);">✕</button>
     </div>
-    <div style="font-size:12px;color:var(--text-sub);margin-bottom:14px;">가계부에서 자주 사용된 #태그를 분석했어요. 선택하면 정기 태그로 등록돼요.</div>
-    ${sorted.length===0
-      ?'<div style="text-align:center;padding:28px;color:var(--text-sub);font-size:13px;">추천할 태그가 없어요.<br><span style="font-size:11px;">가계부 항목에 #태그를 먼저 입력해 보세요.</span></div>'
+    <div style="font-size:12px;color:var(--text-sub);margin-bottom:14px;">3개월 연속으로 사용된 #태그만 표시해요. 선택하면 정기 태그로 등록돼요.</div>
+    ${result.length===0
+      ?'<div style="text-align:center;padding:28px;color:var(--text-sub);font-size:13px;">3개월 연속 감지된 태그가 없어요.<br><span style="font-size:11px;">가계부 항목에 #태그를 꾸준히 입력해 보세요.</span></div>'
       :`<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px;">
-        ${sorted.map(([t,c])=>`<label style="display:flex;align-items:center;gap:10px;background:#F7F4FF;border-radius:10px;padding:9px 13px;border:1.5px solid var(--border);cursor:pointer;" onmouseover="this.style.background='#EDE9FF'" onmouseout="this.style.background='#F7F4FF'">
+        ${result.map(([t,streak,cnt])=>`<label style="display:flex;align-items:center;gap:10px;background:#F7F4FF;border-radius:10px;padding:9px 13px;border:1.5px solid var(--border);cursor:pointer;" onmouseover="this.style.background='#EDE9FF'" onmouseout="this.style.background='#F7F4FF'">
           <input type="checkbox" value="${t.replace(/"/g,'&quot;')}" style="width:16px;height:16px;accent-color:#A29BFE;flex-shrink:0;">
           <span style="font-size:14px;font-weight:700;color:#5E4BC4;flex:1;">#${t.replace(/^#/,'')}</span>
-          <span style="font-size:11px;background:#E8E4FF;color:#7C5CBF;border-radius:8px;padding:2px 8px;font-weight:600;">${Math.round(c)}회</span>
+          <span style="font-size:11px;background:#E8E4FF;color:#7C5CBF;border-radius:8px;padding:2px 8px;font-weight:600;">${streak}개월 연속</span>
         </label>`).join('')}
       </div>
       <button onclick="App._applyTagSuggestPopup()" style="width:100%;padding:11px;background:linear-gradient(135deg,#A29BFE,#74B9FF);color:white;border:none;border-radius:12px;cursor:pointer;font-size:13px;font-weight:700;">선택 적용</button>`}
