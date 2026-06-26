@@ -6640,14 +6640,14 @@ function _buildAnalysisView(y,m){
 
     <div class="ana2-top-cards">
       <div class="ana2-top-card" style="background:linear-gradient(135deg,#F8BBD0,#FCE4EC);border-color:#F48FB133;">
-        <div class="ana2-top-card-label" style="color:#C2185B;">💸 이번 달 총 지출</div>
+        <div class="ana2-top-card-label" style="color:#C2185B;">💸 총 지출</div>
         <div class="ana2-top-card-val" style="color:#880E4F;">${fmt(totalExpense)}</div>
         ${totalIncome>0?`<div style="font-size:11px;color:#C2185B;margin-top:3px;">수입의 <b>${Math.round(totalExpense/totalIncome*100)}%</b></div>`:''}
       </div>
       <div class="ana2-top-card" style="background:linear-gradient(135deg,#E8EAF6,#EDE7F6);border-color:#9FA8DA33;">
-        <div class="ana2-top-card-label" style="color:#3949AB;">🧾 이번 달 순수 지출</div>
+        <div class="ana2-top-card-label" style="color:#3949AB;">🧾 순수 지출(저축/투자 제외)</div>
         <div class="ana2-top-card-val" style="color:#1A237E;">${fmt(순수지출)}</div>
-        <div style="font-size:11px;color:#3949AB;margin-top:3px;">필수·저축 제외 합산</div>
+        <div style="font-size:11px;color:#3949AB;margin-top:3px;">*저축/투자 제외</div>
       </div>
       <div class="ana2-top-card" style="background:linear-gradient(135deg,#C8E6C9,#E8F5E9);border-color:#4CAF8233;">
         <div class="ana2-top-card-label" style="color:#2E7D32;">🏠 이달 고정 지출</div>
