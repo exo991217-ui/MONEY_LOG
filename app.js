@@ -6411,7 +6411,6 @@ function _applyTagSuggestPopup(){
   _tagMgmtRender();
 }
 
-// ── 미니 성격 바 (아코디언 헤더용) ──
 // ── 정기비용 섹션 2 빌더 (가계부 기반) — 사진2 레이아웃 ──
 function _buildFixed2Section(y,m,fmt){
   const key=mkey(y,m);
@@ -6669,52 +6668,6 @@ function _buildAnalysisView(y,m){
       ${_buildCatAnalysisSection(y,m,ledgerEntries,fmt)}
     </div>
 `;
-}
-
-// ── 마감 아코디언 상세 ──
-function _buildClosedDetail(key){
-  const arch=S.monthClosedArchive[key];
-  if(!arch)return'';
-  const fmt=n=>Math.round(n).toLocaleString('ko-KR')+'원';
-  const{year:y,month:m,ledgerIncome:income,ledgerExpense:expense,savings,savingsRate,note,categories}=arch;
-  const net=(income||0)-(expense||0);
-  const netColor=net>=0?'#4CAF82':'#F06292';
-  const{natureMap,totalIncome:closedIncome,totalExpense}=getMonthAnalysisData(y,m);
-  // ★ 수입 기준: 마감 시점에 기록된 예산수입(budgetIncome) 우선 사용 → 재무성격 % 왜곡 방지
-  // ?? 사용: budgetIncome=0인 경우도 올바르게 처리 (|| 는 0을 falsy로 취급)
-  const incomeBase=(arch.budgetIncome??income??closedIncome)??0;
-  const{score,grade,color:scoreColor,feedback}=calcConsumeScore(natureMap,incomeBase);
-  const prevScore=_getPrevScore(y,m);
-  const cats=(categories||[]);
-  const maxCat=cats.length>0?Math.max(...cats.map(c=>c.amount)):1;
-  const catRows=cats.map(c=>`<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span style="font-weight:600;">${c.name}</span><span style="font-weight:700;">${fmt(c.amount)}</span></div><div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;"><div style="height:100%;width:${Math.min(100,c.amount/(maxCat||1)*100)}%;background:linear-gradient(90deg,#A29BFE,#74B9FF);border-radius:3px;"></div></div></div>`).join('');
-  const natCards=ANA_NATURES.map(n=>{
-    const amt=natureMap[n.key]||0;
-    const pct=incomeBase>0?Math.round(amt/incomeBase*100):0;
-    return`<div class="ana2-closed-nature-card" style="background:${n.light};border:1.5px solid ${n.color}22;"><div style="font-size:10px;color:var(--text-sub);">${n.label}</div><div style="font-size:15px;font-weight:900;color:${n.color};">${pct}%</div><div style="font-size:10px;color:var(--text-sub);">${fmt(amt)}</div></div>`;
-  }).join('');
-  return`<div class="ana2-closed-detail">
-    <div class="ana2-closed-kpi-grid">
-      <div class="ana2-kpi-box" style="border-color:#4CAF8244;"><div class="ana2-kpi-label">총 수입</div><div class="ana2-kpi-val" style="color:#4CAF82;">${fmt(income||0)}</div></div>
-      <div class="ana2-kpi-box" style="border-color:#F0629244;"><div class="ana2-kpi-label">총 지출</div><div class="ana2-kpi-val" style="color:#F06292;">${fmt(expense||0)}</div></div>
-      <div class="ana2-kpi-box" style="border-color:#A29BFE44;"><div class="ana2-kpi-label">저축액</div><div class="ana2-kpi-val" style="color:#A29BFE;">${fmt(savings||0)}</div></div>
-      <div class="ana2-kpi-box" style="border-color:${net>=0?'#4CAF8244':'#F0629244'};"><div class="ana2-kpi-label">순자산 증감</div><div class="ana2-kpi-val" style="color:${netColor};font-size:16px;">${net>=0?'+':''}${fmt(Math.abs(net))}</div></div>
-    </div>
-    ${_buildScoreBox(score,grade,scoreColor,feedback,prevScore)}
-    <div style="background:white;border-radius:10px;border:1.5px solid var(--border);padding:10px 14px;margin-bottom:16px;display:inline-block;min-width:120px;">
-      <div style="font-size:11px;color:var(--text-sub);">저축률</div>
-      <div style="font-size:20px;font-weight:900;color:#A29BFE;">${savingsRate||0}%</div>
-    </div>
-    <div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:8px;">재무 성격 요약</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">${natCards}</div></div>
-    <div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:8px;">카테고리별 지출</div>${catRows||'<div style="color:var(--text-sub);font-size:12px;">기록 없음</div>'}</div>
-    <div style="margin-bottom:14px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-        <div style="font-size:12px;font-weight:700;color:var(--text-sub);">이번 달 소감</div>
-        <button onclick="App.deleteArchiveEntry('${key}')" style="font-size:11px;color:#F06292;background:#FFF0F5;border:1.5px solid #F0629244;border-radius:8px;padding:4px 10px;cursor:pointer;font-weight:600;display:flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg> 이 마감 삭제</button>
-      </div>
-      ${note?`<div style="background:white;border-radius:10px;border:1.5px solid var(--border);padding:10px 12px;font-size:13px;color:var(--text-main);">${note}</div>`:'<div style="color:var(--text-sub);font-size:12px;">소감 없음</div>'}
-    </div>
-  </div>`;
 }
 
 // ── 월마감 뷰 (달 넘어가기 + 인라인 마감확정) ──
