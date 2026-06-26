@@ -55,6 +55,7 @@ const DEFAULT_DATA=()=>{
   stockAssetAutoId:null,
   defaultItems:{income:[],fixed:[]},
   calFoodSync:{},
+  deleteExclusions:{income:false,food:false,ledger:false,consumption:false,closed:false},
   ledgerCategories:[
     {id:1,name:'🍚 식비',isSavings:false},
     {id:2,name:'🧴 생활용품',isSavings:false},
@@ -116,6 +117,7 @@ function loadState(){
       S.budgetCategories=S.budgetCategories.map(c=>({synced:true,syncFrom:'',linkedCategories:[],...c}));
       if(!S.ledgerCategories)S.ledgerCategories=DEFAULT_DATA().ledgerCategories;
       if(!S.keywordRules)S.keywordRules=[];
+      if(!S.deleteExclusions)S.deleteExclusions={income:false,food:false,ledger:false,consumption:false,closed:false};
       if(S.calSpendMode===undefined)S.calSpendMode=false;
       if(!S.calAmountLegend)S.calAmountLegend=DEFAULT_DATA().calAmountLegend;
       // Migrate 1원~1만원 tier to theme-ultralight
@@ -5743,6 +5745,43 @@ function updateStorageBar(){
 }
 
 // ===== MONTHLY DATA DELETE =====
+function _renderDeleteExclusionPanel(){
+  const panel=document.getElementById('delete-exclusion-panel');
+  if(!panel)return;
+  const ex=S.deleteExclusions||{};
+  const items=[
+    {key:'income',label:'수입 / 지출',color:'#A29BFE'},
+    {key:'food',label:'식비캘린더',color:'#FFB347'},
+    {key:'ledger',label:'가계부',color:'#FF8A65'},
+    {key:'consumption',label:'소비캘린더',color:'#74B9FF'},
+    {key:'closed',label:'월 마감',color:'#81C784'},
+  ];
+  panel.innerHTML=items.map(item=>{
+    const on=!!ex[item.key];
+    return`<label style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;gap:8px;" onclick="App.toggleDeleteExclusion('${item.key}')">
+      <div style="display:flex;align-items:center;gap:7px;">
+        <span style="width:8px;height:8px;border-radius:2px;background:${item.color};display:inline-block;flex-shrink:0;"></span>
+        <span style="font-size:12px;font-weight:500;color:var(--text-main);line-height:1.3;">${item.label}</span>
+      </div>
+      <div style="width:36px;height:20px;border-radius:10px;flex-shrink:0;background:${on?item.color:'var(--border)'};position:relative;transition:background .2s;">
+        <div style="position:absolute;top:2px;left:${on?'18px':'2px'};width:16px;height:16px;border-radius:50%;background:white;box-shadow:0 1px 4px rgba(0,0,0,.18);transition:left .2s;"></div>
+      </div>
+    </label>`;
+  }).join('');
+}
+
+function toggleDeleteExclusion(key){
+  if(!S.deleteExclusions)S.deleteExclusions={income:false,food:false,ledger:false,consumption:false,closed:false};
+  S.deleteExclusions[key]=!S.deleteExclusions[key];
+  saveState();
+  _renderDeleteExclusionPanel();
+  // 오른쪽 목록도 갱신 (제외 태그 시각 업데이트)
+  openDeleteModal();
+  // 설정 페이지도 갱신
+  const settingsEl=document.getElementById('tab-settings');
+  if(settingsEl&&settingsEl.classList.contains('active'))renderSettings();
+}
+
 function openDeleteModal(){
   const allKeys=new Set();
   // 데이터가 있는 달 수집
@@ -5776,6 +5815,9 @@ function openDeleteModal(){
     return by!==ay?by-ay:bm-am;
   });
 
+  const TAG_KEY_MAP={'수입/지출':'income','식비':'food','가계부':'ledger','소비캘린더':'consumption','마감됨':'closed'};
+  const ex=S.deleteExclusions||{};
+
   listEl.innerHTML=sorted.map(key=>{
     const [y,m]=key.split('-').map(Number);
     // 각 달에 있는 데이터 종류 파악
@@ -5793,7 +5835,12 @@ function openDeleteModal(){
        (S.consumptionCalendar[y][m]||[]).length>0)tags.push('소비캘린더');
     if((S.closedMonths||{})[key])tags.push('마감됨');
 
-    const tagHtml=tags.map(t=>`<span class="delete-tag">${t}</span>`).join('');
+    const tagHtml=tags.map(t=>{
+      const excl=!!ex[TAG_KEY_MAP[t]||''];
+      return excl
+        ?`<span class="delete-tag" style="text-decoration:line-through;opacity:0.4;">🔒 ${t}</span>`
+        :`<span class="delete-tag">${t}</span>`;
+    }).join('');
     return `<div class="delete-month-row">
       <div class="delete-month-info">
         <div class="delete-month-label">${y}년 ${m}월</div>
@@ -5803,6 +5850,7 @@ function openDeleteModal(){
     </div>`;
   }).join('');
 
+  _renderDeleteExclusionPanel();
   openModal('delete');
 }
 
@@ -5817,14 +5865,15 @@ function confirmDeleteMonth(key){
 
 function deleteMonthData(key){
   const [y,m]=key.split('-').map(Number);
-  // 해당 달 데이터만 삭제 (월 마감 아카이브는 삭제하지 않음)
-  if(S.monthlyData)delete S.monthlyData[key];
-  if(S.foodCalendar)delete S.foodCalendar[key];
-  if(S.foodDirectSet)delete S.foodDirectSet[key];
-  if(S.ledger)delete S.ledger[key];
-  if(S.closedMonths)delete S.closedMonths[key];
-  if(S.monthBudgets)delete S.monthBudgets[key];
-  if(S.consumptionCalendar&&S.consumptionCalendar[y]){
+  const ex=S.deleteExclusions||{};
+  // 해당 달 데이터만 삭제 (제외항목 체크된 카테고리는 건너뜀)
+  if(!ex.income&&S.monthlyData)delete S.monthlyData[key];
+  if(!ex.food&&S.foodCalendar)delete S.foodCalendar[key];
+  if(!ex.food&&S.foodDirectSet)delete S.foodDirectSet[key];
+  if(!ex.ledger&&S.ledger)delete S.ledger[key];
+  if(!ex.closed&&S.closedMonths)delete S.closedMonths[key];
+  if(!ex.closed&&S.monthBudgets)delete S.monthBudgets[key];
+  if(!ex.consumption&&S.consumptionCalendar&&S.consumptionCalendar[y]){
     delete S.consumptionCalendar[y][m];
     if(Object.keys(S.consumptionCalendar[y]).length===0)
       delete S.consumptionCalendar[y];
@@ -7137,6 +7186,46 @@ function renderSettings(){
   const _storageBytes=new Blob([storageRaw]).size;
   const storagePct=Math.min(100,Math.round(_storageBytes/(5*1024*1024)*100));
   const storageKB=Math.round(_storageBytes/1024);
+  // 카테고리별 용량 계산
+  const _sz=obj=>{try{return new Blob([JSON.stringify(obj??{})]).size;}catch(e){return 0;}};
+  // 뱃지용 카운트 계산
+  const _incomeMonths=Object.keys(S.monthlyData||{}).length;
+  const _cardCount=(S.creditCards||[]).length;
+  const _assetCount=(S.assets||[]).length;const _stockCount=(S.stocks||[]).length;
+  const _calMonths=new Set([...Object.keys(S.foodCalendar||{}),...Object.keys(S.foodDirectSet||{}),...(()=>{const ks=[];Object.keys(S.consumptionCalendar||{}).forEach(y=>Object.keys(S.consumptionCalendar[y]||{}).forEach(m=>ks.push(y+'-'+m)));return ks;})()]).size;
+  const _ledgerEntries=Object.values(S.ledger||{}).reduce((s,arr)=>s+(arr||[]).length,0);
+  const _archiveMonths=Object.keys(S.monthClosedArchive||{}).length;
+  const _storageCats=[
+    {label:'수입 / 지출',color:'#A29BFE',bytes:_sz(S.monthlyData),badge:_incomeMonths>0?_incomeMonths+'개월':null},
+    {label:'신용카드',color:'#74B9FF',bytes:_sz(S.creditCards)+_sz(S.cardSettings),badge:_cardCount>0?_cardCount+'개':null},
+    {label:'자산 목록',color:'#4DB6AC',bytes:_sz(S.assets)+_sz(S.stocks),badge:(_assetCount+_stockCount)>0?'자산 '+_assetCount+' · 주식 '+_stockCount:null},
+    {label:'캘린더',color:'#FFB347',bytes:_sz(S.consumptionCalendar)+_sz(S.foodCalendar)+_sz(S.foodDirectSet)+_sz(S.calFoodSync),badge:_calMonths>0?_calMonths+'개월':null},
+    {label:'가계부',color:'#FF8A65',bytes:_sz(S.ledger)+_sz(S.ledgerCategories)+_sz(S.keywordRules),badge:_ledgerEntries>0?_ledgerEntries+'건':null},
+    {label:'분석',color:'#81C784',bytes:_sz(S.expenseNatureSettings)+_sz(S.savingsGoals)+_sz(S.budgetCategories)+_sz(S.monthBudgets)+_sz(S.automations),badge:null},
+    {label:'마감 아카이브',color:'#F48FB1',bytes:_sz(S.monthClosedArchive)+_sz(S.closedMonths),badge:_archiveMonths>0?_archiveMonths+'개월':null},
+  ];
+  const _catSum=_storageCats.reduce((s,c)=>s+c.bytes,0);
+  _storageCats.push({label:'설정/기타',color:'#CE93D8',bytes:Math.max(0,_storageBytes-_catSum)});
+  const _catTotal=_storageCats.reduce((s,c)=>s+c.bytes,0);
+  const _barSegs=_storageCats.map(c=>`<div style="flex:${c.bytes||0};background:${c.color};min-width:${c.bytes>0?2:0}px;"></div>`).join('');
+  const _catRows=_storageCats.filter(c=>c.bytes>0).map(c=>{
+    const ckb=(c.bytes/1024).toFixed(1);
+    const bw=_catTotal>0?Math.round((c.bytes/_catTotal)*100):0;
+    const badgeHtml=c.badge?`<span style="font-size:10px;font-weight:600;background:${c.color}22;color:${c.color};border-radius:5px;padding:1px 6px;margin-left:2px;">${c.badge}</span>`:'';
+    return`<div style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="width:8px;height:8px;border-radius:2px;background:${c.color};display:inline-block;flex-shrink:0;"></span>
+          <span style="font-size:13px;font-weight:500;color:var(--text-main);">${c.label}</span>
+          ${badgeHtml}
+        </div>
+        <span style="font-size:12px;font-weight:600;color:var(--text-main);">${ckb} KB</span>
+      </div>
+      <div style="height:3px;background:var(--border);border-radius:2px;overflow:hidden;">
+        <div style="width:${bw}%;height:100%;background:${c.color};border-radius:2px;"></div>
+      </div>
+    </div>`;
+  }).join('');
   container.innerHTML=`
     <div class="page-header"><div>
       <h1 class="page-title">설정 ⚙️</h1>
@@ -7158,14 +7247,45 @@ function renderSettings(){
         <!-- 저장 용량 -->
         <div class="card">
           <div style="font-size:15px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px;">💾 저장 용량</div>
-          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px;">
-            <span style="color:var(--text-sub);">사용 중</span>
-            <span style="font-weight:700;color:${storagePct>80?'#F06292':'#5E4BC4'};">${storagePct}%</span>
+          <div style="height:8px;border-radius:4px;overflow:hidden;display:flex;background:var(--border);margin-bottom:6px;gap:1px;">
+            ${_barSegs}
           </div>
-          <div style="height:10px;background:var(--border);border-radius:5px;overflow:hidden;margin-bottom:10px;">
-            <div style="width:${storagePct}%;height:100%;background:${storagePct>80?'#F06292':'#A29BFE'};border-radius:5px;transition:width .5s;"></div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-sub);margin-bottom:16px;">
+            <span>사용 중 <b style="color:${storagePct>80?'#F06292':'#5E4BC4'};">${storagePct}%</b></span>
+            <span>${storageKB} KB / 5,000 KB</span>
           </div>
-          <div style="font-size:11px;color:var(--text-sub);">약 ${storageKB} KB / 5,000 KB (localStorage)</div>
+          <div style="border-top:1px solid var(--border);padding-top:14px;">
+            ${_catRows}
+          </div>
+        </div>
+      </div>
+      <!-- 삭제 제외항목 -->
+      <div class="card">
+        <div style="font-size:15px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:8px;">🔒 삭제 제외항목</div>
+        <div style="font-size:12px;color:var(--text-sub);margin-bottom:14px;">체크된 항목은 데이터 정리 시 삭제에서 제외됩니다.</div>
+        ${[
+          {key:'income',label:'수입 / 지출',color:'#A29BFE'},
+          {key:'food',label:'식비캘린더',color:'#FFB347'},
+          {key:'ledger',label:'가계부',color:'#FF8A65'},
+          {key:'consumption',label:'소비캘린더',color:'#74B9FF'},
+          {key:'closed',label:'월 마감/예산',color:'#81C784'},
+        ].map(item=>{
+          const on=!!(S.deleteExclusions||{})[item.key];
+          return`<label style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;" onclick="App.toggleDeleteExclusion('${item.key}')">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="width:8px;height:8px;border-radius:2px;background:${item.color};display:inline-block;"></span>
+              <span style="font-size:13px;font-weight:500;color:var(--text-main);">${item.label}</span>
+            </div>
+            <div style="width:40px;height:22px;border-radius:11px;background:${on?item.color:'var(--border)'};position:relative;transition:background .2s;flex-shrink:0;">
+              <div style="position:absolute;top:3px;left:${on?'21px':'3px'};width:16px;height:16px;border-radius:50%;background:white;box-shadow:0 1px 4px rgba(0,0,0,.18);transition:left .2s;"></div>
+            </div>
+          </label>`;
+        }).join('')}
+        <div style="margin-top:14px;">
+          <button onclick="App.openDeleteModal()" style="width:100%;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,#A29BFE,#7B68EE);color:white;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+            🗑 데이터 정리 시작
+            ${Object.values(S.deleteExclusions||{}).filter(Boolean).length>0?`<span style="font-size:11px;background:rgba(255,255,255,.25);border-radius:10px;padding:1px 7px;">${Object.values(S.deleteExclusions||{}).filter(Boolean).length}개 제외</span>`:''}
+          </button>
         </div>
       </div>
       <!-- 데이터 관리 -->
@@ -7196,12 +7316,8 @@ function renderSettings(){
           <div style="font-size:11px;color:var(--text-sub);margin-top:6px;">⚠️ 가져오기 시 현재 데이터가 덮어쓰기됩니다. 먼저 백업을 권장합니다.</div>
         </div>
         <div style="padding-top:14px;border-top:1.5px solid var(--border);">
-          <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text-main);">🗑 데이터 삭제</div>
-          <div style="font-size:12px;color:var(--text-sub);margin-bottom:10px;">삭제할 달을 선택하여 해당 월 데이터만 개별 삭제합니다.</div>
-          <button onclick="App.openDeleteModal()" style="width:100%;padding:12px;border-radius:12px;border:1.5px solid var(--border);background:white;cursor:pointer;font-size:13px;font-weight:600;color:var(--text-sub);display:flex;align-items:center;justify-content:center;gap:8px;transition:background .15s;" onmouseover="this.style.background='#FFF0F5';this.style.color='#F06292'" onmouseout="this.style.background='white';this.style.color='var(--text-sub)'">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-            월별 데이터 삭제
-          </button>
+          <div style="font-size:13px;font-weight:700;margin-bottom:4px;color:var(--text-main);">🗑 데이터 삭제</div>
+          <div style="font-size:12px;color:var(--text-sub);margin-bottom:10px;">삭제 제외항목을 설정한 뒤 월별로 정리하세요.</div>
         </div>
       </div>
     </div>
@@ -7371,7 +7487,7 @@ window.App={
   resetFundCalc,toggleAssetSelector,applyAssetSelection,applyAssetLink,
   toggleAssetTotalLink,syncFundCalcToAssets,
   addLcatEntry,deleteLcatEntry,toggleLcatSavings,saveLcatName,toggleLcatPanel,
-  openDeleteModal,confirmDeleteMonth,deleteMonthData,
+  toggleDeleteExclusion,openDeleteModal,confirmDeleteMonth,deleteMonthData,
   numInputFmt,numInputParse,
   _dmDragStart,_dmDragOver,_dmDragLeave,_dmDrop,_dmDragEnd,_dmTouchStart,_dmTouchMove,_dmTouchEnd,
   renderAll,
