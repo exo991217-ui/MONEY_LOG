@@ -6666,6 +6666,9 @@ function _buildAnalysisView(y,m){
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><span class="ana2-num-badge">②</span><span style="font-size:15px;font-weight:800;color:var(--text-main);">정기 비용(태그) 분석</span></div>
           <div style="font-size:11px;color:var(--text-sub);margin-left:34px;">매월 반복되는 내역을 태그로 분류하여 정리하세요.</div>
         </div>
+        <button onclick="App.openTagMgmtModal()" style="display:flex;align-items:center;gap:6px;padding:7px 14px;background:#F0EEFF;color:#5E4BC4;border:1.5px solid #A29BFE55;border-radius:10px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;transition:background .15s;" onmouseover="this.style.background='#E0D9FF'" onmouseout="this.style.background='#F0EEFF'">
+          🏷 태그 관리
+        </button>
       </div>
       ${_buildFixed2Section(y,m,fmt)}
     </div>
